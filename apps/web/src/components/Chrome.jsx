@@ -8,7 +8,7 @@ export function Chrome({ me, navigate, path }) {
   const signedIn = Boolean(me?.signed_in);
   const tab = (label, to) => (
     <a
-      className={`chrome__tab${path === to || (to.startsWith("/clan/") && path.startsWith("/clan/")) ? " chrome__tab--on" : ""}`}
+      className={`chrome__tab${path === to || path.startsWith(`${to}/`) || (label === "Clan" && /^\/clan\/[^/]+\/?$/.test(path)) ? " chrome__tab--on" : ""}`}
       href={to}
       onClick={(e) => {
         e.preventDefault();

@@ -4,6 +4,9 @@ import { Chrome } from "./components/Chrome.jsx";
 import { Disclaimer } from "./components/Disclaimer.jsx";
 import { Clan } from "./views/Clan.jsx";
 import { Clans } from "./views/Clans.jsx";
+import { HowElderWorks } from "./views/HowElderWorks.jsx";
+import { Manage } from "./views/Manage.jsx";
+import { Standing } from "./views/Standing.jsx";
 import { Landing } from "./views/Landing.jsx";
 import { Refused } from "./views/Refused.jsx";
 import { You } from "./views/You.jsx";
@@ -30,12 +33,26 @@ function usePath() {
 
 export const clanPath = (tag) => `/clan/${String(tag).replace(/^#/, "")}`;
 
-/** The clan a `/clan/<TAG>` path names, if it is one of the person's. */
-export function clanFromPath(path, clans = []) {
-  const m = /^\/clan\/([0-9A-Za-z]{3,12})\/?$/.exec(path);
+/** `/clan/<TAG>[/<section>[/<tab>]]` parsed: the tag with its #, the
+ *  section (roster by default) and the Manage tab. */
+export function parseClanPath(path) {
+  const m =
+    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|standing|how-elder-works)(?:\/([a-z-]+))?)?\/?$/.exec(
+      path,
+    );
   if (!m) return null;
-  const tag = `#${m[1].toUpperCase().replace(/O/g, "0")}`;
-  return clans.find((c) => c.clan_tag === tag) ?? null;
+  return {
+    tag: `#${m[1].toUpperCase().replace(/O/g, "0")}`,
+    section: m[2] ?? "roster",
+    tab: m[3] ?? null,
+  };
+}
+
+/** The clan a `/clan/<TAG>...` path names, if it is one of the person's. */
+export function clanFromPath(path, clans = []) {
+  const parsed = parseClanPath(path);
+  if (!parsed) return null;
+  return clans.find((c) => c.clan_tag === parsed.tag) ?? null;
 }
 
 export function App() {
@@ -77,9 +94,12 @@ export function App() {
     [navigate],
   );
 
+  // The one page that needs no sign-in.
+  const publicPage = parseClanPath(path)?.section === "how-elder-works";
+
   // Where a signed-in person belongs, whatever address they arrived at.
   useEffect(() => {
-    if (!me) return;
+    if (!me || publicPage) return;
     if (!me.signed_in) {
       if (path !== "/") navigate(me.expired ? "/?error=session_expired" : "/");
       return;
@@ -104,11 +124,12 @@ export function App() {
       // remembered clan follows where you actually went.
       select(atClan.clan_tag);
     }
-  }, [me, path, navigate, select, selecting]);
+  }, [me, path, navigate, select, selecting, publicPage]);
 
   const error = new URLSearchParams(window.location.search).get("error");
   let view = null;
-  if (me === null) view = null;
+  if (publicPage) view = <HowElderWorks tag={parseClanPath(path).tag} />;
+  else if (me === null) view = null;
   else if (!me.signed_in) view = <Landing error={error} />;
   else if (me.unavailable)
     view = (
@@ -143,9 +164,31 @@ export function App() {
     view = <Clans me={me} onSelect={select} selecting={selecting} />;
   else if (me.ok) {
     const clan = clanFromPath(path, me.clans);
-    view = clan ? (
-      <Clan key={clan.clan_tag} me={me} clan={clan} navigate={navigate} />
-    ) : null;
+    const parsed = parseClanPath(path);
+    const who = clan
+      ? {
+          player_tag: clan.acting_as,
+          name: clan.acting_as_name,
+          role: clan.role,
+        }
+      : null;
+    if (!clan) view = null;
+    else if (parsed.section === "manage")
+      view = (
+        <Manage
+          key={clan.clan_tag}
+          clan={clan}
+          tab={parsed.tab ?? "inbox"}
+          navigate={navigate}
+          who={who}
+        />
+      );
+    else if (parsed.section === "standing")
+      view = <Standing key={clan.clan_tag} clan={clan} who={who} />;
+    else
+      view = (
+        <Clan key={clan.clan_tag} me={me} clan={clan} navigate={navigate} />
+      );
   }
 
   return (
