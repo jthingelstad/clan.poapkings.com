@@ -5,8 +5,8 @@
  * with a ten-minute TTL, from following /auth/login as far as the
  * redirect to Elixir.
  *
- *   node infra/scripts/smoke.mjs            the stack's CloudFront hostname
- *   SMOKE_ORIGIN=https://clan.poapkings.com node infra/scripts/smoke.mjs
+ *   node infra/scripts/smoke.mjs            the stack's AppUrl (or its CloudFront hostname)
+ *   SMOKE_ORIGIN=https://... node infra/scripts/smoke.mjs
  */
 
 import {
@@ -22,6 +22,12 @@ async function origin() {
   const { Stacks } = await cfn.send(
     new DescribeStacksCommand({ StackName: STACK }),
   );
+  // The app's own origin decides the OAuth redirect_uri, so that is where
+  // the login check has to run; before AppUrl is set, the distribution.
+  const appUrl = Stacks[0].Parameters?.find(
+    (p) => p.ParameterKey === "AppUrl",
+  )?.ParameterValue;
+  if (appUrl) return appUrl.replace(/\/$/, "");
   const domain = Stacks[0].Outputs.find(
     (o) => o.OutputKey === "DistributionDomainName",
   ).OutputValue;

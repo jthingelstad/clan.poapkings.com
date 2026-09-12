@@ -109,10 +109,6 @@ be the first to do so, and bootstrap's role policy is untested until then.
 
 ## Open
 
-- The OAuth client is registered with both callbacks (real hostname and
-  CloudFront). Once DNS lands and `AppUrl` is flipped, re-register with only
-  the real one and set `OAuthClientId` (the registration has no update
-  endpoint).
 - `projects-sysadmin/docs/OPERATIONS.md` routing table needs a fifth row
   for `elixir-clan-alarms` (not edited from here; the Sunday run reconciles).
 - The gate reads `elixir_my_players` on every check; a `verified` beside
