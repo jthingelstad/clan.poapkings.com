@@ -3,3 +3,4 @@ export * from "./facts.mjs";
 export * from "./standing.mjs";
 export * from "./evaluate.mjs";
 export * from "./render.mjs";
+export * from "./awards.mjs";

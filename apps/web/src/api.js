@@ -156,6 +156,21 @@ export const manageApi = {
   standing: (tag) => get(`${clanBase(tag)}/standing`),
   scout: (tag, playerTag) => post(`${clanBase(tag)}/scout`, { tag: playerTag }),
   howElderWorks: (tag) => get(`${clanBase(tag)}/how-elder-works`),
+  // Awards (2026-09-12): the leader view, the document, grants by hand,
+  // and a member's trophy case.
+  awards: (tag, refresh = false) =>
+    get(`${clanBase(tag)}/awards/manage${refresh ? "?refresh=1" : ""}`),
+  saveAwards: (tag, values, note) =>
+    post(`${clanBase(tag)}/awards/config`, { values, note }),
+  grantAward: (tag, body) => post(`${clanBase(tag)}/awards/grants`, body),
+  revokeAward: (tag, seasonId, awardId, playerTag) =>
+    del(
+      `${clanBase(tag)}/awards/grants/${seasonId}/${awardId}/${String(playerTag).replace(/^#/, "")}`,
+    ),
+  memberAwards: (tag, playerTag) =>
+    get(
+      `${clanBase(tag)}/members/${String(playerTag).replace(/^#/, "")}/awards`,
+    ),
 };
 
 export const api = {

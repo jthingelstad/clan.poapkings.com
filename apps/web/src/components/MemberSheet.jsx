@@ -18,9 +18,13 @@ export function MemberSheet({ clanTag, member, role, onChange }) {
   );
   const [holdNote, setHoldNote] = useState(member.hold?.note ?? "");
 
+  const [awards, setAwards] = useState(null);
+
   const load = useCallback(async () => {
     const r = await manageApi.notes(clanTag, member.player_tag);
     setNotes(r.ok ? r.data.notes : []);
+    const a = await manageApi.memberAwards(clanTag, member.player_tag);
+    setAwards(a.ok ? a.data.grants : []);
   }, [clanTag, member.player_tag]);
   useEffect(() => {
     load();
@@ -43,6 +47,29 @@ export function MemberSheet({ clanTag, member, role, onChange }) {
         <span className="chip">{member.role}</span>
       </div>
       <div className="panel__body" style={{ display: "grid", gap: "14px" }}>
+        {awards && awards.length > 0 ? (
+          <div>
+            <div className="label" style={{ marginBottom: "6px" }}>
+              Awards
+            </div>
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: "18px",
+                display: "grid",
+                gap: "4px",
+              }}
+            >
+              {awards.map((g) => (
+                <li key={`${g.season_id}-${g.award_id}`}>
+                  <strong>{g.name}</strong>
+                  {g.rank > 1 ? ` #${g.rank}` : ""} · season {g.season_id}
+                  {g.note ? ` — ${g.note}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <div>
           <div className="label" style={{ marginBottom: "6px" }}>
             Notes

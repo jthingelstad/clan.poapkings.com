@@ -111,6 +111,26 @@ check(
   String(me.status),
 );
 
+// The public awards document: a GET with no session answers JSON either
+// way (the document, or 404 not_published) and carries its cache header.
+const awards = await fetchRetry(`${base}/api/clans/J2RGCRVG/awards`);
+let awardsBody = {};
+try {
+  awardsBody = await awards.json();
+} catch {
+  awardsBody = {};
+}
+check(
+  "GET /api/clans/<TAG>/awards is public JSON",
+  (awards.status === 200 && Array.isArray(awardsBody.seasons)) ||
+    (awards.status === 404 && awardsBody.error === "not_published"),
+  String(awards.status),
+);
+check(
+  "the awards document is edge-cacheable",
+  (awards.headers.get("cache-control") ?? "").includes("max-age=300"),
+);
+
 const login = await fetchRetry(`${base}/auth/login`);
 const location = login.headers.get("location") ?? "";
 const loginOk =

@@ -5,7 +5,8 @@ import { createMcpClient } from "./mcp.mjs";
 import { createOAuthClient } from "./oauth.mjs";
 import { createDynamoStore } from "./store.mjs";
 import { createDynamoLedger } from "./manage/ledger.mjs";
-import { createManageService } from "./manage/service.mjs";
+import { createManageService, fetchParticipation } from "./manage/service.mjs";
+import { createAwardsService } from "./manage/awards.mjs";
 import { createScout } from "./manage/scout.mjs";
 
 const env = (name, fallback) => {
@@ -31,6 +32,11 @@ const ledger = createDynamoLedger({
 export const handler = createHandler({
   mcp,
   manage: createManageService({ ledger, mcp }),
+  awards: createAwardsService({
+    ledger,
+    participationFor: (token, clanTag) =>
+      fetchParticipation(mcp, token, clanTag),
+  }),
   scout: createScout({ mcp }),
   oauth: createOAuthClient({
     issuer: elixirUrl,

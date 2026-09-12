@@ -12,6 +12,13 @@
  *   hold#<clan>#<tag>        a member on hold: until (or null), who, note
  *   note#<clan>#<id>         a note on a member: tier (leader | elder),
  *                            author, text, when
+ *   awards#<clan>            the pointer: { version }
+ *   awards#<clan>#v<n>       one immutable awards document: the clan's
+ *                            awards (kind, name, parameters), publish flag
+ *   award#<clan>#<season>#<award id>#<tag>
+ *                            a grant: rank, metric, note, who; computed
+ *                            grants are facts of the record, manual ones
+ *                            a leader's (kept: this is the trophy case)
  *
  * Deleted as a set when a clan's last verified leader disconnects
  * (deleteClan). Retention: cards and notes are kept; the verdict snapshot
@@ -193,11 +200,68 @@ function ledgerOver(io) {
     async removeNote(clanTag, noteId) {
       await remove(`note#${clanTag}#${noteId}`);
     },
+    // ---- awards: the document, versioned like policy ------------------
+    async currentAwards(clanTag) {
+      const pointer = await io.get(`awards#${clanTag}`);
+      if (!pointer?.version) return null;
+      return io.get(`awards#${clanTag}#v${pointer.version}`);
+    },
+    async awardsVersions(clanTag) {
+      return (await io.listByPrefix(clanTag, "awards#v")).map(stripKeys);
+    },
+    async saveAwards(clanTag, { values, by, note = null }) {
+      const versions = await io.listByPrefix(clanTag, "awards#v");
+      const version = versions.length + 1;
+      const saved_at = new Date().toISOString();
+      const item = {
+        pk: `awards#${clanTag}#v${version}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: `awards#v${pad(version)}`,
+        clan_tag: clanTag,
+        version,
+        values,
+        saved_by: by,
+        saved_at,
+        note,
+      };
+      await io.put(item);
+      await io.put({ pk: `awards#${clanTag}`, version, saved_at });
+      return stripKeys(item);
+    },
+    async latestAwardsSnapshot(clanTag) {
+      const item = await io.get(`awards_snapshot#${clanTag}`);
+      return item ? item.snapshot : null;
+    },
+    async saveAwardsSnapshot(clanTag, snapshot) {
+      await io.put({
+        pk: `awards_snapshot#${clanTag}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: "awards_snapshot#latest",
+        snapshot,
+      });
+    },
+    // ---- grants ----------------------------------------------------------
+    async grants(clanTag) {
+      return (await io.listByPrefix(clanTag, "award#")).map(stripKeys);
+    },
+    async putGrant(clanTag, grant) {
+      await io.put({
+        pk: `award#${clanTag}#${grant.season_id}#${grant.award_id}#${grant.player_tag}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: `award#${pad(grant.season_id)}#${grant.award_id}#${pad(grant.rank ?? 1)}#${grant.player_tag}`,
+        ...grant,
+      });
+      return grant;
+    },
+    async removeGrant(clanTag, { season_id, award_id, player_tag }) {
+      await remove(`award#${clanTag}#${season_id}#${award_id}#${player_tag}`);
+    },
     // ---- the whole clan ------------------------------------------------
     async deleteClan(clanTag) {
       const all = await io.listByPrefix(clanTag, "");
       for (const item of all) await remove(item.pk);
       await remove(`policy#${clanTag}`);
+      await remove(`awards#${clanTag}`);
       return all.length;
     },
   };

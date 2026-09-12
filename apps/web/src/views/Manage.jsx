@@ -5,6 +5,7 @@ import { MemberSheet } from "../components/MemberSheet.jsx";
 import { RoleChip } from "../components/RoleChip.jsx";
 import { Policy } from "./Policy.jsx";
 import { Scout } from "./Scout.jsx";
+import { Awards } from "./Awards.jsx";
 import { ago } from "../lib/time.js";
 
 const TABS = [
@@ -12,6 +13,7 @@ const TABS = [
   ["board", "Board"],
   ["history", "History"],
   ["policy", "Policy"],
+  ["awards", "Awards"],
   ["scout", "Scout"],
 ];
 
@@ -44,7 +46,7 @@ export function Manage({ clan, tab, navigate, who }) {
     [clan.clan_tag],
   );
   useEffect(() => {
-    if (tab !== "policy" && tab !== "scout") load();
+    if (tab !== "policy" && tab !== "scout" && tab !== "awards") load();
   }, [load, tab]);
 
   if (state.signedOut) {
@@ -109,6 +111,14 @@ export function Manage({ clan, tab, navigate, who }) {
         {head}
         {tabs}
         <Scout clan={clan} />
+      </>
+    );
+  if (tab === "awards")
+    return (
+      <>
+        {head}
+        {tabs}
+        <Awards clan={clan} />
       </>
     );
   if (state.forbidden)

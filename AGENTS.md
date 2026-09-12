@@ -30,12 +30,12 @@ removal clock, action cards leaders decide, notes, holds, and scouting.
 
 ```
 apps/web/          React 18 + Vite SPA: /, /clans, /clan/<TAG>, /clan/<TAG>/standing,
-                   /clan/<TAG>/manage/{inbox,board,history,policy,scout},
+                   /clan/<TAG>/manage/{inbox,board,history,policy,awards,scout},
                    /clan/<TAG>/how-elder-works (public), /you, /refused/<reason>
 services/engine/   the management engine, PURE: policy schema, facts, standing,
-                   evaluate, render. No I/O, no clock. Golden tests in test/.
+                   evaluate, render, awards. No I/O, no clock. Golden tests in test/.
 services/api/      Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*,
-                   /api/clans/<TAG>/* (manage/ = ledger, service, scout)
+                   /api/clans/<TAG>/* (manage/ = ledger, service, awards, scout)
 scripts/           import-elixir-bot.mjs (read-only dry run of elixir-bot's ledger;
                    importing was DECLINED 2026-09-12, never offer to run --write)
 infra/             one CloudFormation stack + scripts (bootstrap, deploy, smoke)
@@ -155,6 +155,40 @@ text is the documentation. Every save is a new immutable version
 (`policy#<clan>#v<n>`), the pointer moves, cards stamp the version that
 judged them. `validate()` refuses nonsense in a leader's words. Version 0
 means "the defaults, unsaved".
+
+## Awards (third push, 2026-09-12)
+
+elixir-bot's season awards as per-clan configuration: a CATALOG OF KINDS,
+never a rules engine (`services/engine/src/awards.mjs`). Each kind is one
+function with a few parameters; every award a clan runs is an instance
+with the clan's own name and description. Kinds: `season_points_podium`
+(War Champ: war points over the season, tiebreak donations or none),
+`perfect_attendance` (Iron King: pass/fail, decks per day, allowed misses),
+`donations_podium`, `rookie_podium` (first season here = joined during
+this season, or during the previous one without a war day in it; a join
+that predates the record is never a rookie), and `leaders_pick` (by hand,
+with a note; who may grant). **Free Pass is not an award**: it is what
+POAP KINGS does to recognise its War Champ, so it is a `leaders_pick`
+granted with the podium in view (Jamie, 2026-09-12).
+
+Periods are war seasons as the record saw them (`war_weeks` grouped by
+`season_id`); a season is judged only when CLOSED (every week finished
+and its Colosseum week last or a later season begun) and COMPLETE (its
+first section in the record). Facts come from the same
+`clans_participation` read (weeks 8); grants are written on the first
+evaluation after a season closes (`award#<clan>#<season>#<award id>#<tag>`,
+idempotent per (season, award)) and stamp the awards document version.
+The document is versioned like policy (`awards#<clan>#v<n>`). The open
+season's standings are provisional and say so. A computed grant is the
+record's and cannot be taken back; a manual one is a leader's and can.
+
+Surfaces: Manage ▸ Awards (elders read and grant what elders may; leaders
+edit), the member sheet's trophy case, and the PUBLIC document
+`GET /api/clans/<TAG>/awards` (no session; JSON; `cache-control: public,
+max-age=300`; edge-cached on its own CloudFront behavior; `404
+not_published` until the clan switches publish on). Nothing here narrates
+an award; poapkings.com or any site reads the document. No public HTML
+page, by decision.
 
 ## Roles in Manage
 

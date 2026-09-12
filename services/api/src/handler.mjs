@@ -62,6 +62,7 @@ export function createHandler({
   appUrl,
   elixirUrl,
   manage = null,
+  awards = null,
   scout = null,
   now = () => Date.now(),
   log = console,
@@ -492,6 +493,21 @@ export function createHandler({
       if (!tag) return json(400, { error: "bad_request" });
       return json(200, await manage.howElderWorks(tag));
     }
+    // The public awards document (2026-09-12): no session, cacheable at
+    // the edge, for any site that wants a clan's trophy case. Only when
+    // the clan publishes; a 404 says nothing about whether the clan is
+    // here at all.
+    if (method === "GET" && rest === "/awards" && awards) {
+      const tag = normalizeTag(m[1]);
+      if (!tag) return json(400, { error: "bad_request" });
+      const doc = await awards.publicDocument(tag);
+      const headers = {
+        "cache-control": "public, max-age=300",
+        "access-control-allow-origin": "*",
+      };
+      if (!doc) return json(404, { error: "not_published" }, { headers });
+      return json(200, doc, { headers });
+    }
     const ctx = await clanContext(event, m[1]);
     if (ctx.response) return ctx.response;
     const { clan, who, token } = ctx;
@@ -556,6 +572,53 @@ export function createHandler({
       }
       if (method === "GET" && rest === "/standing")
         return json(200, await manage.standing(tag, who, token));
+      if (awards) {
+        if (method === "GET" && rest === "/awards/manage")
+          return json(
+            200,
+            await awards.manageView(tag, who, token, {
+              refresh: event.queryStringParameters?.refresh === "1",
+            }),
+          );
+        if (method === "POST" && rest === "/awards/config")
+          return json(
+            200,
+            await awards.saveConfig(
+              tag,
+              who,
+              body.values ?? {},
+              body.note ?? null,
+            ),
+          );
+        if (method === "POST" && rest === "/awards/grants") {
+          const ptag = normalizeTag(String(body.player_tag ?? ""));
+          if (!ptag) return json(400, { error: "bad_request" });
+          return json(
+            200,
+            await awards.grant(tag, who, { ...body, player_tag: ptag }),
+          );
+        }
+        const grant =
+          /^\/awards\/grants\/([0-9]{1,4})\/([a-z][a-z0-9_]{1,31})\/([0-9A-Za-z]{3,12})$/.exec(
+            rest,
+          );
+        if (method === "DELETE" && grant) {
+          const ptag = normalizeTag(grant[3]);
+          if (!ptag) return json(400, { error: "bad_request" });
+          await awards.revoke(tag, who, {
+            season_id: Number(grant[1]),
+            award_id: grant[2],
+            player_tag: ptag,
+          });
+          return json(200, { ok: true });
+        }
+        const trophy = /^\/members\/([0-9A-Za-z]{3,12})\/awards$/.exec(rest);
+        if (method === "GET" && trophy) {
+          const ptag = normalizeTag(trophy[1]);
+          if (!ptag) return json(400, { error: "bad_request" });
+          return json(200, { grants: await awards.forMember(tag, ptag) });
+        }
+      }
       if (method === "POST" && rest === "/scout") {
         if (!["leader", "coLeader", "elder"].includes(who.role))
           return json(403, { error: "elders_only" });

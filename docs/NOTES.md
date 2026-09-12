@@ -196,3 +196,36 @@ member; no policy version was saved.
 - The gate reads `elixir_my_players` on every check; a `verified` beside
   `claim_status` in the principal block would make it one read. Not needed
   yet, so not asked of Elixir.
+
+## 2026-09-12 — Awards: elixir-bot's season awards as a catalog of kinds
+
+Jamie asked for elixir-bot's Awards in Elixir Clan, "specific, not a
+generalized rules engine, but tunable per clan like policy, including the
+name". Studied `engine/awards.py`, `award_outcomes.py`, the awards
+capability and the awareness rules. Decisions, all Jamie's: (1) Rookie MVP
+uses the record's horizon (a join that predates the record is never a
+rookie); (2) Free Pass is NOT an award — it is what POAP KINGS does to
+recognise its War Champ — so it is a `leaders_pick` granted by hand with
+the podium in view, and the rotation is the leader's call; (3) no public
+awards page: "we should not assume anything about clients" — the
+poapkings.com site (or anyone) reads `GET /api/clans/<TAG>/awards`, a
+public JSON document behind a per-clan publish switch, edge-cached five
+minutes.
+
+Built: `services/engine/src/awards.mjs` (kinds, defaults, validate,
+describe, `seasonsFrom`, `evaluateAwards` → standings + `grants_due`),
+13 engine tests over the fixture; the ledger's awards document and grants;
+`services/api/src/manage/awards.mjs` (evaluation cached five minutes,
+grants written once per (season, award), manual grant/revoke, trophy case,
+the public document), 6 API tests over the real handler; Manage ▸ Awards
+with the editor (`apps/web/src/views/Awards.jsx`), the member sheet's
+trophy case, 3 web tests; a `/api/clans/*/awards` CloudFront behavior on
+CachingOptimized. Not carried from elixir-bot: the recognition scorer
+(narration), the silent `war_participant` rows, and `pol_champ` (the
+ranked-month podium needs a per-member league/rating at month end that
+Elixir does not expose in one call; a `clans_ranked` columnar tool there
+would be the right first step).
+
+Known limit: grants are written on demand, so a season that closes and is
+not looked at within the record's eight-week window is not granted; the
+scheduled evaluation on the leader's refresh grant (next push) closes it.

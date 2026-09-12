@@ -42,6 +42,23 @@ export class ManageError extends Error {
   }
 }
 
+/** One call, eight weeks: the record every evaluation reads. */
+export async function fetchParticipation(mcp, token, clanTag) {
+  const r = await mcp.callTool(token, "clans_participation", {
+    clan_tag: clanTag,
+    weeks: PARTICIPATION_WEEKS,
+  });
+  if (!r.ok) {
+    if (r.status === 401) throw new ManageError(401, "session_expired");
+    throw new ManageError(
+      502,
+      r.code === "not_recorded" ? "clan_not_recorded" : "elixir_unavailable",
+      r.error,
+    );
+  }
+  return r.body;
+}
+
 export function createManageService({ ledger, mcp, now = () => Date.now() }) {
   const isLeader = (who) => LEADERS.has(who.role);
   const requireLeader = (who) => {
@@ -80,24 +97,8 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     )
       return { verdicts: cached, policy, cached: true };
 
-    let part = participation;
-    if (!part) {
-      const r = await mcp.callTool(token, "clans_participation", {
-        clan_tag: clanTag,
-        weeks: PARTICIPATION_WEEKS,
-      });
-      if (!r.ok) {
-        if (r.status === 401) throw new ManageError(401, "session_expired");
-        throw new ManageError(
-          502,
-          r.code === "not_recorded"
-            ? "clan_not_recorded"
-            : "elixir_unavailable",
-          r.error,
-        );
-      }
-      part = r.body;
-    }
+    const part =
+      participation ?? (await fetchParticipation(mcp, token, clanTag));
     const cards = await ledger.cards(clanTag);
     const decisions = cards
       .filter((c) => c.status === "done" || c.status === "declined")
