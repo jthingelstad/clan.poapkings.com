@@ -8,8 +8,9 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@elixir-clan/engine": "*",
     "@aws-sdk/client-dynamodb": "^3.1126.0",
-    "@aws-sdk/lib-dynamodb": "^3.1126.0"
+    "@aws-sdk/client-sns": "^3.1126.0",
+    "@aws-sdk/lib-dynamodb": "^3.1126.0",
+    "@elixir-clan/engine": "*"
   }
 }

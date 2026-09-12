@@ -190,6 +190,27 @@ not_published` until the clan switches publish on). Nothing here narrates
 an award; poapkings.com or any site reads the document. No public HTML
 page, by decision.
 
+## Feedback (2026-09-12)
+
+Elixir's feedback system, carried nearly verbatim (`services/api/src/feedback.mjs`,
+`apps/web/src/views/{Feedback,Maintain}.jsx`): a person files a category and
+a Markdown note from anywhere (the page, clan and role ride along as
+`context`), sees their own list with every status and reply, and opening a
+reply marks it seen (`feedback_unseen` on `/api/me` drives the chrome's
+mark). The MAINTAINER answers from `/maintain/feedback` with a status
+(`seen | planned | done | declined`), a Markdown reply and a free-text
+`shipped_in`. **The maintainer is not a clan role**: it is the product's,
+a verified player tag in the stack parameter `MaintainerTags`. People only:
+agents do not use Elixir Clan. A person the gate refuses can still file.
+Two differences from Elixir, both because of what this product is: a
+`judgment` category, and no `request_id`. Storage: `feedback#<id>` items in
+ONE partition (`feedback#queue`) of the `ByClan` index; the queue is small
+and a person's list is a filter over it. New feedback publishes one message
+on the SNS topic `elixir-clan-feedback` (`FeedbackNotifyEmail` subscribes an
+address; the agent team's Close-the-Loop owner reads by script,
+`scripts/feedback.mjs`). Feedback is not an incident: it never goes to the
+alarm topic.
+
 ## Roles in Manage
 
 From the roster, as the gate resolves them. Leader and co-leader: Manage

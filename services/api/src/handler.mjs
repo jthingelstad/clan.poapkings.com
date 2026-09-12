@@ -64,6 +64,9 @@ export function createHandler({
   manage = null,
   awards = null,
   scout = null,
+  feedback = null,
+  /** Verified player tags of the product's maintainer(s): MaintainerTags. */
+  maintainerTags = [],
   now = () => Date.now(),
   log = console,
 }) {
@@ -202,8 +205,30 @@ export function createHandler({
     return chosen;
   }
 
-  const meBody = (session, gate, checkedAt, selected) => ({
+  /**
+   * Who a session is, for feedback: the primary's tag (or the first tag
+   * on the account), the name, and whether a VERIFIED tag of theirs is a
+   * maintainer's. Works for a refused person too: "I am stuck at
+   * unverified" is feedback worth having.
+   */
+  const personFor = (gate) => {
+    const tag = prefKey(gate);
+    if (!tag) return null;
+    const id = (gate.identities ?? []).find((i) => i.player_tag === tag);
+    const maintainer = (gate.identities ?? []).some(
+      (i) =>
+        i.claim_status === "verified" && maintainerTags.includes(i.player_tag),
+    );
+    return {
+      player_tag: tag,
+      name: id?.name ?? gate.primary?.name ?? null,
+      maintainer,
+    };
+  };
+
+  const meBody = (session, gate, checkedAt, selected, person = null) => ({
     signed_in: true,
+    maintainer: person?.maintainer === true,
     ok: gate.ok,
     reason: gate.ok ? null : gate.reason,
     principal: gate.principal ?? null,
@@ -328,7 +353,53 @@ export function createHandler({
     if (answer.error)
       return json(502, { signed_in: true, error: "elixir_unavailable" });
     const selected = await selectionFor(session, answer.gate);
-    return json(200, meBody(session, answer.gate, answer.checkedAt, selected));
+    const person = personFor(answer.gate);
+    const body = meBody(
+      session,
+      answer.gate,
+      answer.checkedAt,
+      selected,
+      person,
+    );
+    if (feedback && person)
+      body.feedback_unseen = await feedback.unseen(person).catch(() => 0);
+    return json(200, body);
+  }
+
+  /** The feedback routes: a person's own, and the maintainer's lane. */
+  async function feedbackRoute(event, method, path) {
+    const session = await loadSession(event);
+    if (!session) return signedOut();
+    const gated = await gateFor(session);
+    if (gated.signInRequired) return signedOut({ reason: "session_expired" });
+    if (gated.error) return json(502, { error: "elixir_unavailable" });
+    const person = personFor(gated.gate);
+    if (!person) return json(403, { error: "no_player" });
+    const body = method === "GET" ? {} : parseBody(event);
+    if (body === null) return json(400, { error: "bad_request" });
+    try {
+      if (method === "GET" && path === "/api/feedback")
+        return json(200, {
+          feedback: await feedback.list(person),
+          maintainer: person.maintainer,
+        });
+      if (method === "POST" && path === "/api/feedback")
+        return json(200, await feedback.file(person, body));
+      const one = /^\/api\/feedback\/([A-Za-z0-9_-]{4,16})$/.exec(path);
+      if (method === "GET" && one)
+        return json(200, await feedback.item(person, one[1]));
+      if (method === "GET" && path === "/api/maintain/feedback")
+        return json(200, { feedback: await feedback.queue(person) });
+      const decide = /^\/api\/maintain\/feedback\/([A-Za-z0-9_-]{4,16})$/.exec(
+        path,
+      );
+      if (method === "POST" && decide)
+        return json(200, await feedback.decide(person, decide[1], body));
+      return json(404, { error: "not_found" });
+    } catch (err) {
+      if (err?.status) return json(err.status, { error: err.code });
+      throw err;
+    }
   }
 
   /** Choose the clan to work in. Remembered for the next sign-in too. */
@@ -652,6 +723,12 @@ export function createHandler({
         const answered = await manageRoute(event, method, path);
         if (answered) return answered;
       }
+      if (
+        feedback &&
+        (path.startsWith("/api/feedback") ||
+          path.startsWith("/api/maintain/feedback"))
+      )
+        return await feedbackRoute(event, method, path);
       if (method === "GET" && path === "/api/health")
         return json(200, { ok: true });
       if (method === "GET" && path === "/auth/login") return await login();

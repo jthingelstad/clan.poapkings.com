@@ -8,6 +8,8 @@ import { createDynamoLedger } from "./manage/ledger.mjs";
 import { createManageService, fetchParticipation } from "./manage/service.mjs";
 import { createAwardsService } from "./manage/awards.mjs";
 import { createScout } from "./manage/scout.mjs";
+import { createFeedbackService } from "./feedback.mjs";
+import { createSnsNotifier } from "./notify.mjs";
 
 const env = (name, fallback) => {
   const v = process.env[name];
@@ -38,6 +40,19 @@ export const handler = createHandler({
       fetchParticipation(mcp, token, clanTag),
   }),
   scout: createScout({ mcp }),
+  feedback: createFeedbackService({
+    ledger,
+    notify: createSnsNotifier({
+      topicArn: process.env.FEEDBACK_TOPIC_ARN ?? "",
+      region: process.env.AWS_REGION,
+      appUrl: env("APP_URL").replace(/\/$/, ""),
+    }),
+  }),
+  maintainerTags: String(process.env.MAINTAINER_TAGS ?? "")
+    .split(",")
+    .map((t) => t.trim().toUpperCase())
+    .filter(Boolean)
+    .map((t) => (t.startsWith("#") ? t : `#${t}`)),
   oauth: createOAuthClient({
     issuer: elixirUrl,
     resource: `${elixirUrl}/mcp`,

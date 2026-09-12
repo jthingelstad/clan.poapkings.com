@@ -27,6 +27,8 @@ export const PRESERVED_PARAMETERS = [
   "AppSecretName",
   "SiteCertificateArn",
   "MonthlyCostAlarmUsd",
+  "MaintainerTags",
+  "FeedbackNotifyEmail",
 ];
 
 /**

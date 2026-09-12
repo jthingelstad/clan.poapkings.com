@@ -10,6 +10,8 @@ import { Standing } from "./views/Standing.jsx";
 import { Landing } from "./views/Landing.jsx";
 import { Refused } from "./views/Refused.jsx";
 import { You } from "./views/You.jsx";
+import { Feedback, FeedbackItem } from "./views/Feedback.jsx";
+import { MaintainItem, MaintainQueue } from "./views/Maintain.jsx";
 
 /**
  * Routes: `/` (landing, signed out), `/clans` (the chooser), `/clan/<TAG>`
@@ -106,7 +108,11 @@ export function App() {
     }
     if (me.unavailable) return;
     if (!me.ok) {
-      if (!path.startsWith("/refused/") && path !== "/you")
+      if (
+        !path.startsWith("/refused/") &&
+        path !== "/you" &&
+        !path.startsWith("/feedback")
+      )
         navigate(`/refused/${me.reason}`);
       return;
     }
@@ -144,6 +150,21 @@ export function App() {
       </div>
     );
   else if (path === "/you") view = <You me={me} />;
+  else if (path === "/feedback")
+    view = <Feedback me={me} navigate={navigate} />;
+  else if (/^\/feedback\/[A-Za-z0-9_-]+$/.test(path))
+    view = (
+      <FeedbackItem id={path.slice("/feedback/".length)} navigate={navigate} />
+    );
+  else if (path === "/maintain/feedback" || path === "/maintain")
+    view = <MaintainQueue navigate={navigate} />;
+  else if (/^\/maintain\/feedback\/[A-Za-z0-9_-]+$/.test(path))
+    view = (
+      <MaintainItem
+        id={path.slice("/maintain/feedback/".length)}
+        navigate={navigate}
+      />
+    );
   else if (path.startsWith("/refused/"))
     view = (
       <Refused

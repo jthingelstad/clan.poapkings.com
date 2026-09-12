@@ -20,6 +20,13 @@
  *                            grants are facts of the record, manual ones
  *                            a leader's (kept: this is the trophy case)
  *
+ * And one kind that belongs to no clan (2026-09-12):
+ *
+ *   feedback#<id>            what a person told the maintainer and what was
+ *                            done about it, in ONE partition (feedback#queue)
+ *                            because the whole queue is small and a person's
+ *                            own list is a filter over it
+ *
  * Deleted as a set when a clan's last verified leader disconnects
  * (deleteClan). Retention: cards and notes are kept; the verdict snapshot
  * is overwritten each evaluation.
@@ -36,6 +43,7 @@ import {
 import { randomBytes } from "node:crypto";
 
 const clanKey = (tag) => `clan#${tag}`;
+const FEEDBACK_PARTITION = "feedback#queue";
 export const newId = () => randomBytes(9).toString("base64url");
 const pad = (n) => String(n).padStart(6, "0");
 
@@ -52,7 +60,7 @@ export function createDynamoLedger({ tableName, region }) {
     );
     return Item ?? null;
   }
-  async function listByPrefix(clanTag, prefix) {
+  async function listByPartition(partition, prefix) {
     const items = [];
     let key;
     do {
@@ -61,7 +69,7 @@ export function createDynamoLedger({ tableName, region }) {
           TableName: tableName,
           IndexName: "ByClan",
           KeyConditionExpression: "gsi1pk = :c and begins_with(gsi1sk, :p)",
-          ExpressionAttributeValues: { ":c": clanKey(clanTag), ":p": prefix },
+          ExpressionAttributeValues: { ":c": partition, ":p": prefix },
           ExclusiveStartKey: key,
         }),
       );
@@ -70,7 +78,16 @@ export function createDynamoLedger({ tableName, region }) {
     } while (key);
     return items;
   }
-  return ledgerOver({ put, get, listByPrefix, doc, tableName });
+  const listByPrefix = (clanTag, prefix) =>
+    listByPartition(clanKey(clanTag), prefix);
+  return ledgerOver({
+    put,
+    get,
+    listByPrefix,
+    listByPartition,
+    doc,
+    tableName,
+  });
 }
 
 /** The same contract in memory, for tests. */
@@ -83,14 +100,15 @@ export function createMemoryLedger() {
     async get(pk) {
       return items.get(pk) ?? null;
     },
-    async listByPrefix(clanTag, prefix) {
+    async listByPartition(partition, prefix) {
       return [...items.values()]
         .filter(
-          (i) =>
-            i.gsi1pk === clanKey(clanTag) &&
-            String(i.gsi1sk).startsWith(prefix),
+          (i) => i.gsi1pk === partition && String(i.gsi1sk).startsWith(prefix),
         )
         .sort((a, b) => (a.gsi1sk < b.gsi1sk ? -1 : 1));
+    },
+    async listByPrefix(clanTag, prefix) {
+      return this.listByPartition(clanKey(clanTag), prefix);
     },
     async remove(pk) {
       items.delete(pk);
@@ -255,6 +273,23 @@ function ledgerOver(io) {
     },
     async removeGrant(clanTag, { season_id, award_id, player_tag }) {
       await remove(`award#${clanTag}#${season_id}#${award_id}#${player_tag}`);
+    },
+    // ---- feedback: one partition, the queue ---------------------------
+    async feedback() {
+      return (await io.listByPartition(FEEDBACK_PARTITION, "")).map(stripKeys);
+    },
+    async feedbackItem(feedbackId) {
+      const item = await io.get(`feedback#${feedbackId}`);
+      return item ? stripKeys(item) : null;
+    },
+    async putFeedback(item) {
+      await io.put({
+        pk: `feedback#${item.feedback_id}`,
+        gsi1pk: FEEDBACK_PARTITION,
+        gsi1sk: `${item.created_at}#${item.feedback_id}`,
+        ...item,
+      });
+      return item;
     },
     // ---- the whole clan ------------------------------------------------
     async deleteClan(clanTag) {

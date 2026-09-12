@@ -173,6 +173,14 @@ export const manageApi = {
     ),
 };
 
+export const feedbackApi = {
+  list: () => get("/api/feedback"),
+  file: (body) => post("/api/feedback", body),
+  item: (id) => get(`/api/feedback/${id}`),
+  queue: () => get("/api/maintain/feedback"),
+  decide: (id, body) => post(`/api/maintain/feedback/${id}`, body),
+};
+
 export const api = {
   me: (refresh = false) => get(refresh ? "/api/me?refresh=1" : "/api/me"),
   roster: (clanTag, refresh = false) => {

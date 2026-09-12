@@ -6,7 +6,7 @@
  */
 export function Chrome({ me, navigate, path }) {
   const signedIn = Boolean(me?.signed_in);
-  const tab = (label, to) => (
+  const tab = (label, to, mark = 0) => (
     <a
       className={`chrome__tab${path === to || path.startsWith(`${to}/`) || (label === "Clan" && /^\/clan\/[^/]+\/?$/.test(path)) ? " chrome__tab--on" : ""}`}
       href={to}
@@ -14,8 +14,23 @@ export function Chrome({ me, navigate, path }) {
         e.preventDefault();
         navigate(to);
       }}
+      title={mark ? `${mark} new repl${mark === 1 ? "y" : "ies"}` : undefined}
     >
       {label}
+      {mark ? (
+        <span
+          aria-label={`${mark} new`}
+          style={{
+            display: "inline-block",
+            width: "7px",
+            height: "7px",
+            borderRadius: "50%",
+            background: "var(--accent-bright)",
+            marginLeft: "5px",
+            verticalAlign: "middle",
+          }}
+        />
+      ) : null}
     </a>
   );
   return (
@@ -53,6 +68,12 @@ export function Chrome({ me, navigate, path }) {
             ? tab("Clans", "/clans")
             : null}
           {signedIn ? tab("You", "/you") : null}
+          {signedIn
+            ? tab("Feedback", "/feedback", me.feedback_unseen ?? 0)
+            : null}
+          {signedIn && me.maintainer
+            ? tab("Maintain", "/maintain/feedback")
+            : null}
           <a className="chrome__tab" href="https://elixir.poapkings.com/">
             Elixir
           </a>

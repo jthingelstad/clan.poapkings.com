@@ -229,3 +229,20 @@ would be the right first step).
 Known limit: grants are written on demand, so a season that closes and is
 not looked at within the record's eight-week window is not granted; the
 scheduled evaluation on the leader's refresh grant (next push) closes it.
+
+## 2026-09-12 — Feedback: Elixir's system, for people, with a maintainer lane
+
+Jamie: "a user feedback system that is nearly identical to what Elixir
+has… for users strictly… the system we have for Elixir is good as it is."
+Carried: categories, a Markdown note, the person's own list with status
+and reply, the maintainer's queue and item with status + reply +
+shipped_in, the owner told once per new item, replies unseen until opened.
+Two decisions of mine, stated: a `judgment` category (the report this
+product will get most) and the page/clan/role attached as context in place
+of Elixir's request_id (there are no calls here). The maintainer is named
+by verified tag in `MaintainerTags` (set to King Thing's at deploy), never
+a clan role, because rule 1 says in-game role is the app role and this is
+the product's business, not a clan's. Notification is an SNS topic of its
+own (`elixir-clan-feedback`) with an optional email subscription, separate
+from the alarm topic because feedback is not an incident; the agent team
+reads the queue by script. 3 API tests over the real handler, 4 web tests.

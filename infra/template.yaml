@@ -47,9 +47,24 @@ Parameters:
     Type: Number
     Default: 10
     Description: Account-wide estimated-charges guard. PRESERVED.
+  MaintainerTags:
+    Type: String
+    Default: ""
+    Description: >-
+      Comma-separated VERIFIED player tags of the product's maintainer(s),
+      who answer feedback (the maintainer lane at /maintain). Not a clan
+      role: the product's. Empty means nobody. PRESERVED.
+  FeedbackNotifyEmail:
+    Type: String
+    Default: ""
+    Description: >-
+      An address to subscribe to the feedback topic (new feedback, one
+      message each; SNS asks it to confirm once). Empty means no
+      subscription; the topic exists either way. PRESERVED.
 
 Conditions:
   HasSiteCert: !Not [!Equals [!Ref SiteCertificateArn, ""]]
+  HasFeedbackEmail: !Not [!Equals [!Ref FeedbackNotifyEmail, ""]]
 
 Resources:
   # ------------------------------------------------------------ sessions
@@ -128,6 +143,9 @@ Resources:
                 Resource:
                   - !GetAtt SessionTable.Arn
                   - !Sub ${SessionTable.Arn}/index/ByClan
+              - Effect: Allow
+                Action: [sns:Publish]
+                Resource: !Ref FeedbackTopic
 
   ApiLogGroup:
     Type: AWS::Logs::LogGroup
@@ -157,6 +175,8 @@ Resources:
           ELIXIR_URL: !Ref ElixirUrl
           OAUTH_CLIENT_ID: !Ref OAuthClientId
           SESSION_SECRET: !Sub "{{resolve:secretsmanager:${AppSecretName}:SecretString:session_secret}}"
+          MAINTAINER_TAGS: !Ref MaintainerTags
+          FEEDBACK_TOPIC_ARN: !Ref FeedbackTopic
       Tags:
         - Key: application
           Value: elixir-clan
@@ -365,6 +385,24 @@ Resources:
           return request;
         }
 
+  # ------------------------------------------------------------ feedback
+  # New feedback, one message each (services/api/src/notify.mjs). The
+  # maintainer subscribes an address through FeedbackNotifyEmail; the
+  # agent team's Close-the-Loop owner reads the queue by script. Separate
+  # from the alarm topic on purpose: feedback is not an incident.
+  FeedbackTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: elixir-clan-feedback
+
+  FeedbackEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasFeedbackEmail
+    Properties:
+      TopicArn: !Ref FeedbackTopic
+      Protocol: email
+      Endpoint: !Ref FeedbackNotifyEmail
+
   # ------------------------------------------------------------ monitoring
   AlarmTopic:
     Type: AWS::SNS::Topic
@@ -436,6 +474,8 @@ Outputs:
     Value: !Ref ApiFunction
   TableName:
     Value: !Ref SessionTable
+  FeedbackTopicArn:
+    Value: !Ref FeedbackTopic
   AlarmTopicArn:
     Value: !Ref AlarmTopic
     Description: Subscribed to the sysadmin projects-ops-alerts queue
