@@ -164,11 +164,12 @@ export function harness(opts = {}) {
   return { clock, now, mcp, oauth, store, handler };
 }
 
-export function req(method, path, { query, cookies } = {}) {
+export function req(method, path, { query, cookies, body } = {}) {
   return {
     rawPath: path,
     requestContext: { http: { method } },
     queryStringParameters: query,
+    body,
     cookies: cookies
       ? Object.entries(cookies).map(([k, v]) => `${k}=${v}`)
       : [],

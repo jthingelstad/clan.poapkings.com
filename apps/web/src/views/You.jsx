@@ -22,31 +22,49 @@ export function You({ me }) {
       </div>
       <div className="panel">
         <div className="panel__body fields" style={{ rowGap: "10px" }}>
-          <Row label="Player">
-            {me.player ? (
-              <>
-                {me.player.name}{" "}
-                <span className="tag">{me.player.player_tag}</span>
-              </>
-            ) : (
+          <Row label="Players">
+            {(me.identities ?? []).length === 0 ? (
               "none yet"
+            ) : (
+              <span style={{ display: "grid", gap: "4px" }}>
+                {me.identities.map((i) => (
+                  <span key={i.player_tag}>
+                    {i.is_primary ? <span className="yours">★ </span> : null}
+                    {i.name ?? i.player_tag}{" "}
+                    <span className="tag">{i.player_tag}</span>{" "}
+                    {i.claim_status === "verified" ? (
+                      <span className="chip chip--ok">verified</span>
+                    ) : (
+                      <span className="chip chip--warn">
+                        {i.claim_status ?? "unverified"}
+                      </span>
+                    )}
+                    {i.clan_tag ? (
+                      <span className="page-head__note">
+                        {" "}
+                        · {i.clan_name ?? i.clan_tag}
+                      </span>
+                    ) : null}
+                  </span>
+                ))}
+              </span>
             )}
           </Row>
-          <Row label="Clan">
-            {me.clan ? (
+          <Row label="Working in">
+            {me.selected ? (
               <>
-                {me.clan.name ?? ""}{" "}
-                <span className="tag">{me.clan.clan_tag}</span>
+                {me.selected.name ?? ""}{" "}
+                <span className="tag">{me.selected.clan_tag}</span> as{" "}
+                {me.selected.player_name ?? me.selected.player_tag}{" "}
+                <RoleChip
+                  role={me.selected.role}
+                  label={me.selected.role_label}
+                />
               </>
+            ) : (me.clans ?? []).length > 0 ? (
+              <a href="/clans">choose a clan</a>
             ) : (
-              "not in a clan"
-            )}
-          </Row>
-          <Row label="Role">
-            {me.player?.role ? (
-              <RoleChip role={me.player.role} label={me.player.role_label} />
-            ) : (
-              "—"
+              "no verified clan yet"
             )}
           </Row>
           <Row label="Elixir account">

@@ -86,6 +86,20 @@ update, the web upload and the smoke. Every later deploy is deploy.mjs.
 The stack was never deployed with the CFN execution role passed; CI will
 be the first to do so, and bootstrap's role policy is untested until then.
 
+## 2026-09-12: choosing a clan (verified tags only)
+
+Jamie's decisions: `/clan/<TAG>` URL-addressable, tag without its `#`; two
+verified tags in one clan act as the higher role with ★ on both; the chosen
+clan is REMEMBERED across sign-ins. That last one is the first non-session
+fact this app stores: `pref#<primary tag>` → `{ clan_tag, chosen_at }`, no
+TTL (the primary's tag keys it; an alt-only account uses its first tag).
+The set is verified primary/alt claims only (`clansOf`); an unverified alt
+appears greyed on `/clans` with a Verify link so the person sees why a clan
+is missing. Landing after sign-in: remembered clan → lone clan → `/clans`.
+Elixir needed no change; `clan_name` on `elixir_my_players` rows would let
+the chooser name a clan before its first roster read (today: only the
+principal block's clan is named up front).
+
 ## Waiting on Jamie
 
 - **GitHub deploy secrets.** The CI user's keys sit in this repo's `.env`

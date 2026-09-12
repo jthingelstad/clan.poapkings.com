@@ -1,12 +1,38 @@
 import { afterEach, describe, expect, test } from "vitest";
-
-afterEach(cleanup);
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { RosterTable, ClanHeader } from "../src/views/Clan.jsx";
 import { Refused, REFUSALS } from "../src/views/Refused.jsx";
 import { Landing } from "../src/views/Landing.jsx";
 import { Disclaimer } from "../src/components/Disclaimer.jsx";
+import { Clans } from "../src/views/Clans.jsx";
+import { clanFromPath, clanPath } from "../src/App.jsx";
 
+afterEach(cleanup);
+
+const poap = {
+  clan_tag: "#J2RGCRVG",
+  name: "POAP KINGS",
+  acting_as: "#20JJJ2CCRU",
+  acting_as_name: "King Thing",
+  role: "leader",
+  role_label: "Leader",
+  your_tags: ["#20JJJ2CCRU"],
+};
+const other = {
+  clan_tag: "#PYLQ2",
+  name: "Elsewhere",
+  acting_as: "#8QCV",
+  acting_as_name: "Big Thing",
+  role: "member",
+  role_label: "Member",
+  your_tags: ["#8QCV"],
+};
 const me = {
   signed_in: true,
   ok: true,
@@ -14,20 +40,36 @@ const me = {
     kind: "person",
     subject: { type: "player", tag: "#20JJJ2CCRU", name: "King Thing" },
   },
-  player: {
+  primary: { player_tag: "#20JJJ2CCRU", name: "King Thing" },
+  identities: [
+    {
+      player_tag: "#20JJJ2CCRU",
+      name: "King Thing",
+      is_primary: true,
+      relationship: "primary",
+      claim_status: "verified",
+      clan_tag: "#J2RGCRVG",
+      role: "leader",
+      role_label: "Leader",
+    },
+  ],
+  clans: [poap],
+  selected: {
+    clan_tag: "#J2RGCRVG",
+    name: "POAP KINGS",
     player_tag: "#20JJJ2CCRU",
-    name: "King Thing",
+    player_name: "King Thing",
     role: "leader",
     role_label: "Leader",
+    your_tags: ["#20JJJ2CCRU"],
   },
-  clan: { clan_tag: "#J2RGCRVG", name: "POAP KINGS" },
 };
 
 describe("the clan page", () => {
   test("header reads name · role · clan and says how current the roster is", () => {
     render(
       <ClanHeader
-        me={me}
+        clan={poap}
         roster={{
           name: "POAP KINGS",
           meta: { freshness_seconds: 120, as_of: "2026-09-12T18:00:00Z" },
@@ -174,4 +216,120 @@ test("the disclaimer is Supercell's fan-content note", () => {
   render(<Disclaimer />);
   expect(screen.getByText(/not endorsed by Supercell/)).toBeTruthy();
   expect(screen.getByRole("link", { name: /fan-content-policy/ })).toBeTruthy();
+});
+
+describe("choosing a clan", () => {
+  test("the header chip becomes a menu of the other clans when there is more than one", () => {
+    render(
+      <ClanHeader
+        clan={poap}
+        roster={null}
+        others={[other]}
+        navigate={() => {}}
+      />,
+    );
+    const button = screen.getByRole("button", { expanded: false });
+    expect(button.textContent).toContain("King Thing");
+    fireEvent.click(button);
+    expect(screen.getByRole("menuitem", { name: /Elsewhere/ })).toBeTruthy();
+    expect(
+      screen
+        .getByRole("menuitem", { name: /All your clans/ })
+        .getAttribute("href"),
+    ).toBe("/clans");
+  });
+
+  test("one clan: a plain chip, no menu", () => {
+    render(
+      <ClanHeader clan={poap} roster={null} others={[]} navigate={() => {}} />,
+    );
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  test("the chooser lists verified clans as cards and unverified alts greyed with a Verify link", () => {
+    const two = {
+      ...me,
+      clans: [poap, other],
+      identities: [
+        ...me.identities,
+        {
+          player_tag: "#8QCV",
+          name: "Big Thing",
+          is_primary: false,
+          relationship: "alt",
+          claim_status: "verified",
+          clan_tag: "#PYLQ2",
+          role: "member",
+          role_label: "Member",
+        },
+        {
+          player_tag: "#22GG",
+          name: "Third",
+          is_primary: false,
+          relationship: "alt",
+          claim_status: "unverified",
+          clan_tag: "#RRR",
+          role: "member",
+          role_label: "Member",
+        },
+      ],
+    };
+    const chosen = [];
+    render(
+      <Clans me={two} onSelect={(t) => chosen.push(t)} selecting={false} />,
+    );
+    const cards = screen.getAllByRole("button");
+    expect(cards.map((c) => c.getAttribute("data-clan"))).toEqual([
+      "#J2RGCRVG",
+      "#PYLQ2",
+    ]);
+    expect(cards[0].getAttribute("aria-current")).toBe("true");
+    expect(within(cards[1]).getByText("Member")).toBeTruthy();
+    fireEvent.click(cards[1]);
+    expect(chosen).toEqual(["#PYLQ2"]);
+    expect(screen.getByText("Third")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: /Verify in Elixir/ })
+        .getAttribute("href"),
+    ).toContain("/account/verify");
+    expect(screen.queryByText("#RRR", { exact: false })).toBeTruthy();
+  });
+
+  test("clan paths carry the tag without its #, and only your clans resolve", () => {
+    expect(clanPath("#J2RGCRVG")).toBe("/clan/J2RGCRVG");
+    expect(clanFromPath("/clan/J2RGCRVG", [poap, other])).toBe(poap);
+    expect(clanFromPath("/clan/j2rgcrvg/", [poap])).toBe(poap);
+    expect(clanFromPath("/clan/PYLQ2", [poap])).toBeNull();
+    expect(clanFromPath("/clan", [poap])).toBeNull();
+    expect(clanFromPath("/clans", [poap])).toBeNull();
+  });
+
+  test("the roster marks every one of your tags in a clan", () => {
+    const members = [
+      {
+        player_tag: "#20JJJ2CCRU",
+        name: "King Thing",
+        role: "member",
+        role_label: "Member",
+        you: true,
+      },
+      {
+        player_tag: "#8QCV",
+        name: "Big Thing",
+        role: "coLeader",
+        role_label: "Co-leader",
+        you: true,
+      },
+      {
+        player_tag: "#X",
+        name: "Someone",
+        role: "member",
+        role_label: "Member",
+        you: false,
+      },
+    ];
+    const { container } = render(<RosterTable members={members} now={0} />);
+    expect(container.querySelectorAll("tr[data-you='true']").length).toBe(2);
+  });
 });

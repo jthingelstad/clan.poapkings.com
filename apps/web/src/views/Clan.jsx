@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Fresh } from "../components/Fresh.jsx";
 import { RoleChip } from "../components/RoleChip.jsx";
@@ -100,18 +100,90 @@ export function RosterTable({ members, now }) {
   );
 }
 
-export function ClanHeader({ me, roster }) {
-  const clanName = roster?.name ?? me.clan?.name ?? me.clan?.clan_tag;
+export function ClanHeader({ clan, roster, others = [], navigate }) {
+  const clanName = roster?.name ?? clan.name ?? clan.clan_tag;
+  const [open, setOpen] = useState(false);
+  const chip = (
+    <>
+      <span className="yours">★</span> {clan.acting_as_name ?? clan.acting_as}
+      <span style={{ color: "var(--ink-faint)" }}>·</span>
+      <RoleChip role={clan.role} label={clan.role_label} />
+      <span style={{ color: "var(--ink-faint)" }}>·</span>
+      {clanName}
+    </>
+  );
   return (
     <div className="page-head" style={{ alignItems: "center" }}>
       <h1 className="page__title">{clanName}</h1>
-      <span className="chip">
-        <span className="yours">★</span> {me.player.name}
-        <span style={{ color: "var(--ink-faint)" }}>·</span>
-        <RoleChip role={me.player.role} label={me.player.role_label} />
-        <span style={{ color: "var(--ink-faint)" }}>·</span>
-        {clanName}
-      </span>
+      {others.length > 0 ? (
+        <span style={{ position: "relative" }}>
+          <button
+            type="button"
+            className="chip"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            style={{ cursor: "pointer", font: "inherit", color: "inherit" }}
+          >
+            {chip} <span aria-hidden="true">▾</span>
+          </button>
+          {open ? (
+            <div
+              role="menu"
+              className="panel"
+              style={{
+                position: "absolute",
+                top: "110%",
+                left: 0,
+                zIndex: 20,
+                minWidth: "260px",
+              }}
+            >
+              {others.map((c) => (
+                <a
+                  key={c.clan_tag}
+                  role="menuitem"
+                  href={`/clan/${c.clan_tag.slice(1)}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpen(false);
+                    navigate(`/clan/${c.clan_tag.slice(1)}`);
+                  }}
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "center",
+                    padding: "10px 14px",
+                    color: "inherit",
+                  }}
+                >
+                  <span>{c.name ?? c.clan_tag}</span>
+                  <RoleChip role={c.role} label={c.role_label} />
+                </a>
+              ))}
+              <a
+                role="menuitem"
+                href="/clans"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpen(false);
+                  navigate("/clans");
+                }}
+                style={{
+                  display: "block",
+                  padding: "10px 14px",
+                  borderTop: "1px solid var(--line-soft)",
+                  fontSize: "13px",
+                }}
+              >
+                All your clans ›
+              </a>
+            </div>
+          ) : null}
+        </span>
+      ) : (
+        <span className="chip">{chip}</span>
+      )}
       {roster?.meta ? (
         <Fresh seconds={roster.meta.freshness_seconds} ts={roster.meta.as_of} />
       ) : null}
@@ -121,19 +193,25 @@ export function ClanHeader({ me, roster }) {
 
 /** The one page. Reads /api/roster once per mount; the API caches it per
  *  session for a few minutes, and "Check again" is rate-limited there. */
-export function Clan({ me }) {
+export function Clan({ me, clan, navigate }) {
   const [state, setState] = useState({ loading: true });
+  const others = (me.clans ?? []).filter((c) => c.clan_tag !== clan.clan_tag);
 
-  const load = async (refresh = false) => {
-    setState((s) => ({ ...s, loading: true }));
-    const r = await api.roster(refresh);
-    if (r.status === 401) return setState({ signedOut: true });
-    if (!r.ok) return setState({ error: r.data?.error ?? r.error ?? "failed" });
-    setState({ roster: r.data });
-  };
+  const tag = clan.clan_tag;
+  const load = useCallback(
+    async (refresh = false) => {
+      setState((s) => ({ ...s, loading: true }));
+      const r = await api.roster(tag, refresh);
+      if (r.status === 401) return setState({ signedOut: true });
+      if (!r.ok)
+        return setState({ error: r.data?.error ?? r.error ?? "failed" });
+      setState({ roster: r.data });
+    },
+    [tag],
+  );
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   if (state.signedOut) {
     window.location.assign("/?error=session_expired");
@@ -142,7 +220,12 @@ export function Clan({ me }) {
 
   return (
     <>
-      <ClanHeader me={me} roster={state.roster} />
+      <ClanHeader
+        clan={clan}
+        roster={state.roster}
+        others={others}
+        navigate={navigate}
+      />
       {state.loading && !state.roster ? (
         <p className="page__lede">Reading the roster from Elixir…</p>
       ) : state.error ? (

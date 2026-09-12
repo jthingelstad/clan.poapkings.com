@@ -21,14 +21,14 @@ export const REFUSALS = {
   },
   unverified: {
     title: "Prove your player in Elixir",
-    body: "Your primary player is added but not verified. Elixir Clan shows you your clan as who you are in the game, so the claim has to be a fact, not a promise.",
+    body: "Your players are added but none is verified. Elixir Clan shows you your clan as who you are in the game, so a claim has to be a fact, not a promise.",
     action:
       "Open Elixir → Verify: Elixir names eight cards, you play one battle with them, and the claim is verified. It usually takes under a minute.",
     link: [ELIXIR_LINKS.verify, "Elixir → Verify"],
   },
   no_clan: {
     title: "You are not in a clan",
-    body: "Your verified player is not in a clan right now, as far as Elixir's record goes. There is no clan page to show.",
+    body: "None of your verified players is in a clan right now, as far as Elixir's record goes. There is no clan page to show.",
     action:
       "Join a clan in the game. Elixir sees it on its next roster poll; check again after that.",
     link: [ELIXIR_LINKS.overview, "Your Elixir account"],
@@ -48,7 +48,8 @@ export function Refused({ reason, me, onRecheck, checking }) {
       </div>
     );
   }
-  const who = me?.player?.name ?? me?.principal?.subject?.name;
+  const who = me?.primary?.name ?? me?.principal?.subject?.name;
+  const players = me?.identities ?? [];
   return (
     <div style={{ maxWidth: "560px", margin: "40px auto 0" }}>
       <p className="eyebrow">NOT YET</p>
@@ -61,6 +62,29 @@ export function Refused({ reason, me, onRecheck, checking }) {
         </p>
       ) : null}
       <p className="lede">{page.body}</p>
+      {players.length > 0 && reason !== "not_a_person" ? (
+        <ul
+          style={{
+            margin: "12px 0 0",
+            paddingLeft: "18px",
+            color: "var(--ink-dim)",
+            fontSize: "14px",
+          }}
+        >
+          {players.map((p) => (
+            <li key={p.player_tag}>
+              {p.name ?? p.player_tag}{" "}
+              <span className="tag">{p.player_tag}</span>{" "}
+              {p.claim_status === "verified"
+                ? "verified"
+                : (p.claim_status ?? "unverified")}
+              {p.clan_tag
+                ? ` · in ${p.clan_name ?? p.clan_tag}`
+                : " · not in a clan"}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className="callout callout--info" style={{ margin: "18px 0" }}>
         <span>{page.action}</span>
       </div>

@@ -7,6 +7,10 @@
  *                    grant family ends, the last gate answer and a short
  *                    roster cache; expires with the grant (90 days)
  *
+ *   pref#<tag>       the one remembered thing (decision 2026-09-12): which
+ *                    clan this person last chose to work in, keyed by their
+ *                    primary tag. No TTL. One small string.
+ *
  * This is everything Elixir Clan stores. No player, no clan, no member
  * data survives past a session's cache window; the record lives in
  * Elixir. The table is encrypted with its KMS key (infra/template.yaml)
@@ -98,6 +102,20 @@ export function createDynamoStore({ tableName, region }) {
         }),
       );
     },
+    async getPreference(tag) {
+      const { Item } = await doc.send(
+        new GetCommand({ TableName: tableName, Key: { pk: `pref#${tag}` } }),
+      );
+      return Item ?? null;
+    },
+    async putPreference(tag, pref) {
+      await doc.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: { pk: `pref#${tag}`, ...pref },
+        }),
+      );
+    },
   };
 }
 
@@ -131,6 +149,12 @@ export function createMemoryStore() {
     },
     async deleteSession(id) {
       items.delete(`session#${id}`);
+    },
+    async getPreference(tag) {
+      return items.get(`pref#${tag}`) ?? null;
+    },
+    async putPreference(tag, pref) {
+      items.set(`pref#${tag}`, { ...pref });
     },
   };
 }

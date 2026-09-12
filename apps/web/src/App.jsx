@@ -3,14 +3,16 @@ import { api } from "./api.js";
 import { Chrome } from "./components/Chrome.jsx";
 import { Disclaimer } from "./components/Disclaimer.jsx";
 import { Clan } from "./views/Clan.jsx";
+import { Clans } from "./views/Clans.jsx";
 import { Landing } from "./views/Landing.jsx";
 import { Refused } from "./views/Refused.jsx";
 import { You } from "./views/You.jsx";
 
 /**
- * Routes: `/` (landing, signed out), `/clan`, `/you`, `/refused/<reason>`.
- * A path-based router in twenty lines: the app has four places and no
- * parameters worth a dependency.
+ * Routes: `/` (landing, signed out), `/clans` (the chooser), `/clan/<TAG>`
+ * (a clan page; the tag without its #), `/clan` (the remembered clan),
+ * `/you`, `/refused/<reason>`. A path-based router in twenty lines: the
+ * app has five places and one parameter.
  */
 function usePath() {
   const [path, setPath] = useState(() => window.location.pathname);
@@ -26,10 +28,21 @@ function usePath() {
   return [path, navigate];
 }
 
+export const clanPath = (tag) => `/clan/${String(tag).replace(/^#/, "")}`;
+
+/** The clan a `/clan/<TAG>` path names, if it is one of the person's. */
+export function clanFromPath(path, clans = []) {
+  const m = /^\/clan\/([0-9A-Za-z]{3,12})\/?$/.exec(path);
+  if (!m) return null;
+  const tag = `#${m[1].toUpperCase().replace(/O/g, "0")}`;
+  return clans.find((c) => c.clan_tag === tag) ?? null;
+}
+
 export function App() {
   const [path, navigate] = usePath();
   const [me, setMe] = useState(null); // null = not asked yet
   const [checking, setChecking] = useState(false);
+  const [selecting, setSelecting] = useState(false);
 
   const refresh = useCallback(async (force = false) => {
     setChecking(true);
@@ -49,6 +62,21 @@ export function App() {
     refresh();
   }, [refresh]);
 
+  const select = useCallback(
+    async (tag) => {
+      setSelecting(true);
+      const r = await api.select(tag);
+      setSelecting(false);
+      if (r.ok) {
+        setMe(r.data);
+        navigate(clanPath(tag));
+      } else if (r.status === 401) {
+        setMe({ signed_in: false, expired: true });
+      }
+    },
+    [navigate],
+  );
+
   // Where a signed-in person belongs, whatever address they arrived at.
   useEffect(() => {
     if (!me) return;
@@ -57,21 +85,31 @@ export function App() {
       return;
     }
     if (me.unavailable) return;
-    if (me.ok && (path === "/" || path.startsWith("/refused")))
-      navigate("/clan");
-    if (!me.ok && (path === "/" || path === "/clan"))
-      navigate(`/refused/${me.reason}`);
-  }, [me, path, navigate]);
+    if (!me.ok) {
+      if (!path.startsWith("/refused/") && path !== "/you")
+        navigate(`/refused/${me.reason}`);
+      return;
+    }
+    const atClan = clanFromPath(path, me.clans);
+    if (path === "/" || path.startsWith("/refused") || path === "/clan") {
+      navigate(me.selected ? clanPath(me.selected.clan_tag) : "/clans");
+    } else if (path.startsWith("/clan/") && !atClan) {
+      navigate("/clans");
+    } else if (
+      atClan &&
+      me.selected?.clan_tag !== atClan.clan_tag &&
+      !selecting
+    ) {
+      // Arriving at another of your clans by URL selects it, so the
+      // remembered clan follows where you actually went.
+      select(atClan.clan_tag);
+    }
+  }, [me, path, navigate, select, selecting]);
 
   const error = new URLSearchParams(window.location.search).get("error");
   let view = null;
   if (me === null) view = null;
-  else if (!me.signed_in)
-    view = (
-      <Landing
-        error={error === "session_expired" ? "session_expired" : error}
-      />
-    );
+  else if (!me.signed_in) view = <Landing error={error} />;
   else if (me.unavailable)
     view = (
       <div
@@ -93,12 +131,22 @@ export function App() {
         checking={checking}
         onRecheck={async () => {
           const next = await refresh(true);
-          if (next?.ok) navigate("/clan");
+          if (next?.ok)
+            navigate(
+              next.selected ? clanPath(next.selected.clan_tag) : "/clans",
+            );
           else if (next?.reason) navigate(`/refused/${next.reason}`);
         }}
       />
     );
-  else if (me.ok) view = <Clan me={me} />;
+  else if (me.ok && path === "/clans")
+    view = <Clans me={me} onSelect={select} selecting={selecting} />;
+  else if (me.ok) {
+    const clan = clanFromPath(path, me.clans);
+    view = clan ? (
+      <Clan key={clan.clan_tag} me={me} clan={clan} navigate={navigate} />
+    ) : null;
+  }
 
   return (
     <div className="shell">

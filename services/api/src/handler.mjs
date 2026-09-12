@@ -24,7 +24,7 @@ import {
   setSessionCookie,
   verifySessionCookie,
 } from "./cookies.mjs";
-import { runGate } from "./gate.mjs";
+import { normalizeTag, runGate } from "./gate.mjs";
 import { pkcePair, randomState } from "./oauth.mjs";
 import { roleLabel, roleRank } from "./roles.mjs";
 
@@ -167,6 +167,62 @@ export function createHandler({
     return { gate, checkedAt: t };
   }
 
+  /** The preference key: the primary's tag, or the first tag on the
+   *  account for an account with alts but no primary. */
+  const prefKey = (gate) =>
+    gate.primary?.player_tag ?? gate.identities?.[0]?.player_tag ?? null;
+
+  /**
+   * Which clan this session works in. Valid only while it is in the clan
+   * set; a remembered preference wins, then a lone clan; more than one
+   * with nothing remembered is `null`, and the page shows the chooser.
+   */
+  async function selectionFor(session, gate) {
+    if (!gate.ok) return null;
+    const inSet = (tag) => gate.clans.find((c) => c.clan_tag === tag) ?? null;
+    if (session.selected && inSet(session.selected.clan_tag))
+      return inSet(session.selected.clan_tag);
+    let chosen = null;
+    const key = prefKey(gate);
+    const pref = key ? await store.getPreference(key) : null;
+    if (pref?.clan_tag) chosen = inSet(pref.clan_tag);
+    if (!chosen && gate.clans.length === 1) chosen = gate.clans[0];
+    if (chosen) {
+      await store.updateSession(session.id, {
+        selected: { clan_tag: chosen.clan_tag, player_tag: chosen.acting_as },
+      });
+      session.selected = {
+        clan_tag: chosen.clan_tag,
+        player_tag: chosen.acting_as,
+      };
+    }
+    return chosen;
+  }
+
+  const meBody = (session, gate, checkedAt, selected) => ({
+    signed_in: true,
+    ok: gate.ok,
+    reason: gate.ok ? null : gate.reason,
+    principal: gate.principal ?? null,
+    identities: gate.identities ?? [],
+    clans: gate.clans ?? [],
+    primary: gate.primary ?? null,
+    selected: selected
+      ? {
+          clan_tag: selected.clan_tag,
+          name: selected.name,
+          player_tag: selected.acting_as,
+          player_name: selected.acting_as_name,
+          role: selected.role,
+          role_label: selected.role_label,
+          your_tags: selected.your_tags,
+        }
+      : null,
+    checked_at: new Date(checkedAt).toISOString(),
+    scope: session.scope ?? null,
+    elixir_url: elixirUrl,
+  });
+
   const signedOut = (extra) =>
     json(
       401,
@@ -241,7 +297,13 @@ export function createHandler({
       gate: { result: gate, checkedAt: t },
       ttl: Math.floor(t / 1000) + SESSION_TTL_S,
     });
-    const to = gate.ok ? "/clan" : `/refused/${gate.reason}`;
+    const session = { id, selected: null };
+    const selected = gate.ok ? await selectionFor(session, gate) : null;
+    const to = !gate.ok
+      ? `/refused/${gate.reason}`
+      : selected
+        ? `/clan/${selected.clan_tag.slice(1)}`
+        : "/clans";
     return redirect(`${appUrl}${to}`, [
       ...cleared,
       setSessionCookie(sessionSecret, id),
@@ -262,18 +324,42 @@ export function createHandler({
     if (answer.signInRequired) return signedOut({ reason: "session_expired" });
     if (answer.error)
       return json(502, { signed_in: true, error: "elixir_unavailable" });
-    const g = answer.gate;
-    return json(200, {
-      signed_in: true,
-      ok: g.ok,
-      reason: g.ok ? null : g.reason,
-      principal: g.principal ?? null,
-      player: g.player ?? null,
-      clan: g.clan ?? null,
-      checked_at: new Date(answer.checkedAt).toISOString(),
-      scope: session.scope ?? null,
-      elixir_url: elixirUrl,
-    });
+    const selected = await selectionFor(session, answer.gate);
+    return json(200, meBody(session, answer.gate, answer.checkedAt, selected));
+  }
+
+  /** Choose the clan to work in. Remembered for the next sign-in too. */
+  async function select(event) {
+    const session = await loadSession(event);
+    if (!session) return signedOut();
+    let body = {};
+    try {
+      body = JSON.parse(event.body ?? "{}");
+    } catch {
+      return json(400, { error: "bad_request" });
+    }
+    const tag = normalizeTag(body.clan_tag);
+    if (!tag) return json(400, { error: "bad_request", hint: "clan_tag" });
+    const gated = await gateFor(session);
+    if (gated.signInRequired) return signedOut({ reason: "session_expired" });
+    if (gated.error) return json(502, { error: "elixir_unavailable" });
+    if (!gated.gate.ok)
+      return json(403, { error: "gate", reason: gated.gate.reason });
+    const chosen = gated.gate.clans.find((c) => c.clan_tag === tag);
+    if (!chosen) return json(403, { error: "not_your_clan", clan_tag: tag });
+    const selected = {
+      clan_tag: chosen.clan_tag,
+      player_tag: chosen.acting_as,
+    };
+    await store.updateSession(session.id, { selected });
+    session.selected = selected;
+    const key = prefKey(gated.gate);
+    if (key)
+      await store.putPreference(key, {
+        clan_tag: chosen.clan_tag,
+        chosen_at: new Date(now()).toISOString(),
+      });
+    return json(200, meBody(session, gated.gate, gated.checkedAt, chosen));
   }
 
   async function roster(event) {
@@ -285,14 +371,25 @@ export function createHandler({
     if (!gated.gate.ok)
       return json(403, { error: "gate", reason: gated.gate.reason });
 
-    const clanTag = gated.gate.clan.clan_tag;
-    const you = gated.gate.player.player_tag;
+    // The clan is named in the query (the page's URL), else the selection.
+    // Either way it must be one of the person's verified clans.
+    const q = event.queryStringParameters ?? {};
+    let clan = null;
+    if (q.clan) {
+      const tag = normalizeTag(q.clan);
+      clan = tag ? gated.gate.clans.find((c) => c.clan_tag === tag) : null;
+      if (!clan)
+        return json(403, { error: "not_your_clan", clan_tag: tag ?? q.clan });
+    } else {
+      clan = await selectionFor(session, gated.gate);
+      if (!clan) return json(409, { error: "no_selection" });
+    }
+    const clanTag = clan.clan_tag;
     const t = now();
-    const refresh = event.queryStringParameters?.refresh === "1";
-    const cached = session.roster;
+    const refresh = q.refresh === "1";
+    const cached = session.rosters?.[clanTag];
     const fresh =
       cached &&
-      cached.clanTag === clanTag &&
       typeof cached.cachedAt === "number" &&
       t - cached.cachedAt < (refresh ? REFRESH_FLOOR_MS : ROSTER_TTL_MS);
     if (fresh)
@@ -313,6 +410,7 @@ export function createHandler({
       if (r.code === "not_recorded" || r.code === "no_subject")
         return json(200, {
           clan_tag: clanTag,
+          name: clan.name,
           not_recorded: true,
           hint: r.hint ?? null,
           cached_at: new Date(t).toISOString(),
@@ -320,10 +418,16 @@ export function createHandler({
       log.warn?.("roster_failed", { error: r.error, code: r.code });
       return json(502, { error: "elixir_unavailable" });
     }
-    const body = shapeRoster(r.body, { you });
-    await store.updateSession(session.id, {
-      roster: { clanTag, cachedAt: t, body },
-    });
+    const body = shapeRoster(r.body, { yourTags: clan.your_tags });
+    // Bounded: only clans in the set are ever cached, one entry each.
+    const rosters = {};
+    for (const c of gated.gate.clans) {
+      if (session.rosters?.[c.clan_tag])
+        rosters[c.clan_tag] = session.rosters[c.clan_tag];
+    }
+    rosters[clanTag] = { cachedAt: t, body };
+    await store.updateSession(session.id, { rosters });
+    session.rosters = rosters;
     return json(200, { ...body, cached_at: new Date(t).toISOString() });
   }
 
@@ -339,6 +443,8 @@ export function createHandler({
       if (method === "POST" && path === "/auth/logout")
         return await logout(event);
       if (method === "GET" && path === "/api/me") return await me(event);
+      if (method === "POST" && path === "/api/select")
+        return await select(event);
       if (method === "GET" && path === "/api/roster")
         return await roster(event);
       return json(404, { error: "not_found" });
@@ -352,7 +458,8 @@ export function createHandler({
 /** The roster as the page wants it: grouped by role rank, then trophies,
  *  the signed-in person's row marked, the API's role spelling kept beside
  *  its label. Nothing is added that the tool did not say. */
-export function shapeRoster(body, { you }) {
+export function shapeRoster(body, { yourTags = [] }) {
+  const yours = new Set(yourTags);
   const members = (body.members ?? [])
     .map((m) => ({
       player_tag: m.player_tag,
@@ -364,7 +471,7 @@ export function shapeRoster(body, { you }) {
       last_recorded_battle: m.last_recorded_battle ?? null,
       last_seen_in_game: m.last_seen_in_game ?? null,
       first_observed_in_clan: m.first_observed_in_clan ?? null,
-      you: m.player_tag === you,
+      you: yours.has(m.player_tag),
     }))
     .sort(
       (a, b) =>
@@ -380,6 +487,7 @@ export function shapeRoster(body, { you }) {
     member_count: body.member_count ?? members.length,
     role_counts: roleCounts,
     members,
+    your_tags: [...yours],
     notes: Array.isArray(body.notes) ? body.notes : [],
     docs: body.docs ?? null,
     meta: {

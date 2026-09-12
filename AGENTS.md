@@ -27,7 +27,7 @@ their clan with their own role. Nothing more yet.
 ## Layout
 
 ```
-apps/web/        React 18 + Vite SPA (routes: /, /clan, /you, /refused/<reason>)
+apps/web/        React 18 + Vite SPA (routes: /, /clans, /clan/<TAG>, /you, /refused/<reason>)
 services/api/    Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*
 infra/           one CloudFormation stack + scripts (bootstrap, deploy, smoke)
 docs/NOTES.md    decisions, newest last; what is waiting on Jamie
@@ -54,14 +54,27 @@ and each has its own page (`apps/web/src/views/Refused.jsx`):
 1. `_meta["elixir.poapkings.com/principal"].kind === "person"` (the docs say
    `person`, not `user`); an agent's or integration's grant → `not_a_person`,
    and NO session is created
-2. a primary player exists → else `no_primary_player` (Elixir → Tracking)
-3. `claim_status === "verified"` → else `unverified` (Elixir → Verify, one
-   battle with a named deck)
-4. `clan_tag` and `clan_role` present → else `no_clan`
+2. at least one player on the account → else `no_primary_player` (Elixir →
+   Tracking)
+3. at least one claim with `claim_status === "verified"` → else `unverified`
+   (Elixir → Verify, one battle with a named deck); the page lists the
+   players
+4. at least one verified claim in a clan → else `no_clan`
 
-The roster is not part of the gate. It is read with `clans_roster` naming the
-primary's `clan_tag` explicitly (the tool's default is the first RECORDED
-clan among the account's claims, which can be an alt's clan). A
+**The identity set and the clan set (2026-09-12).** `identities` is every
+claim; `clans` is the distinct clans of the verified primary/alt claims
+(`clansOf`), each with `acting_as` (the tag you hold there; two verified
+tags in one clan are one clan acting as the higher role, `your_tags` both).
+Friends and watching never act. **Selection** is `{ clan_tag, player_tag }`
+on the session: a remembered preference (`pref#<primary tag>`, the ONE
+non-session item this app stores) wins, then a lone clan, else the chooser
+at `/clans`. `POST /api/select` picks and remembers; `/api/roster?clan=<TAG>`
+refuses any clan outside the set (`not_your_clan`); a session with no
+selection and no `?clan=` gets `409 no_selection`. Arriving at
+`/clan/<TAG>` for another of your clans selects it.
+
+The roster is read with `clans_roster` naming the clan explicitly (the
+tool's default is the first RECORDED clan among the account's claims). A
 `not_recorded`/`no_subject` answer is its own page state: "Elixir isn't
 recording your clan yet".
 
@@ -78,8 +91,9 @@ OAuth `state` to the browser that started it. `POST /auth/logout` deletes the
 session.
 
 **What is deliberately not stored:** player, clan or member data beyond the
-session's cache window (gate 2 min, roster 3 min). No profile, no history, no
-awards. This push stores sessions and nothing else.
+session's cache window (gate 2 min, roster 3 min per clan, bounded to the
+set). No profile, no history, no awards. Sessions, plus one remembered
+clan choice per person, and nothing else.
 
 ## Quota discipline
 

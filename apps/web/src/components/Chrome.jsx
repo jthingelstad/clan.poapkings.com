@@ -8,7 +8,7 @@ export function Chrome({ me, navigate, path }) {
   const signedIn = Boolean(me?.signed_in);
   const tab = (label, to) => (
     <a
-      className={`chrome__tab${path === to ? " chrome__tab--on" : ""}`}
+      className={`chrome__tab${path === to || (to.startsWith("/clan/") && path.startsWith("/clan/")) ? " chrome__tab--on" : ""}`}
       href={to}
       onClick={(e) => {
         e.preventDefault();
@@ -32,7 +32,17 @@ export function Chrome({ me, navigate, path }) {
           Elixir Clan
         </a>
         <nav className="chrome__nav" aria-label="Elixir Clan">
-          {signedIn && me.ok ? tab("Clan", "/clan") : null}
+          {signedIn && me.ok
+            ? tab(
+                "Clan",
+                me.selected
+                  ? `/clan/${me.selected.clan_tag.slice(1)}`
+                  : "/clans",
+              )
+            : null}
+          {signedIn && me.ok && me.clans?.length > 1
+            ? tab("Clans", "/clans")
+            : null}
           {signedIn ? tab("You", "/you") : null}
           <a className="chrome__tab" href="https://elixir.poapkings.com/">
             Elixir
@@ -49,9 +59,9 @@ export function Chrome({ me, navigate, path }) {
               gap: "12px",
             }}
           >
-            {me.player?.name ? (
+            {me.primary?.name ? (
               <span style={{ fontSize: "13px", color: "var(--ink-dim)" }}>
-                <span className="yours">★</span> {me.player.name}
+                <span className="yours">★</span> {me.primary.name}
               </span>
             ) : null}
             <button type="submit" className="btn btn--quiet btn--sm">

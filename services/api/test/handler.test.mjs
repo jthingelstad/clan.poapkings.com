@@ -40,7 +40,7 @@ test("callback: happy path exchanges with the stored verifier, runs the gate onc
   const h = harness();
   const { cb, sessionCookie } = await signIn(h);
   assert.equal(cb.statusCode, 303);
-  assert.equal(cb.headers.location, "https://clan.test/clan");
+  assert.equal(cb.headers.location, "https://clan.test/clan/J2RGCRVG");
   assert.ok(sessionCookie);
   const exchange = h.oauth.calls.find((c) => c[0] === "exchange")[1];
   assert.equal(exchange.code, "eac_x");
@@ -62,8 +62,10 @@ test("callback: happy path exchanges with the stored verifier, runs the gate onc
   assert.equal(me.statusCode, 200);
   const body = JSON.parse(me.body);
   assert.equal(body.ok, true);
-  assert.equal(body.player.role_label, "Leader");
-  assert.equal(body.clan.name, "POAP KINGS");
+  assert.equal(body.selected.role_label, "Leader");
+  assert.equal(body.selected.name, "POAP KINGS");
+  assert.equal(body.selected.player_tag, "#20JJJ2CCRU");
+  assert.equal(body.clans.length, 1);
   assert.equal(h.mcp.calls.length, 2);
 });
 
@@ -74,7 +76,7 @@ test("callback: a state that does not match the login cookie is refused", async 
   const cb = await h.handler(
     req("GET", "/auth/callback", {
       query: { code: "eac_x", state },
-      cookies: { "__Host-elixir_clan_login": "other" },
+      cookies: { "__Host-elixir_clan_login": "pylq2" },
     }),
   );
   assert.equal(cb.headers.location, "https://clan.test/?error=state_mismatch");
@@ -304,6 +306,7 @@ test("roster: names the primary's clan explicitly, marks your row, groups by rol
   );
   assert.equal(body.members[0].you, true);
   assert.equal(body.members[1].you, false);
+  assert.deepEqual(body.your_tags, ["#20JJJ2CCRU"]);
   assert.equal(body.members[2].role_label, "Co-leader");
   assert.deepEqual(body.role_counts, {
     leader: 1,
@@ -389,5 +392,148 @@ test("unknown routes are 404 JSON; health is open", async () => {
   assert.equal(
     JSON.parse((await h.handler(req("GET", "/api/health"))).body).ok,
     true,
+  );
+});
+
+const twoClans = () => ({
+  players: [
+    player(),
+    player({
+      player_tag: "#ALT",
+      name: "Big Thing",
+      is_primary: false,
+      relationship: "alt",
+      clan_tag: "#PYLQ2",
+      clan_role: "member",
+    }),
+  ],
+});
+
+test("two clans, nothing remembered: sign-in lands on the chooser and the roster needs a clan", async () => {
+  const h = harness({ door: twoClans() });
+  const { cb, sessionCookie } = await signIn(h);
+  assert.equal(cb.headers.location, "https://clan.test/clans");
+  const cookies = cookieHeader(sessionCookie);
+  const me = JSON.parse(
+    (await h.handler(req("GET", "/api/me", { cookies }))).body,
+  );
+  assert.equal(me.ok, true);
+  assert.equal(me.selected, null);
+  assert.deepEqual(
+    me.clans.map((c) => c.clan_tag),
+    ["#J2RGCRVG", "#PYLQ2"],
+  );
+  const r = await h.handler(req("GET", "/api/roster", { cookies }));
+  assert.equal(r.statusCode, 409);
+});
+
+test("select: picks a clan in the set, is remembered across a fresh sign-in, refuses a clan outside it", async () => {
+  const h = harness({ door: twoClans() });
+  const { sessionCookie } = await signIn(h);
+  const cookies = cookieHeader(sessionCookie);
+  const bad = await h.handler(
+    req("POST", "/api/select", {
+      cookies,
+      body: JSON.stringify({ clan_tag: "#22GG" }),
+    }),
+  );
+  assert.equal(bad.statusCode, 403);
+  const ok = await h.handler(
+    req("POST", "/api/select", {
+      cookies,
+      body: JSON.stringify({ clan_tag: "pylq2" }),
+    }),
+  );
+  assert.equal(ok.statusCode, 200);
+  const me = JSON.parse(ok.body);
+  assert.equal(me.selected.clan_tag, "#PYLQ2");
+  assert.equal(me.selected.player_tag, "#ALT");
+  assert.equal(me.selected.role_label, "Member");
+  assert.deepEqual(h.store.items.get("pref##20JJJ2CCRU"), {
+    clan_tag: "#PYLQ2",
+    chosen_at: "2026-09-12T18:00:00.000Z",
+  });
+
+  // Sign out, sign in again: the remembered clan is where the callback lands.
+  await h.handler(req("POST", "/auth/logout", { cookies }));
+  const again = await signIn(h);
+  assert.equal(again.cb.headers.location, "https://clan.test/clan/PYLQ2");
+});
+
+test("a remembered clan the person is no longer in is ignored", async () => {
+  const h = harness({ door: twoClans() });
+  h.store.items.set("pref##20JJJ2CCRU", { clan_tag: "#GONE" });
+  const { cb } = await signIn(h);
+  assert.equal(cb.headers.location, "https://clan.test/clans");
+});
+
+test("roster by clan: ?clan= names any clan in the set, caches per clan, refuses others", async () => {
+  const mcp = fakeMcp(twoClans());
+  const h = harness({ mcp });
+  const { sessionCookie } = await signIn(h);
+  const cookies = cookieHeader(sessionCookie);
+  mcp.state.roster = rosterBody([
+    { player_tag: "#ALT", name: "Big Thing", role: "member" },
+  ]);
+  const other = JSON.parse(
+    (
+      await h.handler(
+        req("GET", "/api/roster", { cookies, query: { clan: "PYLQ2" } }),
+      )
+    ).body,
+  );
+  assert.equal(other.members[0].you, true);
+  const main = await h.handler(
+    req("GET", "/api/roster", { cookies, query: { clan: "#J2RGCRVG" } }),
+  );
+  assert.equal(main.statusCode, 200);
+  assert.equal(h.mcp.calls.filter((c) => c[0] === "clans_roster").length, 2);
+  await h.handler(
+    req("GET", "/api/roster", { cookies, query: { clan: "PYLQ2" } }),
+  );
+  assert.equal(
+    h.mcp.calls.filter((c) => c[0] === "clans_roster").length,
+    2,
+    "second read of OTHER is cached",
+  );
+  const nope = await h.handler(
+    req("GET", "/api/roster", { cookies, query: { clan: "#22GG" } }),
+  );
+  assert.equal(nope.statusCode, 403);
+  assert.equal(JSON.parse(nope.body).error, "not_your_clan");
+});
+
+test("two verified tags in one clan: both rows are yours", async () => {
+  const members = [
+    { player_tag: "#20JJJ2CCRU", name: "King Thing", role: "member" },
+    { player_tag: "#ALT", name: "Big Thing", role: "coLeader" },
+    { player_tag: "#X", name: "Someone", role: "member" },
+  ];
+  const h = harness({
+    door: {
+      players: [
+        player({ clan_role: "member" }),
+        player({
+          player_tag: "#ALT",
+          is_primary: false,
+          relationship: "alt",
+          clan_role: "coLeader",
+        }),
+      ],
+      roster: rosterBody(members),
+    },
+  });
+  const { cb, sessionCookie } = await signIn(h);
+  assert.equal(cb.headers.location, "https://clan.test/clan/J2RGCRVG");
+  const body = JSON.parse(
+    (
+      await h.handler(
+        req("GET", "/api/roster", { cookies: cookieHeader(sessionCookie) }),
+      )
+    ).body,
+  );
+  assert.deepEqual(
+    body.members.filter((m) => m.you).map((m) => m.player_tag),
+    ["#ALT", "#20JJJ2CCRU"],
   );
 });
