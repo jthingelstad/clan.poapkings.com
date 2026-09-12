@@ -1,0 +1,65 @@
+version = 2
+repo = "."
+timezone = "America/Chicago"
+
+# Drafted September 12, 2026 for Jamie's approval. Calendar starts use local
+# Chicago time. schedule_of entries share the original objective, lease and
+# automation memory. Interval activities use an initial prompt date check
+# because the installed app miscalculates interval timezones; preserve that
+# check when reinstalling. launch_cwd records the app launch directory
+# relative to this checkout. Event-driven follow-ups remain explicit starts.
+
+[[automation]]
+id = "run-elixir-clan"
+name = "Run Elixir Clan"
+objective = "run"
+objective_file = "AGENT-TEAM/run-elixir-clan.md"
+status = "ACTIVE"
+rrule = "RRULE:FREQ=DAILY;BYHOUR=7;BYMINUTE=10"
+model = "gpt-5.6-terra"
+reasoning_effort = "high"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENTS.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/READING.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/README.md`, and `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/run-elixir-clan.md` completely; use the reading map to review the current product contract and the changed decisions in `docs/NOTES.md`, then pursue the `run` objective exactly as written. Run preflight first and measure current live evidence before changing anything; a healthy no-op is success. Own a clear operational gap (a failed deploy, a broken smoke read, an unexplained alarm, an Elixir contract this product no longer matches, an ageing OAuth client registration) through source fix, regression coverage, `npm run verify`, deployment when required, and read-only live acceptance. Acquire the `run` checkout lease only immediately before mutation, check it before the first edit and before push, never clear or break another holder's lease, never publish pre-existing work, release only from a clean checkout, and preserve the five rules in AGENTS.md, the public-repo, secret-safety and privacy boundaries, the human boundary in WORKFLOW.md, and the rule that live verification uses reads only: never write to Elixir, never manufacture a card decision, hold, note, grant or feedback item for acceptance. Preflight separates observation from checkout mutation eligibility: continue safe read-only review during contention with trusted tooling; a blocked checkout forbids mutations, including feedback replies. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run. Do not claim shipped behavior from source publication alone."
+
+[[automation]]
+id = "judge-fairly"
+schedule_note = "Monday is the weekly review: compare the week with elixir-bot read-only and confirm season grants"
+name = "Judge Fairly"
+objective = "judge"
+objective_file = "AGENT-TEAM/judge-fairly.md"
+status = "ACTIVE"
+rrule = "RRULE:FREQ=DAILY;BYHOUR=11;BYMINUTE=10"
+model = "gpt-5.6-sol"
+reasoning_effort = "xhigh"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENTS.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/READING.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/README.md`, and `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/judge-fairly.md` completely; use the reading map to review the current product contract and the changed decisions in `docs/NOTES.md`, then pursue the `judge` objective exactly as written. Run preflight first and measure current live evidence before changing anything; a healthy no-op is success. Read the latest POAP KINGS verdict snapshot and grants from the ledger read-only; on Mondays compare the week with elixir-bot's ledger through the read-only dry run and confirm any closed season has its grants. Own a clear engine defect through a golden-test regression, source fix, `npm run verify`, deployment, and a verdict read back; frame any rule or default change as one decision for Jamie with the elixir-bot source and the affected members' lines attached. Acquire the `judge` checkout lease only immediately before mutation, check it before the first edit and before push, never clear or break another holder's lease, never publish pre-existing work, release only from a clean checkout, and preserve the five rules in AGENTS.md, the public-repo, secret-safety and privacy boundaries, the human boundary in WORKFLOW.md, and the rule that live verification uses reads only: never write to Elixir, never manufacture a card decision, hold, note, grant or feedback item for acceptance. Preflight separates observation from checkout mutation eligibility: continue safe read-only review during contention with trusted tooling; a blocked checkout forbids mutations, including feedback replies. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run. Do not claim shipped behavior from source publication alone."
+
+[[automation]]
+id = "close-the-loop"
+schedule_note = "Friday evening synthesis once per Chicago ISO week; catch up if blocked"
+name = "Close the Loop"
+objective = "loop"
+objective_file = "AGENT-TEAM/close-the-loop.md"
+status = "ACTIVE"
+rrule = "RRULE:FREQ=DAILY;BYHOUR=7,19;BYMINUTE=40"
+model = "gpt-5.6-sol"
+reasoning_effort = "xhigh"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENTS.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/READING.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/README.md`, and `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/close-the-loop.md` completely; use the reading map to review the current product contract and the changed decisions in `docs/NOTES.md`, then pursue the `loop` objective exactly as written. Run preflight first and measure current live evidence before changing anything; a healthy no-op is success. Measure the feedback queue with `AWS_PROFILE=jamie node scripts/feedback.mjs list` and the shipped docs before changing anything. Triage oldest-first, report backlog count and oldest unanswered age against the one-day target, and reply through the leased `scripts/feedback.mjs answer` operation after a read-back; a judgment dispute is answered from the member's verdict line and the policy version that judged it. Own an authorized gap through source fix, regression coverage, docs, `npm run verify`, deployment when required, and read-only live acceptance; do not mark feedback done until the named change is shipped. Use the generated schedule and completion receipt for the Friday synthesis; catch up a missed one at the next eligible invocation without repeating a completed summary or a delivered reply. Acquire the `loop` checkout lease only immediately before mutation, check it before the first edit and before push, never clear or break another holder's lease, never publish pre-existing work, release only from a clean checkout, and preserve the five rules in AGENTS.md, the public-repo, secret-safety and privacy boundaries, the human boundary in WORKFLOW.md, and the rule that live verification uses reads only: never write to Elixir, never manufacture a card decision, hold, note, grant or feedback item for acceptance. Preflight separates observation from checkout mutation eligibility: continue safe read-only review during contention with trusted tooling; a blocked checkout forbids mutations, including feedback replies. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run. Do not claim shipped behavior from source publication alone."
+
+[[automation]]
+id = "guard-the-door"
+schedule_note = "Full weekly sweep on Sunday; retain required boundary checks every run"
+name = "Guard the Door"
+objective = "guard"
+objective_file = "AGENT-TEAM/guard-the-door.md"
+status = "ACTIVE"
+rrule = "RRULE:FREQ=DAILY;BYHOUR=3;BYMINUTE=15"
+model = "gpt-5.6-terra"
+reasoning_effort = "high"
+execution_environment = "local"
+launch_cwd = "."
+prompt = "Follow the project instructions already loaded by Codex. Read `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENTS.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/WORKFLOW.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/READING.md`, `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/README.md`, and `/Users/otto/Projects/clash-royale/clan.poapkings.com/AGENT-TEAM/guard-the-door.md` completely; use the reading map to review the current product contract and the changed decisions in `docs/NOTES.md`, then pursue the `guard` objective exactly as written. Run preflight first and measure current live evidence before changing anything; a healthy no-op is success. Verify the boundaries the objective lists from live reads, the template and `git ls-files`; on Sundays run the full sweep. Fix a boundary drift in the run with the test that pins it; frame any widening as one decision for Jamie with what it exposes and to whom. This objective is an independent control: it never widens a scope, a cookie, a stored field or a public document for another objective's convenience. Acquire the `guard` checkout lease only immediately before mutation, check it before the first edit and before push, never clear or break another holder's lease, never publish pre-existing work, release only from a clean checkout, and preserve the five rules in AGENTS.md, the public-repo, secret-safety and privacy boundaries, the human boundary in WORKFLOW.md, and the rule that live verification uses reads only: never write to Elixir, never manufacture a card decision, hold, note, grant or feedback item for acceptance. Preflight separates observation from checkout mutation eligibility: continue safe read-only review during contention with trusted tooling; a blocked checkout forbids mutations, including feedback replies. Keep automation memory to Current state, Active watches, and one replace-in-place Latest run. Do not claim shipped behavior from source publication alone."

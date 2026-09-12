@@ -14,7 +14,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "npm test -ws --if-present",
+    "test": "npm test -ws --if-present && node --test AGENT-TEAM/scripts/*.test.mjs",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

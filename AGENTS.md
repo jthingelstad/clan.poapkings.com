@@ -284,6 +284,16 @@ gitignored). Bump the SHA to take a design change; never copy the file.
 Publishing `@elixir-mcp/design` is the durable answer and needs Jamie's npm
 org (docs/NOTES.md).
 
+## The team
+
+`AGENT-TEAM/` holds four objective owners (Run Elixir Clan, Judge Fairly,
+Close the Loop, Guard the Door), the operating loop (`WORKFLOW.md`), the
+reading map, the calendar (`automations.toml` → `SCHEDULE.md`) and the
+checkout lease (`scripts/objective-lease.mjs`). Every mutating actor on
+this checkout, an objective run or an interactive session, claims the
+lease before the first edit and releases it clean. Feedback is Close the
+Loop's daily duty.
+
 ## Next push
 
 Scheduled evaluation on the leader's refresh grant so cards are waiting in
