@@ -40,6 +40,15 @@ export function Chrome({ me, navigate, path }) {
                   : "/clans",
               )
             : null}
+          {signedIn && me.ok && me.selected
+            ? tab("Standing", `/clan/${me.selected.clan_tag.slice(1)}/standing`)
+            : null}
+          {signedIn &&
+          me.ok &&
+          me.selected &&
+          (me.selected.role === "leader" || me.selected.role === "coLeader")
+            ? tab("Manage", `/clan/${me.selected.clan_tag.slice(1)}/manage`)
+            : null}
           {signedIn && me.ok && me.clans?.length > 1
             ? tab("Clans", "/clans")
             : null}

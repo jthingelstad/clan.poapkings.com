@@ -107,9 +107,10 @@ export function Policy({ clan }) {
                   {f.type === "boolean" ? (
                     <label
                       style={{
-                        display: "flex",
+                        display: "inline-flex",
                         gap: "8px",
                         alignItems: "center",
+                        width: "fit-content",
                       }}
                     >
                       <input

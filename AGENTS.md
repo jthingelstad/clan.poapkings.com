@@ -1,9 +1,11 @@
 # AGENTS.md
 
 Elixir Clan: being in a clan, on top of Elixir. `clan.poapkings.com`, one of
-the Elixir family's verticals (`../elixir-family/MAP.md`). This push signs
-people in with Elixir's OAuth, requires a verified player, and shows them
-their clan with their own role. Nothing more yet.
+the Elixir family's verticals (`../elixir-family/MAP.md`). It signs people
+in with Elixir's OAuth, requires a verified player, shows them their clan
+with their own role, and (second push, 2026-09-12) runs a clan's own
+management policy against the record: standing, the Elder band, the
+removal clock, action cards leaders decide, notes, holds, and scouting.
 
 `CLAUDE.md` is a symlink to this file. Do not fork them.
 
@@ -27,10 +29,16 @@ their clan with their own role. Nothing more yet.
 ## Layout
 
 ```
-apps/web/        React 18 + Vite SPA (routes: /, /clans, /clan/<TAG>, /you, /refused/<reason>)
-services/api/    Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*
-infra/           one CloudFormation stack + scripts (bootstrap, deploy, smoke)
-docs/NOTES.md    decisions, newest last; what is waiting on Jamie
+apps/web/          React 18 + Vite SPA: /, /clans, /clan/<TAG>, /clan/<TAG>/standing,
+                   /clan/<TAG>/manage/{inbox,board,history,policy,scout},
+                   /clan/<TAG>/how-elder-works (public), /you, /refused/<reason>
+services/engine/   the management engine, PURE: policy schema, facts, standing,
+                   evaluate, render. No I/O, no clock. Golden tests in test/.
+services/api/      Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*,
+                   /api/clans/<TAG>/* (manage/ = ledger, service, scout)
+scripts/           import-elixir-bot.mjs (read-only import, on Jamie's go)
+infra/             one CloudFormation stack + scripts (bootstrap, deploy, smoke)
+docs/NOTES.md      decisions, newest last; what is waiting on Jamie
 ```
 
 ## The seams to Elixir
@@ -95,6 +103,88 @@ session's cache window (gate 2 min, roster 3 min per clan, bounded to the
 set). No profile, no history, no awards. Sessions, plus one remembered
 clan choice per person, and nothing else.
 
+## The engine's contract (`services/engine`)
+
+`verdicts = evaluate({ participation, policy, now, decisions, holds })`, a
+pure function. Inputs are Elixir's `clans_participation` answer (columns per
+ISO week and per war week, the recording horizon), the validated policy
+values, the instant, the decided cards and the holds. Nothing else is
+remembered between runs.
+
+- **Weekly boundaries** are the observed finishes of the clan's war weeks
+  (`war_weeks[].finished_observed_at`, the game's Monday reset as the record
+  saw it), oldest first. The band is replayed at each; elixir-bot's promote
+  and demote machines (`replayMachines`) run over that trail. "Three
+  qualifying reviews" is computed from history every time.
+- **Windows are in weeks**: the floor over the last N closed ISO weeks
+  (ranked) and N closed war weeks (war days); the war rate over the last N
+  closed war weeks; ranked and donations over N closed ISO weeks. At a
+  boundary, that is exactly the policy's days.
+- **War fidelity**: a war week with polled days is exact; one without is
+  `weekly` (its total spread over the days that saw a battle); a null week
+  is `unknown`. Every fact says which.
+- **Fail closed**: `judgment_status` per dimension is `ready`, `held` (no
+  war record or no closed review yet), `unknown` (tenure predates the
+  record: `tenure_known: false`), `off` (the policy switched it off) or
+  `not_applicable` (leadership is never ranked; only an elder is demotable).
+  Held and unknown members are shown on the board and never carded.
+- **Standing** (`standing.mjs`): participation percentiles (zero is zero,
+  participants ranked among themselves), `competitive = war% +
+  ranked_weight × ranked% × (1 − war%)`, `score = war_weight × competitive +
+  donation_weight × donation%`; the band is a share of the whole roster,
+  rank and median over members + elders; swaps pair the weakest challenger
+  with the strongest outranked elder and a close call inside the margin
+  goes to tenure (known on both sides).
+- **Removal**: the clock runs from the later of the last battle and the
+  observed join; grace = round(grace_max × open_slots / cap) when the floor
+  is cleared; elder+ and an active hold stop at `at_risk`; a member with no
+  anchor is `held`.
+- **Cards** (`reconcileCards`): one open card per (member, type); raised when
+  `actionable` (ready + eligible/recommended + past the cooldown), withdrawn
+  with a reason when not. Outcomes are verified from the record on the next
+  evaluation (removal: membership closed → `member_kicked`; promotion or
+  demotion: the role moved) or flagged after `outcome_window_hours`.
+
+## Policy is versioned configuration
+
+`services/engine/src/policy.mjs` owns the fields: label, unit, range,
+default (POAP KINGS), and `why` from elixir-bot's POLICY.md, grouped as the
+policy reads. There is no policy markdown in this repo; the editor's help
+text is the documentation. Every save is a new immutable version
+(`policy#<clan>#v<n>`), the pointer moves, cards stamp the version that
+judged them. `validate()` refuses nonsense in a leader's words. Version 0
+means "the defaults, unsaved".
+
+## Roles in Manage
+
+From the roster, as the gate resolves them. Leader and co-leader: Manage
+(inbox, board, history, policy, scout), holds, leader notes, and every note.
+Elder: elder notes (write and read), scout. Everyone in the clan: Standing
+and their own line, when `members_see_standing` is on. Nobody below
+co-leader ever sees a removal card or who is on a clock.
+
+## What is stored, second push
+
+The `elixir-clan` table gains, per clan, through the `ByClan` index:
+policy versions, the latest verdict snapshot (evidence summaries only,
+overwritten each evaluation), cards (kept: this ledger is how a leave is
+told from a kick), holds, and notes (tiered `leader` / `elder`). Tags and
+summaries, never Elixir payloads. `ledger.deleteClan` removes the set; call
+it when a clan's last verified leader disconnects. Evaluation is on demand
+with the signed-in leader's token, cached five minutes per clan; no
+background job and no stored credential.
+
+## Elixir tools this app depends on
+
+| Tool | Since contract | Used for |
+|---|---|---|
+| `initialize`, `elixir_my_players` | 1.0.0 | the gate |
+| `clans_roster` | 1.0.0 | the clan page |
+| `clans_participation` | 1.9.0 | every evaluation: one call, eight weeks |
+| `players_profile({ live: true })`, `battles_query({ live: true, verbosity: "compact" })` | 1.7.0 | scouting an applicant; `live_pending` is passed through with `retry_after_s` |
+
+Elixir returns facts; every threshold, score and verdict is here.
+
 ## Quota discipline
 
 Every page view spends the signed-in person's Elixir daily budget. The gate
@@ -140,10 +230,11 @@ org (docs/NOTES.md).
 
 ## Next push
 
-Port `engine/management.py` and the leader-action cards from `../elixir-bot`
-as a leader-only view (role from the roster, verified claim from the gate).
-The clan page's audience column (member / elder / leader) is the MAP's
-re-mapping of the Tower table. Read `../elixir-family/MAP.md` §5 first.
+Scheduled evaluation on the leader's refresh grant so cards are waiting in
+the morning (the ledger needs no migration for it); the goodbye routine
+reading `member_kicked` from the cards; the poapkings.com Elder prose
+replaced by `/clan/J2RGCRVG/how-elder-works`. Read `../elixir-family/MAP.md`
+§5 first.
 
 ---
 

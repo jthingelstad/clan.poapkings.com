@@ -100,7 +100,76 @@ Elixir needed no change; `clan_name` on `elixir_my_players` rows would let
 the chooser name a clan before its first roster read (today: only the
 principal block's clan is named up front).
 
+## 2026-09-12: the management engine (second push)
+
+**The engine is a pure function of the record.** No counters, no state
+rolled forward: `evaluate(participation, policy, now, decisions, holds)`.
+Weekly boundaries are the observed war-week finishes; sustained weeks are
+replayed. Windows are in weeks, which at a boundary is exactly the policy's
+days (14 and 28). This is the one design change from elixir-bot, and it is
+what makes the policy preview possible.
+
+**Cost, measured.** With the tools as they were, one evaluation was ~58
+calls for 47 members (roster + 5 war weeks + 2 standings + a timeline per
+member for donations). `clans_participation` was added to Elixir (1.9.0):
+every member's week in one call, columns not rows so 47 members over eight
+weeks are 39 KB, under the 48 KB cap. An evaluation is now two calls.
+Scouting is two live reads on the leader's own lane.
+
+**The diff against elixir-bot** (read-only, `elixir-v51.db`, 2026-09-12
+20:30Z, both under the POAP KINGS defaults): **43 of 47 members agree on
+all three states**, and every removal state agrees (two `at_risk`, the
+same two). The four disagreements:
+- Mega Goblin, L-Drxgo: elixir-bot `promote building/2`, here `none` with
+  judgment `unknown`. Their joins predate Elixir's first roster observation
+  (2026-09-03), so tenure is unknown here and fails closed; the bot
+  remembers 46 and 165 days. Recording horizon, expected: 44 of 47 members
+  have `tenure_known: false` until their observed days pass 28.
+- Chanco (elder): elixir-bot `promote building/2` on a sitting elder (its
+  machine only clears the promote state at `eligible`); here `none`, since a
+  member already holding the role needs no card. A bot quirk, not a rule.
+- Aaqib Javed (elder): elixir-bot `demote building` as abandoned; here he
+  clears the floor on **145 ranked battles in the last two closed weeks**
+  that Elixir recorded and the bot's own battle stream did not (0 ranked
+  since 08-29 in its `battle_events`). A recording difference in Elixir's
+  favour.
+- Day-level war data exists in Elixir only from S135 w4; older war weeks
+  are `weekly` fidelity (their totals spread over the days that saw a
+  battle). Rates agreed within rounding.
+
+**Jamie's additions, same day.** Notes on members, tiered: elders write and
+read elder notes; leaders write leader notes and read both. Hold stays a
+structured state (a clock pause) beside them. Scout: paste a tag, two live
+reads, the policy answer today (floor, inactivity, tenure) beside the
+performance (trophies, Path of Legends, war-day wins, lifetime donations,
+the last log's record).
+
+**Contradictions with the prompt / sources.** elixir-bot has no hold object
+(holds are `Hold:` memories; imported as holds). Its ledger keeps a
+`deferred` status that the prompt retires (declined only) and this ledger
+never has. The kick guard never cards an elder (kept: elder+ stops at
+`at_risk`). elixir-bot's "28 days" of war is windowed on bulk-stamped poll
+timestamps, i.e. war weeks; that is now said plainly (`war_rate_window_weeks`).
+
+**Import.** `scripts/import-elixir-bot.mjs` (dry run by default) would land
+70 decided cards (39 done, 31 declined) and 3 open holds, marked `source:
+"elixir-bot"`. Not run; Jamie's go.
+
+**Live walk 2026-09-12 ~20:48Z** as King Thing: Manage judged 47 members
+over 6 weekly reviews (band 9–14, target 12, 12 elders, no card open, the
+same two at risk as the bot); Standing 43 rows; policy preview moved one
+member; public page rendered from the defaults; Scout read Big Thing
+live (pending 15 s, then fresh at 6 s). No card was decided on a real
+member; no policy version was saved.
+
 ## Waiting on Jamie
+
+- **Import** elixir-bot's decided cards and holds: `AWS_PROFILE=jamie node
+  scripts/import-elixir-bot.mjs --write` (dry run first).
+- **poapkings.com**: point the Members / FAQ Elder prose at
+  `https://clan.poapkings.com/clan/J2RGCRVG/how-elder-works`.
+- The public page shows the clan tag, not its name (no session, no roster
+  read); a name on the policy item would fix it.
 
 - **GitHub deploy secrets.** The CI user's keys sit in this repo's `.env`
   (0600, gitignored). The session's tool policy would not move them to
