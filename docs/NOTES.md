@@ -151,9 +151,10 @@ never has. The kick guard never cards an elder (kept: elder+ stops at
 `at_risk`). elixir-bot's "28 days" of war is windowed on bulk-stamped poll
 timestamps, i.e. war weeks; that is now said plainly (`war_rate_window_weeks`).
 
-**Import.** `scripts/import-elixir-bot.mjs` (dry run by default) would land
-70 decided cards (39 done, 31 declined) and 3 open holds, marked `source:
-"elixir-bot"`. Not run; Jamie's go.
+**Import: declined (Jamie, 2026-09-12).** elixir-bot's history has a
+different shape, and this ledger starts clean. `scripts/import-elixir-bot.mjs`
+stays as a read-only dry run for reference only; do not offer to run it.
+Cooldowns and the leave-vs-kick record accrue from this app's own decisions.
 
 **Live walk 2026-09-12 ~20:48Z** as King Thing: Manage judged 47 members
 over 6 weekly reviews (band 9–14, target 12, 12 elders, no card open, the
@@ -164,8 +165,6 @@ member; no policy version was saved.
 
 ## Waiting on Jamie
 
-- **Import** elixir-bot's decided cards and holds: `AWS_PROFILE=jamie node
-  scripts/import-elixir-bot.mjs --write` (dry run first).
 - **poapkings.com**: point the Members / FAQ Elder prose at
   `https://clan.poapkings.com/clan/J2RGCRVG/how-elder-works`.
 - The public page shows the clan tag, not its name (no session, no roster

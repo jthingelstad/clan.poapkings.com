@@ -36,7 +36,8 @@ services/engine/   the management engine, PURE: policy schema, facts, standing,
                    evaluate, render. No I/O, no clock. Golden tests in test/.
 services/api/      Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*,
                    /api/clans/<TAG>/* (manage/ = ledger, service, scout)
-scripts/           import-elixir-bot.mjs (read-only import, on Jamie's go)
+scripts/           import-elixir-bot.mjs (read-only dry run of elixir-bot's ledger;
+                   importing was DECLINED 2026-09-12, never offer to run --write)
 infra/             one CloudFormation stack + scripts (bootstrap, deploy, smoke)
 docs/NOTES.md      decisions, newest last; what is waiting on Jamie
 ```
