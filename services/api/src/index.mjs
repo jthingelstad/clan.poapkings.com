@@ -4,6 +4,9 @@ import { createHandler } from "./handler.mjs";
 import { createMcpClient } from "./mcp.mjs";
 import { createOAuthClient } from "./oauth.mjs";
 import { createDynamoStore } from "./store.mjs";
+import { createDynamoLedger } from "./manage/ledger.mjs";
+import { createManageService } from "./manage/service.mjs";
+import { createScout } from "./manage/scout.mjs";
 
 const env = (name, fallback) => {
   const v = process.env[name];
@@ -19,8 +22,16 @@ const elixirUrl = env("ELIXIR_URL", "https://elixir.poapkings.com").replace(
   "",
 );
 
+const mcp = createMcpClient({ url: `${elixirUrl}/mcp` });
+const ledger = createDynamoLedger({
+  tableName: env("TABLE_NAME"),
+  region: process.env.AWS_REGION,
+});
+
 export const handler = createHandler({
-  mcp: createMcpClient({ url: `${elixirUrl}/mcp` }),
+  mcp,
+  manage: createManageService({ ledger, mcp }),
+  scout: createScout({ mcp }),
   oauth: createOAuthClient({
     issuer: elixirUrl,
     resource: `${elixirUrl}/mcp`,

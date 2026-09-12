@@ -64,9 +64,26 @@ Resources:
       AttributeDefinitions:
         - AttributeName: pk
           AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
       KeySchema:
         - AttributeName: pk
           KeyType: HASH
+      # The clan ledger (second push): policy versions, cards, holds, notes
+      # and the verdict snapshot are items of one clan, listed through this
+      # index (gsi1pk = clan#<tag>, gsi1sk = <kind>#...). Added to the live
+      # table without replacing it.
+      GlobalSecondaryIndexes:
+        - IndexName: ByClan
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
@@ -106,7 +123,11 @@ Resources:
                   - dynamodb:PutItem
                   - dynamodb:UpdateItem
                   - dynamodb:DeleteItem
-                Resource: !GetAtt SessionTable.Arn
+                  - dynamodb:Query
+                  - dynamodb:BatchWriteItem
+                Resource:
+                  - !GetAtt SessionTable.Arn
+                  - !Sub ${SessionTable.Arn}/index/ByClan
 
   ApiLogGroup:
     Type: AWS::Logs::LogGroup

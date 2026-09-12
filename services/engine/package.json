@@ -1,0 +1,12 @@
+{
+  "name": "@elixir-clan/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The clan-management engine: a pure function of Elixir's record and a clan's policy. No I/O, no clock of its own.",
+  "exports": "./src/index.mjs",
+  "main": "./src/index.mjs",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

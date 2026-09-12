@@ -61,6 +61,8 @@ export function createHandler({
   sessionSecret,
   appUrl,
   elixirUrl,
+  manage = null,
+  scout = null,
   now = () => Date.now(),
   log = console,
 }) {
@@ -431,10 +433,162 @@ export function createHandler({
     return json(200, { ...body, cached_at: new Date(t).toISOString() });
   }
 
+  /**
+   * The signed-in person in one of THEIR clans: the session, the gate, the
+   * clan from the set and who they are there (tag, name, role). Every
+   * Manage route starts here; role checks happen in the service.
+   */
+  async function clanContext(event, tagInput) {
+    const session = await loadSession(event);
+    if (!session) return { response: signedOut() };
+    const gated = await gateFor(session);
+    if (gated.signInRequired)
+      return { response: signedOut({ reason: "session_expired" }) };
+    if (gated.error)
+      return { response: json(502, { error: "elixir_unavailable" }) };
+    if (!gated.gate.ok)
+      return {
+        response: json(403, { error: "gate", reason: gated.gate.reason }),
+      };
+    const tag = normalizeTag(tagInput);
+    const clan = tag ? gated.gate.clans.find((c) => c.clan_tag === tag) : null;
+    if (!clan)
+      return {
+        response: json(403, {
+          error: "not_your_clan",
+          clan_tag: tag ?? tagInput,
+        }),
+      };
+    const token = await accessToken(session);
+    if (!token) return { response: signedOut({ reason: "session_expired" }) };
+    return {
+      session,
+      gate: gated.gate,
+      clan,
+      token,
+      who: {
+        player_tag: clan.acting_as,
+        name: clan.acting_as_name ?? null,
+        role: clan.role,
+      },
+    };
+  }
+
+  function parseBody(event) {
+    try {
+      return JSON.parse(event.body ?? "{}") ?? {};
+    } catch {
+      return null;
+    }
+  }
+
+  async function manageRoute(event, method, path) {
+    const m = /^\/api\/clans\/([0-9A-Za-z]{3,12})(\/.*)?$/.exec(path);
+    if (!m) return null;
+    const rest = m[2] ?? "";
+    // The public page needs no session.
+    if (method === "GET" && rest === "/how-elder-works") {
+      const tag = normalizeTag(m[1]);
+      if (!tag) return json(400, { error: "bad_request" });
+      return json(200, await manage.howElderWorks(tag));
+    }
+    const ctx = await clanContext(event, m[1]);
+    if (ctx.response) return ctx.response;
+    const { clan, who, token } = ctx;
+    const tag = clan.clan_tag;
+    const body =
+      method === "GET" || method === "DELETE" ? {} : parseBody(event);
+    if (body === null) return json(400, { error: "bad_request" });
+    try {
+      if (method === "GET" && rest === "/manage")
+        return json(
+          200,
+          await manage.manageView(tag, who, token, {
+            refresh: event.queryStringParameters?.refresh === "1",
+          }),
+        );
+      if (method === "GET" && rest === "/history")
+        return json(200, await manage.history(tag, who));
+      if (method === "GET" && rest === "/policy")
+        return json(200, await manage.policyView(tag, who));
+      if (method === "POST" && rest === "/policy")
+        return json(
+          200,
+          await manage.savePolicy(
+            tag,
+            who,
+            body.values ?? {},
+            body.note ?? null,
+          ),
+        );
+      if (method === "POST" && rest === "/policy/preview")
+        return json(
+          200,
+          await manage.previewPolicy(tag, who, token, body.values ?? {}),
+        );
+      const decide = /^\/cards\/([A-Za-z0-9_-]+)\/decide$/.exec(rest);
+      if (method === "POST" && decide)
+        return json(200, await manage.decide(tag, who, decide[1], body));
+      const hold = /^\/holds\/([0-9A-Za-z]{3,12})$/.exec(rest);
+      if (hold) {
+        const ptag = normalizeTag(hold[1]);
+        if (!ptag) return json(400, { error: "bad_request" });
+        if (method === "PUT")
+          return json(200, await manage.setHold(tag, who, ptag, body));
+        if (method === "DELETE") {
+          await manage.clearHold(tag, who, ptag);
+          return json(200, { ok: true });
+        }
+      }
+      const notes = /^\/members\/([0-9A-Za-z]{3,12})\/notes$/.exec(rest);
+      if (notes) {
+        const ptag = normalizeTag(notes[1]);
+        if (!ptag) return json(400, { error: "bad_request" });
+        if (method === "GET")
+          return json(200, { notes: await manage.notesFor(tag, who, ptag) });
+        if (method === "POST")
+          return json(200, await manage.addNote(tag, who, ptag, body.text));
+      }
+      const note = /^\/notes\/([A-Za-z0-9_-]+)$/.exec(rest);
+      if (method === "DELETE" && note) {
+        await manage.removeNote(tag, who, note[1]);
+        return json(200, { ok: true });
+      }
+      if (method === "GET" && rest === "/standing")
+        return json(200, await manage.standing(tag, who, token));
+      if (method === "POST" && rest === "/scout") {
+        if (!["leader", "coLeader", "elder"].includes(who.role))
+          return json(403, { error: "elders_only" });
+        const policy = await manage.policyFor(tag);
+        const r = await scout({
+          token,
+          tagInput: body.tag,
+          policy: policy.values,
+        });
+        return json(r.ok ? 200 : r.status === 401 ? 401 : 400, r);
+      }
+      return json(404, { error: "not_found" });
+    } catch (err) {
+      if (err?.status) {
+        if (err.code === "session_expired")
+          return signedOut({ reason: "session_expired" });
+        return json(err.status, {
+          error: err.code,
+          ...(err.errors ? { errors: err.errors } : {}),
+        });
+      }
+      throw err;
+    }
+  }
+
   return async function handler(event) {
     const method = event.requestContext?.http?.method ?? event.httpMethod;
     const path = event.rawPath ?? event.path ?? "/";
     try {
+      if (manage && path.startsWith("/api/clans/")) {
+        const answered = await manageRoute(event, method, path);
+        if (answered) return answered;
+      }
       if (method === "GET" && path === "/api/health")
         return json(200, { ok: true });
       if (method === "GET" && path === "/auth/login") return await login();
