@@ -7,9 +7,12 @@
 
 import {
   CARD_TYPES,
+  DEPARTURE_CLASSIFICATIONS,
   cardFacts,
   cardRationale,
   defaults,
+  departuresFrom,
+  inGameCopy,
   diff as policyDiff,
   evaluate,
   nextSteps,
@@ -33,6 +36,7 @@ export const DECLINE_REASONS = [
 ];
 const LEADERS = new Set(["leader", "coLeader"]);
 const ELDER_PLUS = new Set(["leader", "coLeader", "elder"]);
+const DAY_MS = 86400_000;
 
 export class ManageError extends Error {
   constructor(status, code, message) {
@@ -55,6 +59,17 @@ export async function fetchParticipation(mcp, token, clanTag) {
       r.code === "not_recorded" ? "clan_not_recorded" : "elixir_unavailable",
       r.error,
     );
+  }
+  return r.body;
+}
+
+/** The roster with its recent join/leave/role events; null when Elixir
+ *  cannot answer (the evaluation goes on without the timeline). */
+export async function fetchRoster(mcp, token, clanTag) {
+  const r = await mcp.callTool(token, "clans_roster", { clan_tag: clanTag });
+  if (!r.ok) {
+    if (r.status === 401) throw new ManageError(401, "session_expired");
+    return null;
   }
   return r.body;
 }
@@ -111,6 +126,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       }));
     const holds = (await ledger.holds(clanTag)).map((h) => ({
       player_tag: h.player_tag,
+      kind: h.kind ?? "leader",
       until: h.until ?? null,
       by: h.by,
       note: h.note ?? null,
@@ -199,6 +215,44 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         });
       }
     }
+    // Departures the record shows and this ledger has not explained (a
+    // removal card marked Done explains its own): one card each, Kicked /
+    // Left / Ignore for a leader to say. The roster read is the source
+    // of the events; the previous snapshot lends the member's last line.
+    if (!participation) {
+      const roster = await fetchRoster(mcp, token, clanTag);
+      if (roster) {
+        const lastKnown = new Map(
+          (cached?.members ?? []).map((m) => [m.player_tag, m]),
+        );
+        const allCards = await ledger.cards(clanTag);
+        for (const d of departuresFrom(
+          roster.recent_events,
+          allCards,
+          lastKnown,
+        )) {
+          await ledger.putCard(clanTag, {
+            card_id: newId(),
+            clan_tag: clanTag,
+            player_tag: d.player_tag,
+            player_name: d.player_name ?? d.last?.name ?? null,
+            role_at_raise: d.role_before ?? d.last?.role ?? null,
+            type: "departure",
+            status: "proposed",
+            raised_at: new Date(t).toISOString(),
+            policy_version: policy.version,
+            evidence: {
+              left_at: d.left_at,
+              days_idle:
+                d.last?.facts?.days_idle ?? d.last?.removal?.days_idle ?? null,
+              tenure_days: d.last?.facts?.tenure_days ?? null,
+              removal_state: d.last?.removal?.state ?? null,
+              phrase: d.last ? participationPhrase(d.last) : null,
+            },
+          });
+        }
+      }
+    }
     // The snapshot is what the pages read; keep it small.
     const snapshot = {
       ...verdicts,
@@ -215,6 +269,13 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
   return {
     policyFor,
     evaluateClan,
+
+    /** Open cards, for the rail's count: a ledger read, no evaluation. */
+    async openCardCount(clanTag) {
+      return (await ledger.cards(clanTag)).filter(
+        (c) => c.status === "proposed",
+      ).length;
+    },
 
     /** The policy editor's data: fields with help, groups, current values, versions. */
     async policyView(clanTag, who) {
@@ -319,7 +380,18 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       const holdByTag = new Map(holds.map((h) => [h.player_tag, h]));
       const inbox = cards
         .filter((c) => c.status === "proposed")
-        .sort((a, b) => (a.evidence?.as_of < b.evidence?.as_of ? 1 : -1));
+        .sort((a, b) => (a.raised_at < b.raised_at ? 1 : -1))
+        .map((c) => ({
+          ...c,
+          copy:
+            c.type === "departure"
+              ? null
+              : inGameCopy(c.type, {
+                  name: c.player_name,
+                  days_idle: c.evidence?.days_idle ?? null,
+                  phrase: c.evidence?.phrase ?? "",
+                }),
+        }));
       const board = verdicts.members.map((m) => ({
         player_tag: m.player_tag,
         name: m.name,
@@ -359,25 +431,91 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       };
     },
 
-    async history(clanTag, who) {
+    async history(clanTag, who, token = null) {
       requireLeader(who);
       const cards = (await ledger.cards(clanTag))
         .filter((c) => c.status !== "proposed")
         .sort((a, b) => (a.raised_at < b.raised_at ? 1 : -1));
       const holds = await ledger.holds(clanTag);
-      return { cards, holds };
+      // The membership timeline: Elixir's recent join / leave / role
+      // events, each leave carrying what this ledger says about it, and
+      // a welcome line a leader can paste for a join.
+      const roster = token ? await fetchRoster(mcp, token, clanTag) : null;
+      const byTag = (tag) =>
+        cards.filter((c) => c.player_tag === tag && c.type === "departure");
+      const timeline = (roster?.recent_events ?? [])
+        .filter((e) => e.detail?.player_tag)
+        .map((e) => {
+          const tag = e.detail.player_tag;
+          const name = e.detail.name ?? null;
+          const explained =
+            e.type === "member_left"
+              ? (byTag(tag).find(
+                  (c) =>
+                    Math.abs(
+                      Date.parse(c.evidence?.left_at) - Date.parse(e.at),
+                    ) < DAY_MS,
+                ) ??
+                cards.find(
+                  (c) =>
+                    c.player_tag === tag &&
+                    c.type === "removal" &&
+                    c.status === "done" &&
+                    Date.parse(c.decided_at) <= Date.parse(e.at) + DAY_MS,
+                ) ??
+                null)
+              : null;
+          return {
+            type: e.type,
+            at: e.at,
+            player_tag: tag,
+            name,
+            role: e.detail.role ?? null,
+            role_before: e.detail.role_before ?? null,
+            role_after: e.detail.role_after ?? null,
+            // A Done removal followed by the leave IS the kick, whether or
+            // not the outcome pass has run since.
+            classification:
+              explained?.outcome?.classification ??
+              (explained?.type === "removal" ? "member_kicked" : null),
+            card_id: explained?.card_id ?? null,
+            copy:
+              e.type === "member_joined"
+                ? inGameCopy("welcome", { name })
+                : explained?.outcome?.classification === "member_left"
+                  ? inGameCopy("farewell", { name })
+                  : null,
+          };
+        })
+        .sort((a, b) => (a.at < b.at ? 1 : -1));
+      return {
+        cards,
+        holds,
+        timeline,
+        timeline_since: roster?.events_recorded_since ?? null,
+      };
     },
 
-    async decide(clanTag, who, cardId, { status, reason = null, note = null }) {
+    async decide(
+      clanTag,
+      who,
+      cardId,
+      { status, reason = null, note = null, classification = null },
+    ) {
       requireLeader(who);
-      if (status !== "done" && status !== "declined")
-        throw new ManageError(400, "bad_status");
-      if (status === "declined" && !DECLINE_REASONS.includes(reason))
-        throw new ManageError(400, "bad_reason");
       const card = await ledger.card(clanTag, cardId);
       if (!card) throw new ManageError(404, "no_card");
       // A decided card is frozen; a withdrawn card cannot be resurrected.
       if (card.status !== "proposed") throw new ManageError(409, "card_closed");
+      // A departure is answered, never declined: Kicked, Left or Ignore.
+      if (card.type === "departure") {
+        if (!DEPARTURE_CLASSIFICATIONS.includes(classification))
+          throw new ManageError(400, "bad_classification");
+        status = "done";
+      } else if (status !== "done" && status !== "declined")
+        throw new ManageError(400, "bad_status");
+      if (status === "declined" && !DECLINE_REASONS.includes(reason))
+        throw new ManageError(400, "bad_reason");
       const decided_at = new Date(now()).toISOString();
       const decided = {
         ...card,
@@ -386,6 +524,19 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         decided_by: who.player_tag,
         decline_reason: status === "declined" ? reason : null,
         decision_note: note,
+        ...(card.type === "departure"
+          ? {
+              outcome: {
+                verified_at: decided_at,
+                classification:
+                  classification === "kick"
+                    ? "member_kicked"
+                    : classification === "leave"
+                      ? "member_left"
+                      : "ignored",
+              },
+            }
+          : {}),
       };
       await ledger.putCard(clanTag, decided);
       return decided;
@@ -398,6 +549,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         throw new ManageError(400, "bad_until");
       return ledger.putHold(clanTag, {
         player_tag: playerTag,
+        kind: "leader",
         until,
         note,
         by: who.player_tag,
@@ -407,6 +559,53 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     async clearHold(clanTag, who, playerTag) {
       requireLeader(who);
       await ledger.removeHold(clanTag, playerTag);
+    },
+
+    // ---- away: a member says so on their own page (2026-09-12). The
+    // clock pauses like a leader's hold; the policy caps how long; a
+    // leader can clear it; the board says it was the member's word.
+    async myAway(clanTag, who) {
+      const holds = await ledger.holds(clanTag);
+      const mine = holds.find((h) => h.player_tag === who.player_tag) ?? null;
+      const policy = await policyFor(clanTag);
+      return {
+        allowed: policy.values.away_max_days > 0,
+        max_days: policy.values.away_max_days,
+        hold: mine,
+      };
+    },
+    async setAway(clanTag, who, { until, note = null }) {
+      const policy = await policyFor(clanTag);
+      const max = policy.values.away_max_days;
+      if (!(max > 0)) throw new ManageError(403, "away_off");
+      const untilMs = Date.parse(String(until ?? ""));
+      const t = now();
+      if (Number.isNaN(untilMs) || untilMs <= t)
+        throw new ManageError(400, "bad_until");
+      if (untilMs > t + max * DAY_MS) throw new ManageError(400, "too_long");
+      const existing = (await ledger.holds(clanTag)).find(
+        (h) => h.player_tag === who.player_tag,
+      );
+      // A leader's hold is the leader's; the member does not overwrite it.
+      if (existing && existing.kind !== "away")
+        throw new ManageError(409, "held_by_leader");
+      return ledger.putHold(clanTag, {
+        player_tag: who.player_tag,
+        kind: "away",
+        until: new Date(untilMs).toISOString(),
+        note: note ? String(note).slice(0, 200) : null,
+        by: who.player_tag,
+        set_at: new Date(t).toISOString(),
+      });
+    },
+    async clearAway(clanTag, who) {
+      const existing = (await ledger.holds(clanTag)).find(
+        (h) => h.player_tag === who.player_tag,
+      );
+      if (!existing) return;
+      if (existing.kind !== "away")
+        throw new ManageError(409, "held_by_leader");
+      await ledger.removeHold(clanTag, who.player_tag);
     },
 
     // ---- notes: elders write elder notes and read elder notes; leaders

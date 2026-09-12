@@ -1,0 +1,47 @@
+/**
+ * Departures: which member_left events the record shows that this ledger
+ * has not yet explained. elixir-bot raised a "Departure — Kicked, Left, or
+ * Ignore?" card on every leave, because a leave and a kick look identical
+ * in the roster diff and the ledger is the only place the difference can
+ * be recorded (a goodbye to a kicked member is wrong; awards and tenure
+ * read the record). Carried (Jamie, 2026-09-12: "we need that signal").
+ *
+ * A departure already explained by a removal card marked Done before it
+ * (the card's outcome verification records member_kicked) raises nothing.
+ * One card per (tag, observed leave); a rejoin and a second leave is a
+ * second card.
+ */
+
+const DAY_MS = 86400_000;
+
+/**
+ * @param {Array<{type:string, at:string, detail:object}>} events the roster's recent_events
+ * @param {Array} cards the ledger's cards
+ * @param {Map<string, object>} [lastKnown] tag → the last verdict line seen for the member
+ */
+export function departuresFrom(events, cards, lastKnown = new Map()) {
+  const explained = (tag, atMs) =>
+    cards.some(
+      (c) =>
+        c.player_tag === tag &&
+        ((c.type === "departure" &&
+          c.evidence?.left_at &&
+          Math.abs(Date.parse(c.evidence.left_at) - atMs) < DAY_MS) ||
+          (c.type === "removal" &&
+            c.status === "done" &&
+            c.decided_at &&
+            Date.parse(c.decided_at) <= atMs + DAY_MS)),
+    );
+  return (events ?? [])
+    .filter((e) => e.type === "member_left" && e.detail?.player_tag)
+    .map((e) => ({
+      player_tag: e.detail.player_tag,
+      player_name: e.detail.name ?? null,
+      left_at: e.at,
+      role_before: e.detail.role ?? null,
+      last: lastKnown.get(e.detail.player_tag) ?? null,
+    }))
+    .filter((d) => !explained(d.player_tag, Date.parse(d.left_at)));
+}
+
+export const DEPARTURE_CLASSIFICATIONS = ["kick", "leave", "ignore"];

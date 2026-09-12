@@ -4,3 +4,4 @@ export * from "./standing.mjs";
 export * from "./evaluate.mjs";
 export * from "./render.mjs";
 export * from "./awards.mjs";
+export * from "./departures.mjs";

@@ -29,9 +29,10 @@ removal clock, action cards leaders decide, notes, holds, and scouting.
 ## Layout
 
 ```
-apps/web/          React 18 + Vite SPA: /, /clans, /clan/<TAG>, /clan/<TAG>/standing,
-                   /clan/<TAG>/manage/{inbox,board,history,policy,awards,scout},
-                   /clan/<TAG>/how-elder-works (public), /you, /refused/<reason>
+apps/web/          React 18 + Vite SPA with Elixir's left rail: /, /clans, /clan/<TAG>,
+                   /clan/<TAG>/standing, /clan/<TAG>/manage/{inbox,board,history,policy,awards,scout},
+                   /clan/<TAG>/how-elder-works (public), /you, /you/away, /feedback,
+                   /maintain/feedback, /refused/<reason>
 services/engine/   the management engine, PURE: policy schema, facts, standing,
                    evaluate, render, awards. No I/O, no clock. Golden tests in test/.
 services/api/      Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*,
@@ -210,6 +211,27 @@ on the SNS topic `elixir-clan-feedback` (`FeedbackNotifyEmail` subscribes an
 address; the agent team's Close-the-Loop owner reads by script,
 `scripts/feedback.mjs`). Feedback is not an incident: it never goes to the
 alarm topic.
+
+## Fourth push (2026-09-12): what was carried from elixir-bot, and what was not
+
+Reviewed elixir-bot's whole management surface against this product. Carried:
+**departure cards** (every `member_left` in Elixir's roster events that no
+Done removal card explains raises a card; a leader answers Kicked / Left /
+Ignore, never declines; the classification is the ledger's leave-vs-kick
+record and the timeline shows it); **away** (a member marks themselves away
+on `/you/away` for up to `away_max_days`; it is a hold of kind `away`, the
+clock pauses, leaders see it on the board and can clear it, a leader's own
+hold is not the member's to move); the **membership timeline** in History
+(joins, leaves, role changes from `clans_roster.recent_events`); **paste-ready
+in-game copy** on cards and timeline rows (`inGameCopy`: plain sentences,
+200 characters, no "&" or "+digits", the game's filter). The rail is
+Elixir's console rail, groups and all.
+
+Not carried, by decision (Jamie): scheduled evaluation stays a next-push
+item; premise-fingerprint re-nomination, member shields and the weekly
+digest are not features here; **alt accounts are Elixir's knowledge** (a
+fact request to Elixir if ever needed, never recorded here); Discord
+webhooks are deferred, coming later. The bot's narration lanes never move.
 
 ## Roles in Manage
 

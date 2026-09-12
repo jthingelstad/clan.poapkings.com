@@ -363,6 +363,11 @@ export function createHandler({
     );
     if (feedback && person)
       body.feedback_unseen = await feedback.unseen(person).catch(() => 0);
+    // The rail's Inbox count, for a leader: what is waiting, no evaluation.
+    if (manage && selected && ["leader", "coLeader"].includes(selected.role))
+      body.open_cards = await manage
+        .openCardCount(selected.clan_tag)
+        .catch(() => 0);
     return json(200, body);
   }
 
@@ -595,7 +600,17 @@ export function createHandler({
           }),
         );
       if (method === "GET" && rest === "/history")
-        return json(200, await manage.history(tag, who));
+        return json(200, await manage.history(tag, who, token));
+      // A member's own away: their page, their word, the policy's cap.
+      if (rest === "/me/away") {
+        if (method === "GET") return json(200, await manage.myAway(tag, who));
+        if (method === "PUT")
+          return json(200, await manage.setAway(tag, who, body));
+        if (method === "DELETE") {
+          await manage.clearAway(tag, who);
+          return json(200, { ok: true });
+        }
+      }
       if (method === "GET" && rest === "/policy")
         return json(200, await manage.policyView(tag, who));
       if (method === "POST" && rest === "/policy")

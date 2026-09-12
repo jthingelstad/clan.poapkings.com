@@ -12,14 +12,15 @@ import {
   req,
   signIn,
   cookieHeader,
+  rosterBody,
 } from "./fakes.mjs";
 import { member, participation, NOW } from "../../engine/test/fixture.mjs";
 
 const DAY = 86400_000;
 
 /** A door that also answers clans_participation and the scout's live reads. */
-function door({ players, part, profile = null, log = null }) {
-  const mcp = fakeMcp({ players });
+function door({ players, part, profile = null, log = null, roster = null }) {
+  const mcp = fakeMcp({ players, roster });
   const inner = mcp.callTool.bind(mcp);
   mcp.callTool = async (token, name, args) => {
     mcp.calls.push([name, token, args]);
@@ -534,4 +535,220 @@ test("ManageError carries a status and code", () => {
   const e = new ManageError(403, "leaders_only");
   assert.equal(e.status, 403);
   assert.equal(e.code, "leaders_only");
+});
+
+// ---- fourth push (2026-09-12): departures, away, the timeline, copy ---------
+
+const leftEvents = (extra = []) => ({
+  ...rosterBody([]),
+  events_recorded_since: "2026-09-03T00:00:00.000Z",
+  recent_events: [
+    {
+      type: "member_left",
+      at: "2026-09-11T20:00:00.000Z",
+      detail: { player_tag: "#GONE1", name: "Gone One", role: "member" },
+    },
+    {
+      type: "member_joined",
+      at: "2026-09-10T20:00:00.000Z",
+      detail: { player_tag: "#NEW1", name: "New One", role: "member" },
+    },
+    {
+      type: "role_changed",
+      at: "2026-09-09T20:00:00.000Z",
+      detail: {
+        player_tag: "#O1",
+        name: "O1",
+        role_before: "member",
+        role_after: "elder",
+      },
+    },
+    ...extra,
+  ],
+});
+
+test("departures: every unexplained member_left raises one card; Kicked / Left / Ignore answers it; a Done removal explains its own", async () => {
+  const h = harness({ part: partClan(), roster: leftEvents() });
+  const cookies = await leader(h);
+  const first = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const dep = first.body.inbox.filter((c) => c.type === "departure");
+  assert.equal(dep.length, 1);
+  assert.equal(dep[0].player_tag, "#GONE1");
+  assert.equal(dep[0].evidence.left_at, "2026-09-11T20:00:00.000Z");
+  assert.equal(dep[0].copy, null, "nothing to paste until it is classified");
+  // A second look raises no duplicate.
+  const again = await api(
+    h,
+    cookies,
+    "GET",
+    "/api/clans/J2RGCRVG/manage?refresh=1",
+  );
+  assert.equal(
+    again.body.inbox.filter((c) => c.type === "departure").length,
+    1,
+  );
+  // It is answered, never declined.
+  const declined = await api(
+    h,
+    cookies,
+    "POST",
+    `/api/clans/J2RGCRVG/cards/${dep[0].card_id}/decide`,
+    {
+      status: "declined",
+      reason: "not_now",
+    },
+  );
+  assert.equal(declined.status, 400);
+  assert.equal(declined.body.error, "bad_classification");
+  const left = await api(
+    h,
+    cookies,
+    "POST",
+    `/api/clans/J2RGCRVG/cards/${dep[0].card_id}/decide`,
+    {
+      classification: "leave",
+    },
+  );
+  assert.equal(left.status, 200, JSON.stringify(left.body));
+  assert.equal(left.body.status, "done");
+  assert.equal(left.body.outcome.classification, "member_left");
+  // The timeline carries it, with a farewell to paste and a welcome for the join.
+  const hist = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  assert.equal(hist.status, 200);
+  const t = hist.body.timeline;
+  assert.deepEqual(
+    t.map((e) => [e.type, e.player_tag, e.classification]),
+    [
+      ["member_left", "#GONE1", "member_left"],
+      ["member_joined", "#NEW1", null],
+      ["role_changed", "#O1", null],
+    ],
+  );
+  assert.match(t[0].copy, /Thanks for your time with us Gone One/);
+  assert.match(t[1].copy, /Welcome New One/);
+  assert.equal(t[2].role_after, "elder");
+
+  // Sleepy is carded for removal, marked Done, then leaves: no departure card.
+  const removal = first.body.inbox.find((c) => c.type === "removal");
+  await api(
+    h,
+    cookies,
+    "POST",
+    `/api/clans/J2RGCRVG/cards/${removal.card_id}/decide`,
+    { status: "done" },
+  );
+  h.mcp.state.roster = leftEvents([
+    {
+      type: "member_left",
+      at: "2026-09-12T21:00:00.000Z",
+      detail: { player_tag: "#8QCV", name: "Sleepy", role: "member" },
+    },
+  ]);
+  h.clock.t += 60 * 60_000;
+  const after = await api(
+    h,
+    cookies,
+    "GET",
+    "/api/clans/J2RGCRVG/manage?refresh=1",
+  );
+  assert.ok(
+    !after.body.inbox.some(
+      (c) => c.type === "departure" && c.player_tag === "#8QCV",
+    ),
+  );
+  const hist2 = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  const sleepy = hist2.body.timeline.find((e) => e.player_tag === "#8QCV");
+  assert.equal(
+    sleepy.classification,
+    "member_kicked",
+    "the removal card explains it",
+  );
+  assert.equal(sleepy.copy, null, "no farewell for a kick");
+});
+
+test("cards: the inbox carries paste-ready in-game copy, clan-chat safe", async () => {
+  const h = harness({ part: partClan() });
+  const cookies = await leader(h);
+  const r = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const removal = r.body.inbox.find((c) => c.type === "removal");
+  assert.match(
+    removal.copy,
+    /^Sleepy was removed for inactivity \(20 days without a battle\)/,
+  );
+  assert.ok(removal.copy.length <= 200);
+  assert.doesNotMatch(removal.copy, /[&]|\+\d/);
+});
+
+test("away: a member marks themselves away within the policy's cap; the clock pauses; a leader can clear it; a leader's hold is not theirs to move", async () => {
+  const ledger = createMemoryLedger();
+  const member = harness({
+    players: [
+      player({ player_tag: "#8QCV", name: "Sleepy", clan_role: "member" }),
+    ],
+    part: partClan(),
+    ledger,
+  });
+  const mc = await leader(member);
+  const before = await api(member, mc, "GET", "/api/clans/J2RGCRVG/me/away");
+  assert.deepEqual(before.body, { allowed: true, max_days: 30, hold: null });
+  const tooLong = await api(member, mc, "PUT", "/api/clans/J2RGCRVG/me/away", {
+    until: new Date(NOW.getTime() + 45 * DAY).toISOString(),
+  });
+  assert.equal(tooLong.status, 400);
+  assert.equal(tooLong.body.error, "too_long");
+  const set = await api(member, mc, "PUT", "/api/clans/J2RGCRVG/me/away", {
+    until: new Date(NOW.getTime() + 10 * DAY).toISOString(),
+    note: "Holiday, back on the 22nd",
+  });
+  assert.equal(set.status, 200, JSON.stringify(set.body));
+  assert.equal(set.body.kind, "away");
+  assert.equal(set.body.by, "#8QCV");
+
+  const lead = harness({ part: partClan(), ledger });
+  const lc = await leader(lead);
+  const view = await api(
+    lead,
+    lc,
+    "GET",
+    "/api/clans/J2RGCRVG/manage?refresh=1",
+  );
+  const row = view.body.board.find((m) => m.player_tag === "#8QCV");
+  assert.equal(row.hold.kind, "away");
+  assert.equal(
+    row.removal.state,
+    "at_risk",
+    "on hold the clock stops at at-risk",
+  );
+  assert.ok(
+    !view.body.inbox.some(
+      (c) => c.type === "removal" && c.player_tag === "#8QCV",
+    ),
+  );
+
+  // A leader replaces it with their own hold; the member can no longer move it.
+  await api(lead, lc, "PUT", "/api/clans/J2RGCRVG/holds/8QCV", {
+    until: null,
+    note: "leader hold",
+  });
+  const blocked = await api(
+    member,
+    mc,
+    "DELETE",
+    "/api/clans/J2RGCRVG/me/away",
+  );
+  assert.equal(blocked.status, 409);
+  await api(lead, lc, "DELETE", "/api/clans/J2RGCRVG/holds/8QCV");
+  const cleared = await api(member, mc, "GET", "/api/clans/J2RGCRVG/me/away");
+  assert.equal(cleared.body.hold, null);
+
+  // The policy can turn it off.
+  const pol = (await api(lead, lc, "GET", "/api/clans/J2RGCRVG/policy")).body
+    .current.values;
+  await api(lead, lc, "POST", "/api/clans/J2RGCRVG/policy", {
+    values: { ...pol, away_max_days: 0 },
+  });
+  const off = await api(member, mc, "PUT", "/api/clans/J2RGCRVG/me/away", {
+    until: new Date(NOW.getTime() + 2 * DAY).toISOString(),
+  });
+  assert.equal(off.status, 403);
 });

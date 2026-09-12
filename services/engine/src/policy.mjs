@@ -303,6 +303,16 @@ export const FIELDS = {
     default: 50,
     why: "The game's clan size; open slots are the cap minus the active roster.",
   },
+  away_max_days: {
+    group: "removal",
+    label: "Members may mark themselves away for",
+    unit: "days at most",
+    type: "integer",
+    min: 0,
+    max: 90,
+    default: 30,
+    why: "A member who tells the clan they will be away pauses their own clock, up to this long (0 turns it off; leaders can always hold or clear). elixir-bot took this by chat; here the member says it on their own page.",
+  },
   outcome_window_hours: {
     group: "removal",
     label: "Outcome window",

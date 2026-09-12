@@ -246,3 +246,33 @@ the product's business, not a clan's. Notification is an SNS topic of its
 own (`elixir-clan-feedback`) with an optional email subscription, separate
 from the alarm topic because feedback is not an incident; the agent team
 reads the queue by script. 3 API tests over the real handler, 4 web tests.
+
+## 2026-09-12 — Fourth push: departures, away, the timeline, copy, the rail
+
+Jamie asked for a gap analysis of elixir-bot's management features against
+this product and picked what moves: departure cards ("we need that
+signal"), a member-set away ("they could go there and indicate they are
+away": the biggest one, and elixir-bot's leave note by chat becomes the
+member's own page), the membership timeline and paste-ready in-game copy.
+Declined or deferred: scheduled evaluation (not picked this round),
+premise-fingerprint re-nomination, member shields, the weekly digest
+("very much may not be features"), alt-of ("Elixir knows alts", so a fact
+to get from Elixir if ever, never recorded here), Discord webhooks
+("coming but not yet"). And the left rail is now Elixir's console rail,
+because "that is where we are going. Claude Design is next."
+
+Built: `services/engine/src/departures.mjs` (pure: unexplained
+member_left events → cards; a Done removal before the leave explains its
+own) and `inGameCopy` in render; `away_max_days` on the policy (default
+30, 0 off); holds carry `kind: leader | away`; `/api/clans/<TAG>/me/away`
+GET/PUT/DELETE; departure cards decide with `classification`
+kick|leave|ignore → outcome `member_kicked | member_left | ignored`;
+History answers a `timeline` from the roster's recent events; `/api/me`
+carries `open_cards` for the rail. Web: `components/Rail.jsx` (Elixir's
+structure: Clan, Standing; Manage group for leaders with Awards and Scout
+also for elders; You group with Players, Away, Feedback; Maintain for the
+maintainer; the identity block with the sign-out form), the chrome reduced
+to the wordmark and the Elixir link, `views/Away.jsx`, departure cards
+with three buttons, CopyLine on cards and timeline rows. 3 API tests, 2
+web tests. One design note for the pass to come: `/you` is "Players" in
+the rail and "You" on the page; the design pass should name it once.

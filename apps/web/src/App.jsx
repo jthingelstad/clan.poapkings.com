@@ -10,6 +10,8 @@ import { Standing } from "./views/Standing.jsx";
 import { Landing } from "./views/Landing.jsx";
 import { Refused } from "./views/Refused.jsx";
 import { You } from "./views/You.jsx";
+import { Away } from "./views/Away.jsx";
+import { Rail } from "./components/Rail.jsx";
 import { Feedback, FeedbackItem } from "./views/Feedback.jsx";
 import { MaintainItem, MaintainQueue } from "./views/Maintain.jsx";
 
@@ -57,8 +59,24 @@ export function clanFromPath(path, clans = []) {
   return clans.find((c) => c.clan_tag === parsed.tag) ?? null;
 }
 
+/** Elixir's breakpoint: below it the rail is a disclosure above the page. */
+function useNarrow() {
+  const [narrow, setNarrow] = useState(
+    () => window.matchMedia?.("(max-width: 900px)").matches ?? false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia?.("(max-width: 900px)");
+    if (!mq?.addEventListener) return undefined;
+    const on = (e) => setNarrow(e.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return narrow;
+}
+
 export function App() {
   const [path, navigate] = usePath();
+  const narrow = useNarrow();
   const [me, setMe] = useState(null); // null = not asked yet
   const [checking, setChecking] = useState(false);
   const [selecting, setSelecting] = useState(false);
@@ -110,7 +128,7 @@ export function App() {
     if (!me.ok) {
       if (
         !path.startsWith("/refused/") &&
-        path !== "/you" &&
+        !path.startsWith("/you") &&
         !path.startsWith("/feedback")
       )
         navigate(`/refused/${me.reason}`);
@@ -150,6 +168,7 @@ export function App() {
       </div>
     );
   else if (path === "/you") view = <You me={me} />;
+  else if (path === "/you/away") view = <Away me={me} />;
   else if (path === "/feedback")
     view = <Feedback me={me} navigate={navigate} />;
   else if (/^\/feedback\/[A-Za-z0-9_-]+$/.test(path))
@@ -212,20 +231,40 @@ export function App() {
       );
   }
 
+  // The rail belongs to a signed-in person with somewhere to go: their
+  // clan pages, or their own pages while the gate still refuses them.
+  const showRail =
+    Boolean(me?.signed_in) &&
+    !me.unavailable &&
+    !publicPage &&
+    (me.ok || path.startsWith("/you") || path.startsWith("/feedback"));
+
   return (
     <div className="shell">
       <Chrome me={me} navigate={navigate} path={path} />
-      <main
-        className="page"
-        style={{ maxWidth: "var(--page-max)", margin: "0 auto", width: "100%" }}
+      <div
+        style={{
+          maxWidth: "var(--page-max)",
+          margin: "0 auto",
+          width: "100%",
+          display: "flex",
+          alignItems: "stretch",
+          flexDirection: narrow ? "column" : "row",
+          flex: "1 1 auto",
+        }}
       >
-        <div
-          className="page__inner page__inner--solo"
-          style={{ maxWidth: "var(--page-max)" }}
-        >
-          {view}
-        </div>
-      </main>
+        {showRail ? (
+          <Rail me={me} path={path} navigate={navigate} narrow={narrow} />
+        ) : null}
+        <main className="page">
+          <div
+            className={`page__inner${showRail ? "" : " page__inner--solo"}`}
+            style={showRail ? undefined : { maxWidth: "var(--page-max)" }}
+          >
+            {view}
+          </div>
+        </main>
+      </div>
       <Disclaimer />
     </div>
   );

@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { Feedback, FeedbackItem } from "../src/views/Feedback.jsx";
 import { MaintainItem } from "../src/views/Maintain.jsx";
-import { Chrome } from "../src/components/Chrome.jsx";
+import { Rail, railItems, railKey } from "../src/components/Rail.jsx";
 import { feedbackApi } from "../src/api.js";
 
 afterEach(() => {
@@ -144,19 +144,62 @@ describe("feedback", () => {
     );
   });
 
-  test("the chrome marks unseen replies and shows Maintain only to the maintainer", () => {
-    render(<Chrome me={me} navigate={vi.fn()} path="/you" />);
-    expect(screen.getByLabelText("2 new")).toBeTruthy();
-    expect(screen.queryByText("Maintain")).toBeNull();
+  test("the rail marks unseen replies and shows Maintain only to the maintainer", () => {
+    render(<Rail me={me} navigate={vi.fn()} path="/you" narrow={false} />);
+    expect(screen.getByLabelText("2 new replies")).toBeTruthy();
+    expect(screen.queryByText("Feedback queue")).toBeNull();
     cleanup();
     render(
-      <Chrome
+      <Rail
         me={{ ...me, maintainer: true, feedback_unseen: 0 }}
         navigate={vi.fn()}
-        path="/you"
+        path="/maintain/feedback"
+        narrow={false}
       />,
     );
-    expect(screen.getByText("Maintain")).toBeTruthy();
+    expect(screen.getByText("Feedback queue")).toBeTruthy();
     expect(screen.queryByLabelText(/new/)).toBeNull();
+  });
+
+  test("the rail offers Manage to leaders, Awards and Scout to elders, and neither to members", () => {
+    const keys = (role) =>
+      railItems({ ...me, selected: { ...me.selected, role } }).map(
+        (r) => r.key,
+      );
+    expect(keys("leader")).toEqual([
+      "clan",
+      "standing",
+      "inbox",
+      "board",
+      "history",
+      "policy",
+      "awards",
+      "scout",
+      "you",
+      "away",
+      "feedback",
+    ]);
+    expect(keys("elder")).toEqual([
+      "clan",
+      "standing",
+      "awards",
+      "scout",
+      "you",
+      "away",
+      "feedback",
+    ]);
+    expect(keys("member")).toEqual([
+      "clan",
+      "standing",
+      "you",
+      "away",
+      "feedback",
+    ]);
+    expect(railItems({ ...me, clans: [{}, {}] })[0].key).toBe("clans");
+    expect(railKey("/clan/J2RGCRVG")).toBe("clan");
+    expect(railKey("/clan/J2RGCRVG/manage")).toBe("inbox");
+    expect(railKey("/clan/J2RGCRVG/manage/awards")).toBe("awards");
+    expect(railKey("/you/away")).toBe("away");
+    expect(railKey("/feedback/abc")).toBe("feedback");
   });
 });

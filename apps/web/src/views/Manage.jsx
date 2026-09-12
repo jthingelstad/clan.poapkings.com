@@ -7,20 +7,22 @@ import { Policy } from "./Policy.jsx";
 import { Scout } from "./Scout.jsx";
 import { Awards } from "./Awards.jsx";
 import { ago } from "../lib/time.js";
+import { Icon } from "../components/Icon.jsx";
 
-const TABS = [
-  ["inbox", "Inbox"],
-  ["board", "Board"],
-  ["history", "History"],
-  ["policy", "Policy"],
-  ["awards", "Awards"],
-  ["scout", "Scout"],
-];
+const TITLES = {
+  inbox: "Inbox",
+  board: "Board",
+  history: "History",
+  policy: "Policy",
+  awards: "Awards",
+  scout: "Scout",
+};
 
 const TYPE_LABEL = {
   promotion: "Promote to Elder",
   demotion: "Demote to Member",
   removal: "Remove from the clan",
+  departure: "Departure: kicked, left, or ignore?",
 };
 const BUCKET_LABEL = {
   actionable: "Actionable",
@@ -53,10 +55,9 @@ export function Manage({ clan, tab, navigate, who }) {
     window.location.assign("/?error=session_expired");
     return null;
   }
-  const base = `/clan/${clan.clan_tag.slice(1)}/manage`;
   const head = (
     <div className="page-head" style={{ alignItems: "center" }}>
-      <h1 className="page__title">Manage</h1>
+      <h1 className="page__title">{TITLES[tab] ?? "Manage"}</h1>
       <span className="chip">
         <span className="yours">★</span> {clan.acting_as_name ?? clan.acting_as}
         <span style={{ color: "var(--ink-faint)" }}>·</span>
@@ -69,34 +70,9 @@ export function Manage({ clan, tab, navigate, who }) {
       ) : null}
     </div>
   );
-  const tabs = (
-    <nav
-      className="segmented"
-      aria-label="Manage sections"
-      style={{
-        marginBottom: "18px",
-        display: "flex",
-        gap: "6px",
-        flexWrap: "wrap",
-      }}
-    >
-      {TABS.map(([key, label]) => (
-        <a
-          key={key}
-          className={`btn btn--sm${tab === key ? " btn--selected" : ""}`}
-          href={`${base}/${key}`}
-          aria-current={tab === key ? "page" : undefined}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(`${base}/${key}`);
-          }}
-        >
-          {label}
-          {key === "inbox" && state.data ? ` · ${state.data.inbox.length}` : ""}
-        </a>
-      ))}
-    </nav>
-  );
+  // The rail carries the sections now (2026-09-12); nothing to repeat here.
+  const tabs = null;
+  void navigate;
   if (tab === "policy")
     return (
       <>
@@ -243,8 +219,12 @@ export function Manage({ clan, tab, navigate, who }) {
                             <span
                               className="chip chip--info"
                               style={{ marginLeft: "6px" }}
+                              title={m.hold.note ?? undefined}
                             >
-                              hold
+                              {m.hold.kind === "away" ? "away" : "hold"}
+                              {m.hold.until
+                                ? ` · ${m.hold.until.slice(0, 10)}`
+                                : ""}
                             </span>
                           ) : null}
                           {sheet(m)}
@@ -269,7 +249,7 @@ export function Manage({ clan, tab, navigate, who }) {
       </>
     );
   // Inbox
-  const groups = ["removal", "promotion", "demotion"]
+  const groups = ["departure", "removal", "promotion", "demotion"]
     .map((t) => [t, d.inbox.filter((c) => c.type === t)])
     .filter(([, cs]) => cs.length);
   return (
@@ -382,13 +362,14 @@ function Card({ card, clan, reasons, onDecided, who }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sheet, setSheet] = useState(false);
-  const decide = async (status) => {
+  const decide = async (status, classification = null) => {
     setBusy(true);
     setError("");
     const r = await manageApi.decide(clan.clan_tag, card.card_id, {
       status,
       reason: status === "declined" ? reason : null,
       note: note || null,
+      ...(classification ? { classification } : {}),
     });
     setBusy(false);
     if (!r.ok)
@@ -416,7 +397,25 @@ function Card({ card, clan, reasons, onDecided, who }) {
       </div>
       <div className="panel__body" style={{ display: "grid", gap: "10px" }}>
         <div style={{ fontWeight: 600 }}>{TYPE_LABEL[card.type]}</div>
-        <div>{ev.rationale?.headline}</div>
+        {card.type === "departure" ? (
+          <div>
+            Left the clan {ago(ev.left_at)} ({ev.left_at?.slice(0, 10)})
+            {ev.removal_state && ev.removal_state !== "none"
+              ? ` · was ${ev.removal_state.replaceAll("_", " ")} on the clock`
+              : ""}
+            {ev.days_idle !== null && ev.days_idle !== undefined
+              ? ` · ${Math.round(ev.days_idle)} days since their last battle`
+              : ""}
+            {ev.tenure_days !== null && ev.tenure_days !== undefined
+              ? ` · ${ev.tenure_days} days in the clan`
+              : ""}
+            . A leave and a kick look the same in the record; say which so the
+            ledger knows.
+          </div>
+        ) : (
+          <div>{ev.rationale?.headline}</div>
+        )}
+        {card.copy ? <CopyLine text={card.copy} /> : null}
         <ul
           style={{
             margin: 0,
@@ -451,7 +450,34 @@ function Card({ card, clan, reasons, onDecided, who }) {
           ))}
           · raised {ago(card.raised_at)}
         </div>
-        {!declining ? (
+        {card.type === "departure" ? (
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn btn--danger"
+              disabled={busy}
+              onClick={() => decide("done", "kick")}
+            >
+              Kicked
+            </button>
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={busy}
+              onClick={() => decide("done", "leave")}
+            >
+              Left
+            </button>
+            <button
+              type="button"
+              className="btn btn--quiet"
+              disabled={busy}
+              onClick={() => decide("done", "ignore")}
+            >
+              Ignore
+            </button>
+          </div>
+        ) : !declining ? (
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <button
               type="button"
@@ -543,16 +569,135 @@ function Card({ card, clan, reasons, onDecided, who }) {
   );
 }
 
+/** Paste-ready in-game copy: the bot's relay without the bot. */
+function CopyLine({ text }) {
+  const [done, setDone] = useState(false);
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: "8px",
+        alignItems: "flex-start",
+        background: "var(--ground-sunken)",
+        border: "1px solid var(--line-soft)",
+        borderRadius: "8px",
+        padding: "8px 10px",
+        fontSize: "13px",
+      }}
+    >
+      <span style={{ flex: "1 1 auto" }}>{text}</span>
+      <button
+        type="button"
+        className="btn btn--sm"
+        title="Copy for clan chat"
+        aria-label="Copy for clan chat"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(text);
+            setDone(true);
+            setTimeout(() => setDone(false), 1500);
+          } catch {
+            // The line is on screen to select by hand.
+          }
+        }}
+      >
+        <Icon name={done ? "check" : "copy"} size={14} />
+      </button>
+    </div>
+  );
+}
+
+const EVENT_LABEL = {
+  member_joined: "joined",
+  member_left: "left",
+  role_changed: "role changed",
+};
+const CLASS_LABEL = {
+  member_kicked: "kicked",
+  member_left: "left",
+  ignored: "ignored",
+};
+
 function History({ clan }) {
   const [data, setData] = useState(null);
   useEffect(() => {
     manageApi
       .history(clan.clan_tag)
-      .then((r) => setData(r.ok ? r.data : { cards: [], holds: [] }));
+      .then((r) =>
+        setData(r.ok ? r.data : { cards: [], holds: [], timeline: [] }),
+      );
   }, [clan.clan_tag]);
   if (!data) return <p className="page__lede">Loading…</p>;
+  const timeline = data.timeline ?? [];
   return (
     <>
+      <div className="label" style={{ margin: "0 0 8px" }}>
+        Membership
+        {data.timeline_since
+          ? ` · as the record saw it since ${data.timeline_since.slice(0, 10)}`
+          : ""}
+      </div>
+      {timeline.length === 0 ? (
+        <p className="page__lede" style={{ margin: "0 0 18px" }}>
+          No join, leave or role change on record yet.
+        </p>
+      ) : (
+        <div className="table__scroll" style={{ marginBottom: "22px" }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Member</th>
+                <th>What</th>
+                <th>Says the ledger</th>
+                <th>In-game</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timeline.map((e) => (
+                <tr key={`${e.type}-${e.player_tag}-${e.at}`}>
+                  <td>{e.at.slice(0, 10)}</td>
+                  <td>
+                    {e.name ?? e.player_tag}{" "}
+                    <span className="tag">{e.player_tag}</span>
+                  </td>
+                  <td>
+                    {EVENT_LABEL[e.type] ?? e.type}
+                    {e.type === "role_changed" && e.role_after
+                      ? `: ${e.role_before ?? "?"} → ${e.role_after}`
+                      : ""}
+                  </td>
+                  <td>
+                    {e.type !== "member_left" ? (
+                      <span className="nil">—</span>
+                    ) : e.classification ? (
+                      <span
+                        className={`chip ${e.classification === "member_kicked" ? "chip--warn" : "chip--ok"}`}
+                      >
+                        {CLASS_LABEL[e.classification]}
+                      </span>
+                    ) : (
+                      <span className="chip chip--info">
+                        unanswered (Inbox)
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ whiteSpace: "normal", minWidth: "260px" }}>
+                    {e.copy ? (
+                      <CopyLine text={e.copy} />
+                    ) : (
+                      <span className="nil">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="label" style={{ margin: "0 0 8px" }}>
+        Cards
+      </div>
       <div className="table__scroll">
         <table className="table">
           <thead>
@@ -630,6 +775,7 @@ function History({ clan }) {
             {data.holds.map((h) => (
               <li key={h.player_tag}>
                 <span className="tag">{h.player_tag}</span>{" "}
+                {h.kind === "away" ? "away " : ""}
                 {h.until ? `until ${h.until.slice(0, 10)}` : "open-ended"} · set
                 by {h.by} on {h.set_at.slice(0, 10)}
                 {h.note ? ` · ${h.note}` : ""}

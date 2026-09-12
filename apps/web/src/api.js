@@ -156,6 +156,10 @@ export const manageApi = {
   standing: (tag) => get(`${clanBase(tag)}/standing`),
   scout: (tag, playerTag) => post(`${clanBase(tag)}/scout`, { tag: playerTag }),
   howElderWorks: (tag) => get(`${clanBase(tag)}/how-elder-works`),
+  // Away: the member's own word (2026-09-12).
+  myAway: (tag) => get(`${clanBase(tag)}/me/away`),
+  setAway: (tag, body) => put(`${clanBase(tag)}/me/away`, body),
+  clearAway: (tag) => del(`${clanBase(tag)}/me/away`),
   // Awards (2026-09-12): the leader view, the document, grants by hand,
   // and a member's trophy case.
   awards: (tag, refresh = false) =>

@@ -185,3 +185,25 @@ export function nextSteps(v, policy) {
     );
   return steps.slice(0, 2);
 }
+
+/**
+ * Paste-ready in-game copy for a card or a timeline moment: the bot's
+ * relay cards without the bot. Plain sentences a leader can drop in clan
+ * chat as they are or edit first. Clan chat clips at 200 characters and
+ * the game's filter censors "&" and "+" followed by digits, so neither
+ * appears here (elixir-bot's clan_chat_copy guardrail).
+ */
+export function inGameCopy(kind, { name, days_idle = null, phrase = "" } = {}) {
+  const who = String(name ?? "a member")
+    .replace(/[&+]/g, " ")
+    .trim();
+  const text = {
+    promotion: `Congrats ${who}, promoted to Elder for showing up: ${phrase || "war days played, ranked battles, donations"}. Keep it going.`,
+    demotion: `${who} steps down from Elder for now: participation slipped over the last weeks. Play war days and it comes back.`,
+    removal: `${who} was removed for inactivity (${days_idle === null ? "a long stretch" : `${Math.round(days_idle)} days`} without a battle). Always welcome back when you are playing again.`,
+    welcome: `Welcome ${who}! Play your war days and donate; that is how Elder works here.`,
+    farewell: `Thanks for your time with us ${who}, good luck out there.`,
+  }[kind];
+  if (!text) return null;
+  return text.length > 200 ? `${text.slice(0, 197).trimEnd()}...` : text;
+}
