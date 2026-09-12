@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react"],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "builtin": true,
+    "browser": true,
+    "node": true,
+    "es2026": true
+  },
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**"],
+  "rules": {
+    "eqeqeq": ["error", "smart"],
+    "no-else-return": "error",
+    "no-implicit-coercion": ["error", { "allow": ["!!"] }],
+    "no-unused-expressions": "error",
+    "no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "caughtErrors": "none" }
+    ],
+    "no-var": "error",
+    "object-shorthand": ["error", "always"],
+    "prefer-const": ["error", { "destructuring": "all" }],
+    "react/react-in-jsx-scope": "allow",
+    "react/exhaustive-deps": "warn",
+    "react/rules-of-hooks": "error",
+    "react/set-state-in-effect": "allow"
+  }
+}

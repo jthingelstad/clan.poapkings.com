@@ -1,0 +1,31 @@
+{
+  "name": "elixir-clan",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Elixir Clan - being in a clan, on top of Elixir. Unofficial; not endorsed by Supercell.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "infra"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "npm test -ws --if-present",
+    "lint": "oxlint --deny-warnings --report-unused-disable-directives .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run format:check && npm run lint && npm run test",
+    "build": "npm run build -w @elixir-clan/web",
+    "deploy": "node infra/scripts/deploy.mjs",
+    "deploy:web": "node infra/scripts/deploy-web.mjs",
+    "smoke": "node infra/scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "oxlint": "^1.81.0",
+    "prettier": "^3.9.6"
+  }
+}

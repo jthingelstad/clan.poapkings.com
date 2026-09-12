@@ -1,0 +1,14 @@
+{
+  "name": "@elixir-clan/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Lambda behind /auth/* and /api/*: Elixir OAuth, the gate, sessions, the roster read.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1126.0",
+    "@aws-sdk/lib-dynamodb": "^3.1126.0"
+  }
+}

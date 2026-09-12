@@ -1,0 +1,26 @@
+{
+  "name": "@elixir-clan/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "clan.poapkings.com - the browser half: sign in with Elixir, the gate pages, the clan page, you.",
+  "scripts": {
+    "prebuild": "node scripts/fonts.mjs",
+    "predev": "node scripts/fonts.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "elixir-mcp": "github:jthingelstad/elixir-mcp#d929a25e709858d9c1675aa8aed30af3c77791ac",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.0.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@elixir-clan/infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1126.0",
+    "@aws-sdk/client-cloudfront": "^3.1126.0",
+    "@aws-sdk/client-iam": "^3.1126.0",
+    "@aws-sdk/client-s3": "^3.1126.0",
+    "@aws-sdk/client-secrets-manager": "^3.1126.0",
+    "@aws-sdk/client-sns": "^3.1126.0",
+    "@aws-sdk/client-sqs": "^3.1126.0",
+    "@aws-sdk/client-sts": "^3.1126.0",
+    "esbuild": "^0.28.2"
+  }
+}

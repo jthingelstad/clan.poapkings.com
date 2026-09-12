@@ -1,0 +1,407 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: elixir-clan - Elixir Clan at clan.poapkings.com, a vertical on Elixir (unofficial, not endorsed by Supercell)
+
+# One stack, one bucket, one function (docs/NOTES.md). No VPC, no NAT, no
+# extra roles: the Lambda talks to Elixir over the public internet the way
+# any third-party client does, and to one DynamoDB table. The cookie
+# signing secret arrives through a Secrets Manager dynamic reference and
+# never appears in a parameter, a log or a repo.
+
+Parameters:
+  CodeBucket:
+    Type: String
+    Description: S3 bucket holding the Lambda bundle (created by bootstrap)
+  ApiCodeKey:
+    Type: String
+    Description: Content-addressed key of the API bundle in CodeBucket
+  AppUrl:
+    Type: String
+    Default: ""
+    Description: >-
+      The origin the app is served from, no trailing slash. The CloudFront
+      default hostname until DNS lands, then https://clan.poapkings.com.
+      Decides the OAuth redirect_uri and every redirect back to the app.
+      PRESERVED across deploys.
+  ElixirUrl:
+    Type: String
+    Default: https://elixir.poapkings.com
+    Description: Elixir's issuer and site; the MCP door is ElixirUrl/mcp. PRESERVED.
+  OAuthClientId:
+    Type: String
+    Default: ""
+    Description: >-
+      The client_id Elixir issued at /oauth/register (infra/scripts/register-client.mjs).
+      Public client, no secret. A registration lives 365 days from last use;
+      re-register and set this again if Elixir reports it unknown. PRESERVED.
+  AppSecretName:
+    Type: String
+    Default: elixir-clan/app
+    Description: Secrets Manager secret with session_secret (created by bootstrap). PRESERVED.
+  SiteCertificateArn:
+    Type: String
+    Default: ""
+    Description: >-
+      ACM certificate in us-east-1 covering clan.poapkings.com (the account's
+      *.poapkings.com wildcard). Empty deploys without the alias. PRESERVED.
+  MonthlyCostAlarmUsd:
+    Type: Number
+    Default: 10
+    Description: Account-wide estimated-charges guard. PRESERVED.
+
+Conditions:
+  HasSiteCert: !Not [!Equals [!Ref SiteCertificateArn, ""]]
+
+Resources:
+  # ------------------------------------------------------------ sessions
+  # The only durable store: pending logins and sessions, both TTL'd. A
+  # session item carries Elixir's refresh token, so the table is encrypted
+  # with the AWS-managed DynamoDB KMS key (no key of our own to manage).
+  SessionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: elixir-clan
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      Tags:
+        - Key: application
+          Value: elixir-clan
+
+  # ------------------------------------------------------------ the function
+  ApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: elixir-clan-api
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: elixir-clan-api
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/elixir-clan-api:*
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt SessionTable.Arn
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/elixir-clan-api
+      RetentionInDays: 30
+
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ApiLogGroup
+    Properties:
+      FunctionName: elixir-clan-api
+      Description: Elixir Clan - OAuth with Elixir, the gate, sessions, the roster read
+      Runtime: nodejs24.x
+      Architectures: [arm64]
+      Handler: index.handler
+      MemorySize: 256
+      Timeout: 25
+      # A ceiling on a runaway client or a bill, far above real traffic.
+      ReservedConcurrentExecutions: 10
+      Role: !GetAtt ApiRole.Arn
+      Code: { S3Bucket: !Ref CodeBucket, S3Key: !Ref ApiCodeKey }
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SessionTable
+          APP_URL: !Ref AppUrl
+          ELIXIR_URL: !Ref ElixirUrl
+          OAUTH_CLIENT_ID: !Ref OAuthClientId
+          SESSION_SECRET: !Sub "{{resolve:secretsmanager:${AppSecretName}:SecretString:session_secret}}"
+      Tags:
+        - Key: application
+          Value: elixir-clan
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: elixir-clan-api
+      ProtocolType: HTTP
+      Target: !GetAtt ApiFunction.Arn
+
+  HttpApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+
+  # ------------------------------------------------------------ the site
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub elixir-clan-web-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      Tags:
+        - Key: application
+          Value: elixir-clan
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub ${WebBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+
+  WebOac:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: elixir-clan-web-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # Cookies and the query string flow to the API; nothing is cached.
+  ApiOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: elixir-clan-api
+        CookiesConfig: { CookieBehavior: all }
+        HeadersConfig:
+          HeaderBehavior: whitelist
+          Headers: [accept, content-type, cloudfront-viewer-country]
+        QueryStringsConfig: { QueryStringBehavior: all }
+
+  # Elixir's headers, minus what this site does not load. Every origin
+  # here comes from the built output: Inter from Google Fonts (index.html)
+  # and nothing else off-site. form-action stays 'self': sign-in is a
+  # link that redirects, and the browser does not apply form-action to a
+  # redirect that follows a navigation.
+  SecurityHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: elixir-clan-security-headers
+        Comment: CSP, HSTS, nosniff, referrer and permissions policy
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            Override: true
+            ContentSecurityPolicy: >-
+              default-src 'self';
+              base-uri 'self';
+              object-src 'none';
+              frame-ancestors 'none';
+              form-action 'self';
+              script-src 'self';
+              connect-src 'self';
+              img-src 'self' data:;
+              font-src 'self' https://fonts.gstatic.com;
+              style-src 'self' 'unsafe-inline' https://fonts.googleapis.com
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            Override: true
+            FrameOption: DENY
+          ReferrerPolicy:
+            Override: true
+            ReferrerPolicy: strict-origin-when-cross-origin
+          StrictTransportSecurity:
+            Override: true
+            AccessControlMaxAgeSec: 63072000
+            IncludeSubdomains: true
+            Preload: false
+        CustomHeadersConfig:
+          Items:
+            - Header: Permissions-Policy
+              Override: true
+              Value: >-
+                accelerometer=(), camera=(), display-capture=(),
+                geolocation=(), gyroscope=(), magnetometer=(),
+                microphone=(), payment=(), usb=()
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: clan.poapkings.com
+        HttpVersion: http2and3
+        Aliases: !If [HasSiteCert, [clan.poapkings.com], !Ref "AWS::NoValue"]
+        ViewerCertificate: !If
+          - HasSiteCert
+          - AcmCertificateArn: !Ref SiteCertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: web
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !Ref WebOac
+            S3OriginConfig: { OriginAccessIdentity: "" }
+          - Id: api
+            DomainName: !Sub ${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: web
+          ViewerProtocolPolicy: redirect-to-https
+          # AWS managed CachingOptimized
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+          Compress: true
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRouter.FunctionMetadata.FunctionARN
+        CacheBehaviors:
+          - PathPattern: /auth/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            # AWS managed CachingDisabled
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
+        # No CustomErrorResponses: they are distribution-wide and would
+        # rewrite the API's own refusals into a 200 app shell (Elixir
+        # learned this the hard way). The router below owns the SPA.
+
+  # Every extension-less path is the app; a path with an extension is a
+  # file and a missing one stays a 404.
+  SpaRouter:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: elixir-clan-spa-router
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Serve the app shell for every application route
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri;
+          if (uri.substring(uri.lastIndexOf('/') + 1).indexOf('.') !== -1) {
+            return request;
+          }
+          request.uri = '/index.html';
+          return request;
+        }
+
+  # ------------------------------------------------------------ monitoring
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: elixir-clan-alarms
+      # Routing of record is the sysadmin projects-ops-alerts queue; the
+      # subscription and the queue policy entry are made once from
+      # infra/scripts/bootstrap.mjs. No email.
+
+  ApiErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: elixir-clan-api-errors
+      AlarmDescription: The Elixir Clan function is throwing
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{ Name: FunctionName, Value: !Ref ApiFunction }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: elixir-clan-api-5xx
+      AlarmDescription: The Elixir Clan HTTP API is answering 5xx
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions: [{ Name: ApiId, Value: !Ref HttpApi }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 3
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  EstimatedChargesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: elixir-clan-estimated-charges
+      AlarmDescription: Account-wide estimated charges guard for the hobby account
+      Namespace: AWS/Billing
+      MetricName: EstimatedCharges
+      Dimensions: [{ Name: Currency, Value: USD }]
+      Statistic: Maximum
+      Period: 21600
+      EvaluationPeriods: 1
+      Threshold: !Ref MonthlyCostAlarmUsd
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+Outputs:
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+    Description: CNAME target for clan.poapkings.com at Namecheap
+  DistributionId:
+    Value: !Ref Distribution
+  WebBucketName:
+    Value: !Ref WebBucket
+  ApiUrl:
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  ApiFunctionName:
+    Value: !Ref ApiFunction
+  TableName:
+    Value: !Ref SessionTable
+  AlarmTopicArn:
+    Value: !Ref AlarmTopic
+    Description: Subscribed to the sysadmin projects-ops-alerts queue

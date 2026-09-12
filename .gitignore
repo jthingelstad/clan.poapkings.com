@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.*
+infra/dist/
+# Copied from the pinned elixir-mcp dependency at build time (apps/web/scripts/fonts.mjs).
+apps/web/public/assets/fonts/
+.DS_Store

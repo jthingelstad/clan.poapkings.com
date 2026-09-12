@@ -1,0 +1,5 @@
+dist/
+package-lock.json
+*.md
+.claude/
+apps/web/public/assets/fonts/

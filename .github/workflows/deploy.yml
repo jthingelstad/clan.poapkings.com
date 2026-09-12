@@ -1,0 +1,65 @@
+name: deploy
+
+# Deploys main after validate is green, the way Drop does: static keys for
+# the elixir-clan-deploy user plus a CloudFormation execution role, both
+# made by infra/scripts/bootstrap.mjs. infra/scripts/parameters.mjs carries
+# every operator-set parameter with UsePreviousValue, so a deploy from
+# here can never reset one.
+
+on:
+  workflow_run:
+    workflows: [validate]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # Until the elixir-clan-deploy keys are in the repo's secrets (a
+      # `gh secret set` Jamie runs from the bootstrap's .env), a deploy
+      # from here is skipped rather than failed; local deploys still work.
+      - name: Require credentials and the current main SHA
+        env:
+          HAVE_KEYS: ${{ secrets.ELIXIR_CLAN_AWS_SECRET_ACCESS_KEY != '' }}
+        run: |
+          set -euo pipefail
+          if [ "$HAVE_KEYS" != "true" ]; then
+            echo "no deploy credentials in repository secrets; skipping"
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+          remote_sha=$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')
+          if [ "$remote_sha" != "$(git rev-parse HEAD)" ]; then
+            echo "superseded by ${remote_sha}; a later run deploys it"
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/setup-node@v7
+        if: env.SKIP != '1'
+        with:
+          node-version: 24
+      - run: npm ci
+        if: env.SKIP != '1'
+
+      - name: Deploy
+        if: env.SKIP != '1'
+        run: node infra/scripts/deploy.mjs
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_CLAN_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.ELIXIR_CLAN_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+          ELIXIR_CLAN_CFN_ROLE_ARN: ${{ vars.ELIXIR_CLAN_CFN_ROLE_ARN }}

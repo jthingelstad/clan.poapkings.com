@@ -1,0 +1,24 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      # Production dependencies must be clean; the dev toolchain is
+      # reported, not gated (the same posture as elixir-mcp).
+      - run: npm audit --omit=dev --audit-level=low
+      - run: npm audit || true
+      # No network, no spend: every seam is a fake in the tests.
+      - run: npm run verify
+      - run: npm run build
+      - run: node infra/scripts/build.mjs
