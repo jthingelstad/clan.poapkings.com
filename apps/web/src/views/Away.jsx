@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { manageApi } from "../api.js";
+import { keys, useInvalidate, useMyAway } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
 /**
@@ -12,20 +13,14 @@ import { trackEvent } from "../analytics.js";
  */
 export function Away({ me }) {
   const clan = me?.selected ?? null;
-  const [state, setState] = useState(null);
   const [until, setUntil] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [today] = useState(() => Date.now());
-  const load = useCallback(async () => {
-    if (!clan) return;
-    const r = await manageApi.myAway(clan.clan_tag);
-    if (r.ok) setState(r.data);
-  }, [clan]);
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data: state = null } = useMyAway(clan?.clan_tag);
+  const invalidate = useInvalidate();
+  const load = () => invalidate(keys.away(clan.clan_tag));
 
   if (!clan)
     return (

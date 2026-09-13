@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { Markdown, ago } from "elixir-mcp/packages/ui/src/index.ts";
+import { useEffect, useState } from "react";
 import { feedbackApi } from "../api.js";
-import { Markdown } from "../components/Markdown.jsx";
-import { ago } from "../lib/time.js";
+import { keys, useInvalidate, useMaintainQueue } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
 /**
@@ -15,15 +15,10 @@ const TONE = { new: "chip--warn", planned: "chip--info", done: "chip--ok" };
 const chip = (status) => `chip ${TONE[status] ?? ""}`;
 
 export function MaintainQueue({ navigate }) {
-  const [items, setItems] = useState(null);
-  const [refused, setRefused] = useState(false);
+  const queue = useMaintainQueue().data;
+  const refused = queue?.status === 403;
+  const items = queue?.ok ? (queue.data.feedback ?? []) : null;
   const [now] = useState(() => Date.now());
-  useEffect(() => {
-    feedbackApi.queue().then((r) => {
-      if (r.status === 403) return setRefused(true);
-      if (r.ok) setItems(r.data.feedback ?? []);
-    });
-  }, []);
   if (refused)
     return (
       <div className="callout callout--warn" role="alert">
@@ -107,23 +102,23 @@ export function MaintainQueue({ navigate }) {
 }
 
 export function MaintainItem({ id, navigate }) {
-  const [item, setItem] = useState(null);
-  const [missed, setMissed] = useState(false);
   const [response, setResponse] = useState("");
   const [shipped, setShipped] = useState("");
   const [saved, setSaved] = useState("");
-  const load = useCallback(async () => {
-    const r = await feedbackApi.queue();
-    const found = (r.data?.feedback ?? []).find((f) => f.feedback_id === id);
-    if (found) {
-      setItem(found);
-      setResponse((prev) => prev || found.response || "");
-      setShipped((prev) => prev || found.shipped_in || "");
-    } else setMissed(true);
-  }, [id]);
+  const queue = useMaintainQueue();
+  const item =
+    (queue.data?.data?.feedback ?? []).find((f) => f.feedback_id === id) ??
+    null;
+  const missed = queue.isFetched && !item;
+  const invalidate = useInvalidate();
+  const load = () => invalidate(keys.maintain);
+  // The reply starts from the saved one, unless the maintainer is
+  // mid-edit: a background reload must not eat typing.
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!item) return;
+    setResponse((prev) => prev || item.response || "");
+    setShipped((prev) => prev || item.shipped_in || "");
+  }, [item]);
   if (missed)
     return (
       <div className="callout callout--warn">
@@ -181,7 +176,7 @@ export function MaintainItem({ id, navigate }) {
           </span>
         </div>
         <div className="panel__body">
-          <Markdown text={item.message} />
+          <Markdown className="prose" text={item.message} />
         </div>
         <div
           className="panel__body"

@@ -1,193 +1,24 @@
 /** Same-origin /api/*, cookie-authed. Every answer is `{ ok, status, data }`;
- *  a non-JSON body (an edge error page) is a failure whatever its status. */
+ *  a non-JSON body (an edge error page) is a failure whatever its status.
+ *  The envelope, timeout and failure accounting are the family's, in
+ *  Elixir's client package; this file is only this app's route map. */
 
+import { createClient } from "elixir-mcp/packages/client/src/index.ts";
 import { routeLabel, trackEvent } from "./analytics.js";
 
-const TIMEOUT_MS = 20_000;
-/** A request the person waited this long for is said so in the console,
- *  with the server's own timing beside the wall clock: the difference is
- *  the time in front of the edge, which no server log can see. */
-const SLOW_MS = 3_000;
-
-function report(method, path, started, res, error) {
-  const ms = Math.round(performance.now() - started);
+const client = createClient({
   // A failure that never reached the origin is the class of problem only
   // the browser can count (Elixir's lesson); a slow one is counted too.
-  if (error) trackEvent(`web.api_${error}`, routeLabel(method, path));
-  else if (ms >= SLOW_MS) trackEvent("web.api_slow", routeLabel(method, path));
-  if (ms < SLOW_MS && !error) return;
-  const timing = res?.headers?.get?.("server-timing") ?? null;
-  console.warn("[elixir-clan] slow request", {
-    request: `${method} ${path}`,
-    wall_ms: ms,
-    status: res?.status ?? 0,
-    server_timing: timing,
-    ...(error ? { error } : {}),
-  });
-}
+  onEvent: (event, label) => trackEvent(`web.${event}`, label),
+  onSlow: (info) => console.warn("[elixir-clan] slow request", info),
+  // Routes carry the clan tag; the label masks it (analytics.js).
+  routeLabel,
+});
 
-async function get(path) {
-  let res;
-  const started = performance.now();
-  try {
-    res = await fetch(path, {
-      credentials: "same-origin",
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-  } catch (err) {
-    report(
-      "GET",
-      path,
-      started,
-      null,
-      err?.name === "TimeoutError" ? "timeout" : "network",
-    );
-    return {
-      ok: false,
-      status: 0,
-      data: {},
-      error: err?.name === "TimeoutError" ? "timeout" : "network",
-    };
-  }
-  const text = await res.text();
-  report("GET", path, started, res);
-  try {
-    return {
-      ok: res.ok,
-      status: res.status,
-      data: text ? JSON.parse(text) : {},
-    };
-  } catch {
-    trackEvent("web.api_bad_response", routeLabel("GET", path));
-    return { ok: false, status: res.status, data: {}, error: "bad_response" };
-  }
-}
-
-async function post(path, body) {
-  let res;
-  const started = performance.now();
-  try {
-    res = await fetch(path, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-  } catch (err) {
-    report(
-      "POST",
-      path,
-      started,
-      null,
-      err?.name === "TimeoutError" ? "timeout" : "network",
-    );
-    return {
-      ok: false,
-      status: 0,
-      data: {},
-      error: err?.name === "TimeoutError" ? "timeout" : "network",
-    };
-  }
-  const text = await res.text();
-  report("POST", path, started, res);
-  try {
-    return {
-      ok: res.ok,
-      status: res.status,
-      data: text ? JSON.parse(text) : {},
-    };
-  } catch {
-    trackEvent("web.api_bad_response", routeLabel("POST", path));
-    return { ok: false, status: res.status, data: {}, error: "bad_response" };
-  }
-}
-
-async function del(path) {
-  let res;
-  const started = performance.now();
-  try {
-    res = await fetch(path, {
-      method: "DELETE",
-      credentials: "same-origin",
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-  } catch (err) {
-    report(
-      "DELETE",
-      path,
-      started,
-      null,
-      err?.name === "TimeoutError" ? "timeout" : "network",
-    );
-    return {
-      ok: false,
-      status: 0,
-      data: {},
-      error: err?.name === "TimeoutError" ? "timeout" : "network",
-    };
-  }
-  const text = await res.text();
-  report("DELETE", path, started, res);
-  try {
-    return {
-      ok: res.ok,
-      status: res.status,
-      data: text ? JSON.parse(text) : {},
-    };
-  } catch {
-    trackEvent("web.api_bad_response", routeLabel("DELETE", path));
-    return { ok: false, status: res.status, data: {}, error: "bad_response" };
-  }
-}
-
-async function put(path, body) {
-  let res;
-  const started = performance.now();
-  try {
-    res = await fetch(path, {
-      method: "PUT",
-      credentials: "same-origin",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-  } catch (err) {
-    report(
-      "PUT",
-      path,
-      started,
-      null,
-      err?.name === "TimeoutError" ? "timeout" : "network",
-    );
-    return {
-      ok: false,
-      status: 0,
-      data: {},
-      error: err?.name === "TimeoutError" ? "timeout" : "network",
-    };
-  }
-  const text = await res.text();
-  report("PUT", path, started, res);
-  try {
-    return {
-      ok: res.ok,
-      status: res.status,
-      data: text ? JSON.parse(text) : {},
-    };
-  } catch {
-    trackEvent("web.api_bad_response", routeLabel("PUT", path));
-    return { ok: false, status: res.status, data: {}, error: "bad_response" };
-  }
-}
+const get = (path) => client.get(path);
+const post = (path, body) => client.post(path, body);
+const put = (path, body) => client.request("PUT", path, body);
+const del = (path) => client.request("DELETE", path);
 
 const clanBase = (tag) => `/api/clans/${String(tag).replace(/^#/, "")}`;
 

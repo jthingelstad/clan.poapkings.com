@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fresh, Icon } from "elixir-mcp/packages/ui/src/index.ts";
+import { useEffect, useState } from "react";
 import { manageApi } from "../api.js";
-import { Fresh } from "../components/Fresh.jsx";
-import { Icon } from "../components/Icon.jsx";
+import { useRecruit } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
 /**
@@ -34,37 +34,10 @@ const CHANNELS = [
 ];
 
 export function Recruit({ clan }) {
-  const [state, setState] = useState({ loading: true });
   const [editing, setEditing] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-  const timer = useRef(null);
-  // A pending live read asks again after Elixir's retry_after_s; the
-  // recursion goes through a ref so the callback never captures itself.
-  const loadRef = useRef(null);
-  const load = useCallback(
-    async (refresh = false) => {
-      const r = await manageApi.recruit(clan.clan_tag, refresh);
-      if (r.status === 401) return setState({ signedOut: true });
-      if (!r.ok) return setState({ error: r.data?.error ?? r.error });
-      setState({ data: r.data });
-      setNow(Date.now());
-      if (r.data.pending?.retry_after_s) {
-        window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(
-          () => loadRef.current?.(),
-          Math.min(60, r.data.pending.retry_after_s) * 1000,
-        );
-      }
-    },
-    [clan.clan_tag],
-  );
-  useEffect(() => {
-    loadRef.current = load;
-  }, [load]);
-  useEffect(() => {
-    load();
-    return () => window.clearTimeout(timer.current);
-  }, [load]);
+  // A pending live read asks again after Elixir's retry_after_s: the
+  // query's own refetchInterval, read off the answer (lib/queries.js).
+  const { state, load, updatedAt: now } = useRecruit(clan.clan_tag);
 
   if (state.signedOut) {
     window.location.assign("/?error=session_expired");
@@ -107,9 +80,9 @@ export function Recruit({ clan }) {
           <span>Today, from the game</span>
           {d.facts_read_at ? (
             <Fresh
+              label="read"
               seconds={Math.max(0, (now - Date.parse(d.facts_read_at)) / 1000)}
               ts={d.facts_read_at}
-              label="read"
             />
           ) : null}
           {d.pending ? (

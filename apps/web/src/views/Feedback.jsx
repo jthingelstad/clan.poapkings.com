@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
+import { Markdown, ago } from "elixir-mcp/packages/ui/src/index.ts";
+import { useState } from "react";
 import { feedbackApi } from "../api.js";
-import { Markdown } from "../components/Markdown.jsx";
-import { ago } from "../lib/time.js";
+import {
+  useFeedbackItem,
+  useFeedbackList,
+  useInvalidate,
+} from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
 /**
@@ -120,14 +124,9 @@ function Compose({ context, onSent, onClose }) {
 }
 
 export function FeedbackItem({ id, navigate }) {
-  const [item, setItem] = useState(null);
-  const [missed, setMissed] = useState(false);
-  useEffect(() => {
-    feedbackApi.item(id).then((r) => {
-      if (r.ok) setItem(r.data);
-      else setMissed(true);
-    });
-  }, [id]);
+  const query = useFeedbackItem(id);
+  const item = query.data ?? null;
+  const missed = query.isError;
   if (missed)
     return (
       <div className="callout callout--warn">
@@ -166,7 +165,7 @@ export function FeedbackItem({ id, navigate }) {
           <span className="chip">shipped: {item.shipped_in}</span>
         ) : null}
       </div>
-      <Markdown text={item.message} style={{ margin: "0 0 22px" }} />
+      <Markdown className="prose mb-[22px]" text={item.message} />
       {item.response ? (
         <section
           style={{
@@ -178,7 +177,7 @@ export function FeedbackItem({ id, navigate }) {
             Maintainer
             {item.responded_at ? ` · ${item.responded_at.slice(0, 10)}` : ""}
           </div>
-          <Markdown text={item.response} />
+          <Markdown className="prose" text={item.response} />
         </section>
       ) : (
         <p className="page__lede" style={{ margin: 0 }}>
@@ -191,14 +190,12 @@ export function FeedbackItem({ id, navigate }) {
 }
 
 export function Feedback({ me, navigate, from }) {
-  const [items, setItems] = useState(null);
+  const items = useFeedbackList().data?.feedback ?? null;
   const [composing, setComposing] = useState(false);
   const [now] = useState(() => Date.now());
-  const load = () =>
-    feedbackApi.list().then((r) => r.ok && setItems(r.data.feedback ?? []));
-  useEffect(() => {
-    load();
-  }, []);
+  const invalidate = useInvalidate();
+  // A filed note moves the rail's dot too: the session refetches with it.
+  const load = () => invalidate();
   return (
     <div>
       <div className="page-head" style={{ alignItems: "center" }}>

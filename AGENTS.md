@@ -22,14 +22,18 @@ removal clock, action cards leaders decide, notes, holds, and scouting.
 4. **Judgment lives here, never in Elixir.** Elixir records facts and has no
    opinions; this vertical owns the clan-management engine and leader
    action cards. Facts in, judgment in our code.
-5. **Design is Elixir's.** Same tokens, chrome, chips and cards, imported
-   from the pinned `elixir-mcp` dependency, never copied. The unofficial
+5. **Design is Elixir's, and so is the kit.** Same tokens, chrome, rail,
+   chips and cards, and the same React components, data layer and clock
+   vocabulary, imported from the pinned `elixir-mcp` dependency, never
+   copied. Anything this app needs that the kit lacks is a kit addition
+   there, then a pin bump here - never a local copy. The unofficial
    disclaimer is on every page.
 
 ## Layout
 
 ```
-apps/web/          React 18 + Vite SPA with Elixir's left rail: /, /clans, /clan/<TAG>,
+apps/web/          React 19 + Vite SPA on Elixir's kit (TanStack Router + Query,
+                   Tailwind v4 over Elixir's tokens): /, /clans, /clan/<TAG>,
                    /clan/<TAG>/standing, /clan/<TAG>/recruit,
                    /clan/<TAG>/manage/{inbox,board,history,policy,awards,scout},
                    /clan/<TAG>/how-elder-works (public), /you, /you/away, /feedback,
@@ -389,12 +393,34 @@ token; this product has no relay and sends nothing from the Lambda.
 ## Design dependency
 
 `apps/web` depends on `elixir-mcp` as a **pinned git dependency** (a commit
-SHA in `apps/web/package.json`) and imports
-`elixir-mcp/packages/design/styles.css`; the Clash display font is copied
-from the same dependency at build time (`apps/web/scripts/fonts.mjs`,
-gitignored). Bump the SHA to take a design change; never copy the file.
-Publishing `@elixir-mcp/design` is the durable answer and needs Jamie's npm
-org (docs/NOTES.md).
+SHA in `apps/web/package.json`) and imports from it as SOURCE - no build
+step in either repo:
+
+- `elixir-mcp/packages/design/src/{tokens,components}.css` into
+  `apps/web/src/styles.css`, this app's Tailwind entry, which adds its own
+  `@source` (this app and the kit) and compiles its own file through
+  `@tailwindcss/vite`. Tailwind's palette, type scale and radii are reset
+  there; the utility vocabulary is Elixir's tokens (`bg-ground`,
+  `text-ink-faint`, `rounded-panel`, `wide:`/`max-wide:` at 900px).
+- `elixir-mcp/packages/ui/src/index.ts` - Chrome, Rail, RailIdentity,
+  Fresh, Markdown, Icon, ErrorBoundary, Disclaimer, and the clock
+  (`ago`, `agoSeconds`, `freshCls`). What goes ON the rail is
+  `src/lib/rail.js`; the rail itself is the kit's.
+- `elixir-mcp/packages/client/src/index.ts` - the `{ ok, status, data }`
+  envelope, `createClient()` (this app passes its route-aware label so no
+  clan tag reaches analytics), `answered()`/`unwrap()`, and the query
+  client. `src/lib/queries.js` is this app's keys and hooks; `useGated()`
+  keeps the `{ loading, signedOut, forbidden, error, data }` shape the
+  views read and owns the server-side `?refresh=1` re-read.
+
+The kit's runtime dependencies (`react`, `@tanstack/*`, `lucide-react`,
+`marked`, `tailwindcss`) are declared HERE, because a git dependency's
+workspace packages bring none of their own. The Clash display font is
+copied from the dependency at build time (`apps/web/scripts/fonts.mjs`,
+gitignored). Bump the SHA to take a change; never copy a file.
+Publishing the packages to npm is the durable answer and needs Jamie's
+npm org (docs/NOTES.md). Foundation plan and rationale:
+`../elixir-family/plans/console-clan-foundation.md`.
 
 ## The team
 

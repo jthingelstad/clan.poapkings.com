@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { manageApi } from "../api.js";
-import { Fresh } from "../components/Fresh.jsx";
+import { Fresh } from "elixir-mcp/packages/ui/src/index.ts";
+import { useStanding } from "../lib/queries.js";
 
 const STATUS = {
   holding: ["Holding Elder", "chip--ok"],
@@ -14,20 +13,27 @@ const STATUS = {
  *  Elder, who is rising, who is slipping, each with their own evidence in
  *  a player's terms. Never a score, a rank, or the slot count. */
 export function Standing({ clan, who }) {
-  const [state, setState] = useState({ loading: true });
-  useEffect(() => {
-    manageApi.standing(clan.clan_tag).then((r) => {
-      if (r.status === 403) return setState({ private: true });
-      if (!r.ok) return setState({ error: true });
-      setState({ data: r.data });
-    });
-  }, [clan.clan_tag]);
+  const standing = useStanding(clan.clan_tag);
+  const env = standing.data;
+  const state = !env
+    ? standing.isError
+      ? { error: true }
+      : { loading: true }
+    : env.status === 403
+      ? { private: true }
+      : !env.ok
+        ? { error: true }
+        : { data: env.data };
   const head = (
     <div className="page-head" style={{ alignItems: "center" }}>
       <h1 className="page__title">Elder standing</h1>
       <span className="page-head__note">{clan.name ?? clan.clan_tag}</span>
       {state.data?.as_of ? (
-        <Fresh seconds={state.data.freshness_seconds} ts={state.data.as_of} />
+        <Fresh
+          label="as of"
+          seconds={state.data.freshness_seconds}
+          ts={state.data.as_of}
+        />
       ) : null}
     </div>
   );

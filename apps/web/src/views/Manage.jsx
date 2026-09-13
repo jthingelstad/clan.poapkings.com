@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fresh, Icon, ago } from "elixir-mcp/packages/ui/src/index.ts";
+import { useState } from "react";
 import { manageApi } from "../api.js";
-import { Fresh } from "../components/Fresh.jsx";
+import { useHistory, useManage } from "../lib/queries.js";
 import { MemberSheet } from "../components/MemberSheet.jsx";
 import { RoleChip } from "../components/RoleChip.jsx";
 import { Policy } from "./Policy.jsx";
 import { Scout } from "./Scout.jsx";
 import { Awards } from "./Awards.jsx";
-import { ago } from "../lib/time.js";
-import { Icon } from "../components/Icon.jsx";
 import { trackEvent } from "../analytics.js";
 
 const TITLES = {
@@ -34,23 +33,13 @@ const BUCKET_LABEL = {
 
 /** Manage: leader and co-leader only (the API refuses everyone else). */
 export function Manage({ clan, tab, navigate, who }) {
-  const [state, setState] = useState({ loading: true });
   const [open, setOpen] = useState(null); // member sheet
-
-  const load = useCallback(
-    async (refresh = false) => {
-      setState((s) => ({ ...s, loading: true }));
-      const r = await manageApi.manage(clan.clan_tag, refresh);
-      if (r.status === 401) return setState({ signedOut: true });
-      if (r.status === 403) return setState({ forbidden: r.data?.error });
-      if (!r.ok) return setState({ error: r.data?.error ?? r.error });
-      setState({ data: r.data });
-    },
-    [clan.clan_tag],
+  // The judged board, read for every tab but the three that read their
+  // own thing.
+  const { state, load } = useManage(
+    clan.clan_tag,
+    tab !== "policy" && tab !== "scout" && tab !== "awards",
   );
-  useEffect(() => {
-    if (tab !== "policy" && tab !== "scout" && tab !== "awards") load();
-  }, [load, tab]);
 
   if (state.signedOut) {
     window.location.assign("/?error=session_expired");
@@ -67,7 +56,11 @@ export function Manage({ clan, tab, navigate, who }) {
         {clan.name ?? clan.clan_tag}
       </span>
       {state.data ? (
-        <Fresh seconds={state.data.freshness_seconds} ts={state.data.as_of} />
+        <Fresh
+          label="as of"
+          seconds={state.data.freshness_seconds}
+          ts={state.data.as_of}
+        />
       ) : null}
     </div>
   );
@@ -391,9 +384,9 @@ function Card({ card, clan, reasons, onDecided, who }) {
         <RoleChip role={card.role_at_raise} label={card.role_at_raise} />
         <span style={{ marginLeft: "auto" }}>
           <Fresh
+            label="evidence as of"
             seconds={ev.freshness_seconds}
             ts={ev.as_of}
-            label="evidence as of"
           />
         </span>
       </div>
@@ -622,14 +615,7 @@ const CLASS_LABEL = {
 };
 
 function History({ clan }) {
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    manageApi
-      .history(clan.clan_tag)
-      .then((r) =>
-        setData(r.ok ? r.data : { cards: [], holds: [], timeline: [] }),
-      );
-  }, [clan.clan_tag]);
+  const { data } = useHistory(clan.clan_tag);
   if (!data) return <p className="page__lede">Loading…</p>;
   const timeline = data.timeline ?? [];
   return (

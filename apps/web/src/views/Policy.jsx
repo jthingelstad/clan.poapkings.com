@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { manageApi } from "../api.js";
+import { keys, useInvalidate, usePolicy } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
 /**
@@ -8,7 +9,6 @@ import { trackEvent } from "../analytics.js";
  * beside the current policy, and the versions.
  */
 export function Policy({ clan }) {
-  const [view, setView] = useState(null);
   const [draft, setDraft] = useState(null);
   const [errors, setErrors] = useState({});
   const [preview, setPreview] = useState(null);
@@ -16,17 +16,16 @@ export function Policy({ clan }) {
   const [message, setMessage] = useState("");
   const [note, setNote] = useState("");
 
-  const load = async () => {
-    const r = await manageApi.policy(clan.clan_tag);
-    if (r.ok) {
-      setView(r.data);
-      setDraft(r.data.current.values);
-    }
-  };
+  const policy = usePolicy(clan.clan_tag);
+  const view = policy.data ?? null;
+  // The draft starts from what the server has; a saved policy is the
+  // new start. `load` after a save refetches, and the effect resets.
+  // A saved policy changes the judged board too: the whole clan refetches.
+  const invalidate = useInvalidate();
+  const load = () => invalidate(keys.clan(clan.clan_tag));
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react/exhaustive-deps -- the clan tag is the only input
-  }, [clan.clan_tag]);
+    if (view) setDraft(view.current.values);
+  }, [view]);
   if (!view || !draft) return <p className="page__lede">Loading the policy…</p>;
 
   const changed = Object.keys(draft).filter(

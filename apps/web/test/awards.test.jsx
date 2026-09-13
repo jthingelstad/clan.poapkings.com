@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "./helpers.jsx";
 import { Awards } from "../src/views/Awards.jsx";
 import { manageApi } from "../src/api.js";
 
@@ -157,7 +152,7 @@ describe("awards", () => {
     const grant = vi
       .spyOn(manageApi, "grantAward")
       .mockResolvedValue({ ok: true, status: 200, data: {} });
-    render(<Awards clan={poap} />);
+    renderWithProviders(<Awards clan={poap} />);
     expect(await screen.findByText(/Season 136 · in progress/)).toBeTruthy();
     expect(screen.getByText(/Provisional/)).toBeTruthy();
     expect(screen.getByText(/Season 135 · closed 2026-09-07/)).toBeTruthy();
@@ -191,7 +186,7 @@ describe("awards", () => {
     const save = vi
       .spyOn(manageApi, "saveAwards")
       .mockResolvedValue({ ok: true, status: 200, data: { version: 1 } });
-    render(<Awards clan={poap} />);
+    renderWithProviders(<Awards clan={poap} />);
     fireEvent.click(
       await screen.findByRole("button", { name: "edit the awards" }),
     );
@@ -210,7 +205,7 @@ describe("awards", () => {
       status: 200,
       data: { ...view(), can_edit: false, can_grant: [] },
     });
-    render(<Awards clan={{ ...poap, role: "elder" }} />);
+    renderWithProviders(<Awards clan={{ ...poap, role: "elder" }} />);
     expect(await screen.findByText(/Season 135/)).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "edit the awards" }),
@@ -224,7 +219,7 @@ describe("awards", () => {
       status: 403,
       data: { error: "elders_only" },
     });
-    render(<Awards clan={{ ...poap, role: "member" }} />);
+    renderWithProviders(<Awards clan={{ ...poap, role: "member" }} />);
     expect(await screen.findByText(/for the leaders and elders/)).toBeTruthy();
   });
 });

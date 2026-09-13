@@ -12,16 +12,23 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "elixir-mcp": "github:jthingelstad/elixir-mcp#d929a25e709858d9c1675aa8aed30af3c77791ac",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.102.8",
+    "@tanstack/react-router": "^1.170.32",
+    "elixir-mcp": "github:jthingelstad/elixir-mcp#95466f69c65549e165a66e1590d98d1c6d2f4b98",
     "lucide-react": "^1.43.0",
     "marked": "^18.0.12",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^30.0.1",
+    "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^5.0.0"
   }

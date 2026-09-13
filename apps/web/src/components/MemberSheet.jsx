@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { manageApi } from "../api.js";
+import {
+  keys,
+  useInvalidate,
+  useMemberAwards,
+  useMemberNotes,
+} from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
 /**
@@ -10,7 +16,7 @@ import { trackEvent } from "../analytics.js";
  */
 export function MemberSheet({ clanTag, member, role, onChange }) {
   const isLeader = role === "leader" || role === "coLeader";
-  const [notes, setNotes] = useState(null);
+  const notes = useMemberNotes(clanTag, member.player_tag).data ?? null;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -19,17 +25,12 @@ export function MemberSheet({ clanTag, member, role, onChange }) {
   );
   const [holdNote, setHoldNote] = useState(member.hold?.note ?? "");
 
-  const [awards, setAwards] = useState(null);
-
-  const load = useCallback(async () => {
-    const r = await manageApi.notes(clanTag, member.player_tag);
-    setNotes(r.ok ? r.data.notes : []);
-    const a = await manageApi.memberAwards(clanTag, member.player_tag);
-    setAwards(a.ok ? a.data.grants : []);
-  }, [clanTag, member.player_tag]);
-  useEffect(() => {
-    load();
-  }, [load]);
+  const awards = useMemberAwards(clanTag, member.player_tag).data ?? null;
+  const invalidate = useInvalidate();
+  const load = () => {
+    invalidate(keys.memberNotes(clanTag, member.player_tag));
+    invalidate(keys.memberAwards(clanTag, member.player_tag));
+  };
 
   const run = async (fn) => {
     setBusy(true);

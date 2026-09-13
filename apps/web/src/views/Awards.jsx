@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fresh, ago } from "elixir-mcp/packages/ui/src/index.ts";
+import { useState } from "react";
 import { manageApi } from "../api.js";
-import { Fresh } from "../components/Fresh.jsx";
-import { ago } from "../lib/time.js";
+import { useAwards } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
 /**
@@ -12,22 +12,8 @@ import { trackEvent } from "../analytics.js";
  * read all of it and grant what elders may; leaders edit.
  */
 export function Awards({ clan }) {
-  const [state, setState] = useState({ loading: true });
   const [editing, setEditing] = useState(false);
-  const load = useCallback(
-    async (refresh = false) => {
-      setState((s) => ({ ...s, loading: true }));
-      const r = await manageApi.awards(clan.clan_tag, refresh);
-      if (r.status === 401) return setState({ signedOut: true });
-      if (r.status === 403) return setState({ forbidden: true });
-      if (!r.ok) return setState({ error: r.data?.error ?? r.error });
-      setState({ data: r.data });
-    },
-    [clan.clan_tag],
-  );
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { state, load } = useAwards(clan.clan_tag);
 
   if (state.signedOut) {
     window.location.assign("/?error=session_expired");
@@ -78,7 +64,7 @@ export function Awards({ clan }) {
         {d.as_of ? (
           <>
             {" "}
-            · <Fresh seconds={d.freshness_seconds} ts={d.as_of} />
+            · <Fresh label="as of" seconds={d.freshness_seconds} ts={d.as_of} />
           </>
         ) : null}
         {" · "}

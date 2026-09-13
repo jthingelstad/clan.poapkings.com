@@ -1,14 +1,9 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "./helpers.jsx";
 import { Recruit } from "../src/views/Recruit.jsx";
 import { manageApi } from "../src/api.js";
-import { railItems, railKey } from "../src/components/Rail.jsx";
+import { railItems, railKey } from "../src/lib/rail.js";
 
 afterEach(() => {
   cleanup();
@@ -68,7 +63,7 @@ describe("recruit", () => {
     });
     const write = vi.fn().mockResolvedValue();
     Object.assign(navigator, { clipboard: { writeText: write } });
-    render(<Recruit clan={poap} />);
+    renderWithProviders(<Recruit clan={poap} />);
     expect(await screen.findByText(/47 of 50 · 3 open/)).toBeTruthy();
     expect(screen.getByText(/5,000 trophies · invite only/)).toBeTruthy();
     expect(screen.getByText("Compete, belong, be remembered")).toBeTruthy();
@@ -107,7 +102,7 @@ describe("recruit", () => {
         problems: ["reddit title must include [5000]"],
       }),
     });
-    render(<Recruit clan={poap} />);
+    renderWithProviders(<Recruit clan={poap} />);
     expect(await screen.findByText(/fresh read queued/)).toBeTruthy();
     expect(screen.getByText(/not in the record yet/)).toBeTruthy();
     expect(screen.getByText(/breaks a rule: reddit title/)).toBeTruthy();

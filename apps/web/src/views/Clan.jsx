@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
-import { api } from "../api.js";
-import { Fresh } from "../components/Fresh.jsx";
+import { Fresh, ago } from "elixir-mcp/packages/ui/src/index.ts";
+import { useState } from "react";
+import { useRoster } from "../lib/queries.js";
 import { RoleChip } from "../components/RoleChip.jsx";
 import { ELIXIR_LINKS } from "../lib/links.js";
-import { ago } from "../lib/time.js";
 
 const ROLE_ORDER = ["leader", "coLeader", "elder", "member"];
 const GROUP = {
@@ -185,7 +184,11 @@ export function ClanHeader({ clan, roster, others = [], navigate }) {
         <span className="chip">{chip}</span>
       )}
       {roster?.meta ? (
-        <Fresh seconds={roster.meta.freshness_seconds} ts={roster.meta.as_of} />
+        <Fresh
+          label="as of"
+          seconds={roster.meta.freshness_seconds}
+          ts={roster.meta.as_of}
+        />
       ) : null}
     </div>
   );
@@ -194,24 +197,12 @@ export function ClanHeader({ clan, roster, others = [], navigate }) {
 /** The one page. Reads /api/roster once per mount; the API caches it per
  *  session for a few minutes, and "Check again" is rate-limited there. */
 export function Clan({ me, clan, navigate }) {
-  const [state, setState] = useState({ loading: true });
   const others = (me.clans ?? []).filter((c) => c.clan_tag !== clan.clan_tag);
 
   const tag = clan.clan_tag;
-  const load = useCallback(
-    async (refresh = false) => {
-      setState((s) => ({ ...s, loading: true }));
-      const r = await api.roster(tag, refresh);
-      if (r.status === 401) return setState({ signedOut: true });
-      if (!r.ok)
-        return setState({ error: r.data?.error ?? r.error ?? "failed" });
-      setState({ roster: r.data });
-    },
-    [tag],
-  );
-  useEffect(() => {
-    load();
-  }, [load]);
+  const gated = useRoster(tag);
+  const state = { ...gated.state, roster: gated.state.data };
+  const load = gated.load;
 
   if (state.signedOut) {
     window.location.assign("/?error=session_expired");

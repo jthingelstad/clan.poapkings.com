@@ -378,3 +378,42 @@ feedback notification, member-list and reply acceptance remain watches,
 not fabricated tests. The first W37 synthesis is recorded in
 `AGENT-TEAM/summaries/2026-W37.md`; the next is Friday September 18 at
 19:40 Chicago time.
+
+## 2026-09-13: on Elixir's kit (foundation pass, Phase 4)
+
+**Decision (Jamie, 2026-09-13).** Products at the start of their journey
+adopt the ecosystem now rather than after the pain Thingy went through.
+Elixir Clan re-based on Elixir's kit as its second consumer - the proof
+that `packages/ui` is a kit and not the console's components in a folder.
+Plan: `../elixir-family/plans/console-clan-foundation.md`.
+
+**What changed.** React 19; TanStack Router owns history and params
+(`/clan/{-$tag}/{-$section}/{-$tab}` and friends), the GATE stays the
+Shell's effect because it is a session state machine, not a per-route
+loader; TanStack Query owns every read, with `useGated()` reproducing
+the `{ loading, signedOut, forbidden, error, data }` shape the views
+were written against and `load(true)` still the server-side `?refresh=1`
+re-read (Recruit's pending poll is the query's `refetchInterval`, read
+off the answer); Tailwind v4 compiles Elixir's token and component
+sources with this app's utilities; `Chrome`, `Rail`, `Fresh`, `Icon`,
+`Markdown`, `Disclaimer` and `lib/time.js` are DELETED in favour of the
+kit's, which were the console's versions with this app's drift folded
+in (the late-turning clock, `Fresh`'s label and `seconds`). What goes on
+the rail (`railItems`, `railKey`) stayed here in `src/lib/rail.js`.
+`verify` gains a typecheck and an inline-style ratchet (213, only down).
+
+**Two gaps the re-base found in the kit, fixed there and pinned:** a
+surface must be able to name its own routes in events (the default
+label would have kept the clan tag), and the family had two coarse
+clock vocabularies (the console's turned units over at 60 s / 1 h; this
+app and Elixir's own freshness pill at 90 s / 90 min). One now.
+
+**Not done, on purpose.** Radix: nothing here is a modal or a popover
+(`MemberSheet` is an inline expansion), so no primitive was installed;
+the first real dialog goes in the kit. Inline styles retire as views are
+touched, under the ratchet.
+
+**Deploy is Jamie's:** CI deploys main, so this commit is local until
+pushed. Pre-existing flake noted: `recruit.test.jsx` "my own words" can
+time out under full-suite load and passes alone.
+

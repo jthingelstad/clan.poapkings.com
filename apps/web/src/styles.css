@@ -1,0 +1,18 @@
+/* Elixir Clan's stylesheet: Elixir's tokens and component rules, plus
+   the utilities THIS app and the kit use, compiled here. The sources are
+   the pinned elixir-mcp dependency's; nothing is copied. Layer order is
+   declared because tailwindcss's own index.css (which declares it, and
+   the preflight the design does not want) is not imported. */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@source "./";
+@source "../../../node_modules/elixir-mcp/packages/ui/src";
+/* The design's `.outline` component shares a name with the utility;
+   see packages/design/src/index.css in elixir-mcp. */
+@source not inline("outline");
+
+@import "elixir-mcp/packages/design/src/tokens.css";
+@import "elixir-mcp/packages/design/src/components.css" layer(components);

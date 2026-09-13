@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "./helpers.jsx";
 import { parseClanPath } from "../src/App.jsx";
 import { Standing } from "../src/views/Standing.jsx";
 import { HowElderWorks } from "../src/views/HowElderWorks.jsx";
@@ -81,7 +82,7 @@ describe("standing", () => {
         },
       },
     });
-    render(
+    renderWithProviders(
       <Standing
         clan={poap}
         who={{ player_tag: "#20JJJ2CCRU", role: "member" }}
@@ -103,7 +104,9 @@ describe("standing", () => {
       status: 403,
       data: { error: "standing_private" },
     });
-    render(<Standing clan={poap} who={{ player_tag: "#X", role: "member" }} />);
+    renderWithProviders(
+      <Standing clan={poap} who={{ player_tag: "#X", role: "member" }} />,
+    );
     await waitFor(() =>
       expect(screen.getByText(/keep standing private/)).toBeTruthy(),
     );
@@ -141,7 +144,7 @@ describe("how elder works", () => {
         },
       },
     });
-    render(<HowElderWorks tag="#J2RGCRVG" />);
+    renderWithProviders(<HowElderWorks tag="#J2RGCRVG" />);
     await waitFor(() =>
       expect(screen.getByText(/At least 28 days in the clan/)).toBeTruthy(),
     );

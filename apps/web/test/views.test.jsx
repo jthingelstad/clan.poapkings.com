@@ -6,10 +6,11 @@ import {
   screen,
   within,
 } from "@testing-library/react";
+import { renderWithProviders } from "./helpers.jsx";
 import { RosterTable, ClanHeader } from "../src/views/Clan.jsx";
 import { Refused, REFUSALS } from "../src/views/Refused.jsx";
 import { Landing } from "../src/views/Landing.jsx";
-import { Disclaimer } from "../src/components/Disclaimer.jsx";
+import { Disclaimer } from "elixir-mcp/packages/ui/src/index.ts";
 import { Clans } from "../src/views/Clans.jsx";
 import { clanFromPath, clanPath } from "../src/App.jsx";
 
@@ -127,7 +128,9 @@ describe("the clan page", () => {
         you: false,
       },
     ];
-    const { container } = render(<RosterTable members={members} now={now} />);
+    const { container } = renderWithProviders(
+      <RosterTable members={members} now={now} />,
+    );
     const labels = [...container.querySelectorAll("td.label")].map(
       (td) => td.textContent,
     );
@@ -152,7 +155,7 @@ describe("the clan page", () => {
   });
 
   test("an empty clan renders no rows and no groups", () => {
-    const { container } = render(<RosterTable members={[]} />);
+    const { container } = renderWithProviders(<RosterTable members={[]} />);
     expect(container.querySelectorAll("tbody").length).toBe(0);
     expect(container.querySelector("table")).toBeTruthy();
   });
@@ -162,7 +165,9 @@ describe("the gate pages", () => {
   test.each(Object.keys(REFUSALS))(
     "%s says what to do and links to it",
     (reason) => {
-      render(<Refused reason={reason} me={me} onRecheck={() => {}} />);
+      renderWithProviders(
+        <Refused reason={reason} me={me} onRecheck={() => {}} />,
+      );
       const page = REFUSALS[reason];
       expect(screen.getByRole("heading", { name: page.title })).toBeTruthy();
       const link = screen.getByRole("link", { name: `${page.link[1]} ›` });
@@ -178,19 +183,23 @@ describe("the gate pages", () => {
   });
 
   test("an agent's grant offers a fresh sign-in, the others offer a re-check", () => {
-    render(<Refused reason="not_a_person" me={me} onRecheck={() => {}} />);
+    renderWithProviders(
+      <Refused reason="not_a_person" me={me} onRecheck={() => {}} />,
+    );
     expect(
       screen.getByRole("link", { name: "Sign in again" }).getAttribute("href"),
     ).toBe("/auth/login");
     cleanup();
-    render(<Refused reason="unverified" me={me} onRecheck={() => {}} />);
+    renderWithProviders(
+      <Refused reason="unverified" me={me} onRecheck={() => {}} />,
+    );
     expect(screen.getByRole("button", { name: /check again/i })).toBeTruthy();
   });
 });
 
 describe("the landing page", () => {
   test("names both prerequisites before the button", () => {
-    render(<Landing />);
+    renderWithProviders(<Landing />);
     expect(screen.getByText(/An Elixir account/)).toBeTruthy();
     expect(screen.getByText(/A verified player/)).toBeTruthy();
     expect(
@@ -205,7 +214,7 @@ describe("the landing page", () => {
   });
 
   test("a sign-in error is explained", () => {
-    render(<Landing error="state_mismatch" />);
+    renderWithProviders(<Landing error="state_mismatch" />);
     expect(screen.getByRole("alert").textContent).toMatch(
       /did not start in this browser/,
     );
@@ -329,7 +338,9 @@ describe("choosing a clan", () => {
         you: false,
       },
     ];
-    const { container } = render(<RosterTable members={members} now={0} />);
+    const { container } = renderWithProviders(
+      <RosterTable members={members} now={0} />,
+    );
     expect(container.querySelectorAll("tr[data-you='true']").length).toBe(2);
   });
 });

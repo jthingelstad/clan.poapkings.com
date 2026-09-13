@@ -1,14 +1,10 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "./helpers.jsx";
 import { Feedback, FeedbackItem } from "../src/views/Feedback.jsx";
 import { MaintainItem } from "../src/views/Maintain.jsx";
-import { Rail, railItems, railKey } from "../src/components/Rail.jsx";
+import { Rail } from "../src/App.jsx";
+import { railItems, railKey } from "../src/lib/rail.js";
 import { feedbackApi } from "../src/api.js";
 
 afterEach(() => {
@@ -50,7 +46,7 @@ describe("feedback", () => {
           ],
         },
       });
-    render(
+    renderWithProviders(
       <Feedback me={me} navigate={vi.fn()} from="/clan/J2RGCRVG/standing" />,
     );
     expect(await screen.findByText("Nothing filed yet.")).toBeTruthy();
@@ -92,7 +88,7 @@ describe("feedback", () => {
         shipped_in: "fourth push",
       },
     });
-    const { container } = render(
+    const { container } = renderWithProviders(
       <FeedbackItem id="abc123" navigate={vi.fn()} />,
     );
     expect(await screen.findByText("fb_abc123")).toBeTruthy();
@@ -128,7 +124,7 @@ describe("feedback", () => {
     const decide = vi
       .spyOn(feedbackApi, "decide")
       .mockResolvedValue({ ok: true, status: 200, data: {} });
-    render(<MaintainItem id="abc123" navigate={vi.fn()} />);
+    renderWithProviders(<MaintainItem id="abc123" navigate={vi.fn()} />);
     expect(
       await screen.findByText("Scout should show clan history."),
     ).toBeTruthy();
@@ -145,11 +141,13 @@ describe("feedback", () => {
   });
 
   test("the rail marks unseen replies and shows Maintain only to the maintainer", () => {
-    render(<Rail me={me} navigate={vi.fn()} path="/you" narrow={false} />);
+    renderWithProviders(
+      <Rail me={me} navigate={vi.fn()} path="/you" narrow={false} />,
+    );
     expect(screen.getByLabelText("2 new replies")).toBeTruthy();
     expect(screen.queryByText("Feedback queue")).toBeNull();
     cleanup();
-    render(
+    renderWithProviders(
       <Rail
         me={{ ...me, maintainer: true, feedback_unseen: 0 }}
         navigate={vi.fn()}

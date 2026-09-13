@@ -1,16 +1,10 @@
-import { useEffect, useState } from "react";
-import { manageApi } from "../api.js";
+import { useHowElderWorks } from "../lib/queries.js";
 
 /** The public page, rendered from the clan's current policy at request
  *  time in the voice of POLICY.md: what a player can act on, never internal
  *  scores. Replaces hand-copied prose on the clan site. */
 export function HowElderWorks({ tag }) {
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    manageApi
-      .howElderWorks(tag)
-      .then((r) => setData(r.ok ? r.data : { missing: true }));
-  }, [tag]);
+  const { data } = useHowElderWorks(tag);
   if (!data) return <p className="page__lede">Loading…</p>;
   if (data.missing)
     return (
