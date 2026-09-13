@@ -23,10 +23,14 @@
     "build": "npm run build -w @elixir-clan/web",
     "deploy": "node infra/scripts/deploy.mjs",
     "deploy:web": "node infra/scripts/deploy-web.mjs",
-    "smoke": "node infra/scripts/smoke.mjs"
+    "smoke": "node infra/scripts/smoke.mjs",
+    "e2e": "playwright test -c apps/web/playwright.config.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "oxlint": "^1.81.0",
+    "playwright": "^1.63.0",
     "prettier": "^3.9.6"
   }
 }

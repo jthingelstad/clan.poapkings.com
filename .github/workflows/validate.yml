@@ -22,3 +22,8 @@ jobs:
       - run: npm run verify
       - run: npm run build
       - run: node infra/scripts/build.mjs
+      # Journeys against the built app with route fixtures (no Lambda):
+      # the real bundle, the real router, the kit from the pinned
+      # dependency, axe on every page a journey lands on.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e

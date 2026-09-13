@@ -116,13 +116,15 @@ export function ClanHeader({ clan, roster, others = [], navigate }) {
       <h1 className="page__title">{clanName}</h1>
       {others.length > 0 ? (
         <span style={{ position: "relative" }}>
+          {/* .chip sets no background, so a BUTTON wearing it kept the
+              browser's grey buttonface under light ink (axe: contrast). */}
           <button
             type="button"
-            className="chip"
+            className="chip cursor-pointer border-0 bg-transparent text-inherit"
             aria-haspopup="menu"
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            style={{ cursor: "pointer", font: "inherit", color: "inherit" }}
+            style={{ font: "inherit" }}
           >
             {chip} <span aria-hidden="true">▾</span>
           </button>
