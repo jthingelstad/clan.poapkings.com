@@ -231,7 +231,9 @@ export function Manage({ clan, tab, navigate, who }) {
                         <td style={{ whiteSpace: "normal", maxWidth: "320px" }}>
                           {m.phrase || <span className="nil">—</span>}
                         </td>
-                        <td>{judgmentCell(m)}</td>
+                        <td className="max-w-[280px] min-w-[180px] whitespace-normal">
+                          {judgmentCell(m)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -338,6 +340,10 @@ function removalCell(m) {
 }
 
 function judgmentCell(m) {
+  if (m.judgment_reasons?.length)
+    return (
+      <span className="text-ink-faint">{m.judgment_reasons.join(" ")}</span>
+    );
   const js = [
     m.judgment.promotion,
     m.judgment.demotion,

@@ -8,10 +8,66 @@ import {
   participationPhrase,
   standingForMembers,
   nextSteps,
+  judgmentReasons,
 } from "../src/render.mjs";
 import { member, participation, NOW } from "./fixture.mjs";
 
 const policy = defaults();
+
+test("held and unknown judgments explain the missing evidence without changing the verdict", () => {
+  const p = participation([
+    member("#UNKNOWN", { tenureKnown: false }),
+    member("#WAR", { war: [null, null, null, null, null, null] }),
+    member("#ELDER", {
+      role: "elder",
+      war: [null, null, null, null, null, null],
+    }),
+    {
+      ...member("#ANCHOR", { lastBattleDaysAgo: null }),
+      joined_observed_at: null,
+    },
+  ]);
+  const v = evaluate({ participation: p, policy, now: NOW });
+  const reasons = (tag) =>
+    judgmentReasons(
+      v.members.find((m) => m.player_tag === tag),
+      v.boundaries,
+    );
+  assert.deepEqual(reasons("#UNKNOWN"), [
+    "Promotion: tenure unknown because the join predates the record.",
+  ]);
+  assert.deepEqual(reasons("#WAR"), [
+    "Promotion held: war record incomplete in the review window.",
+  ]);
+  assert.deepEqual(reasons("#ELDER"), [
+    "Promotion held: war record incomplete in the review window.",
+    "Demotion held: war record incomplete in the review window.",
+  ]);
+  assert.deepEqual(reasons("#ANCHOR"), [
+    "Removal held: no recorded battle or observed join anchors the clock.",
+  ]);
+  const noReviews = evaluate({
+    participation: participation([member("#NEW")], { war_weeks: [] }),
+    policy,
+    now: NOW,
+  });
+  assert.deepEqual(
+    judgmentReasons(noReviews.members[0], noReviews.boundaries),
+    ["Promotion held: no closed war review yet."],
+  );
+  for (const m of v.members) {
+    for (const [dimension, status] of Object.entries(m.judgment)) {
+      if (status === "held" || status === "unknown")
+        assert.equal(m.actionable[dimension], false);
+    }
+  }
+  const ready = evaluate({
+    participation: participation([member("#READY")]),
+    policy,
+    now: NOW,
+  });
+  assert.deepEqual(judgmentReasons(ready.members[0], ready.boundaries), []);
+});
 
 test("the member phrase carries no score, percentile, rank or slot count", () => {
   const v = evaluate({

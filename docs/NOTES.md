@@ -449,3 +449,25 @@ the cache alone and the page shows what it had, while the Lambda finishes
 the evaluation anyway (the board read seconds later said "judged 22 s
 ago"). With the Elixir fix nothing approaches it, but the shape - the
 server finishing work the client already gave up on - is worth knowing.
+
+## 2026-09-13: Judge Fairly - explaining held judgments
+
+The first Judge Fairly run read the real POAP KINGS ledger before editing:
+47 members under policy v0, 28 unknown promotion judgments and three held
+promotion judgments. The unknowns have joins before the first roster
+observation; the held members have incomplete war records in the review
+window. None is actionable in that dimension. All nine computed grants
+for the complete, closed season 135 match the awards snapshot; season 134
+is held because its first section is outside the record. The six open
+cards are departures for leaders to classify.
+
+The board previously reduced these judgments to "tenure unknown" or
+"held", hiding the missing evidence and any second held dimension. The
+engine's rendering layer now explains every held or unknown dimension;
+the Manage service derives those sentences from the snapshot on every
+read, including cached snapshots, and the board shows them. This changes
+explanation only: no policy, judgment, card, grant or stored field changes.
+Regression coverage checks missing war records, no closed review, unknown
+tenure, a missing inactivity anchor, simultaneous dimensions and a cached
+snapshot through the handler. Live acceptance must use reads only; a
+leader's natural opening supplies the rendered production sample.

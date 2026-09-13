@@ -13,6 +13,33 @@ const pct = (x) => `${Math.round(x * 100)}%`;
 const n = (x) =>
   x === null || x === undefined ? "unknown" : Math.round(x).toLocaleString();
 
+/** Explain every fail-closed dimension, including snapshots already stored. */
+export function judgmentReasons(v, boundaries) {
+  const labels = {
+    promotion: "Promotion",
+    demotion: "Demotion",
+    removal: "Removal",
+  };
+  const reasons = [];
+  for (const [dimension, status] of Object.entries(v.judgment)) {
+    const label = labels[dimension];
+    if (status === "unknown") {
+      reasons.push(
+        `${label}: tenure unknown because the join predates the record.`,
+      );
+    } else if (status === "held") {
+      const reason =
+        dimension === "removal"
+          ? "no recorded battle or observed join anchors the clock"
+          : boundaries.length === 0
+            ? "no closed war review yet"
+            : "war record incomplete in the review window";
+      reasons.push(`${label} held: ${reason}.`);
+    }
+  }
+  return reasons;
+}
+
 /** The member-safe phrase: "100% war decks over 4 war weeks, 12 ranked battles, ~213 donations a week". */
 export function participationPhrase(v) {
   const f = v.facts;

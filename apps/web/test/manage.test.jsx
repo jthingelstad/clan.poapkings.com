@@ -4,6 +4,7 @@ import { renderWithProviders } from "./helpers.jsx";
 import { parseClanPath } from "../src/App.jsx";
 import { Standing } from "../src/views/Standing.jsx";
 import { HowElderWorks } from "../src/views/HowElderWorks.jsx";
+import { Manage } from "../src/views/Manage.jsx";
 import { manageApi } from "../src/api.js";
 
 afterEach(() => {
@@ -20,6 +21,56 @@ const poap = {
   role_label: "Leader",
   your_tags: ["#20JJJ2CCRU"],
 };
+
+test("the board shows every held or unknown reason, including simultaneous dimensions", async () => {
+  const reasons = [
+    "Promotion: tenure unknown because the join predates the record.",
+    "Removal held: no recorded battle or observed join anchors the clock.",
+  ];
+  vi.spyOn(manageApi, "manage").mockResolvedValue({
+    ok: true,
+    status: 200,
+    data: {
+      evaluated_at: "2026-09-13T16:00:00Z",
+      policy_version: 0,
+      boundaries: [],
+      band: {
+        roster_size: 1,
+        open_slots: 49,
+        current_elders: 0,
+        floor: 0,
+        ceil: 0,
+        target: 0,
+        ranked_population: 1,
+      },
+      board: [
+        {
+          player_tag: "#HELD",
+          name: "Held member",
+          role: "member",
+          bucket: "held",
+          judgment: {
+            promotion: "unknown",
+            demotion: "not_applicable",
+            removal: "held",
+          },
+          judgment_reasons: reasons,
+          promotion: { state: "none" },
+          removal: { state: "none", days_idle: null },
+        },
+      ],
+    },
+  });
+  renderWithProviders(
+    <Manage
+      clan={poap}
+      tab="board"
+      who={{ player_tag: poap.acting_as, role: "leader" }}
+    />,
+  );
+  await waitFor(() => expect(screen.getByText("Held member")).toBeTruthy());
+  expect(screen.getByText(reasons.join(" "))).toBeTruthy();
+});
 
 describe("clan paths", () => {
   test("parse the tag, the section and the manage tab", () => {

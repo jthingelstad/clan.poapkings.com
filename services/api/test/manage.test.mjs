@@ -137,6 +137,28 @@ test("manage: a leader opens Manage; one participation read, cards raised, cache
   );
 });
 
+test("manage: the board explains held judgments from an existing cached snapshot", async () => {
+  const h = harness({
+    part: participation(
+      [king, member("#HELD", { war: [null, null, null, null, null, null] })],
+      { clan_tag: "#J2RGCRVG" },
+    ),
+  });
+  const cookies = await leader(h);
+  await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const r = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  assert.equal(r.body.cached, true);
+  const held = r.body.board.find((m) => m.player_tag === "#HELD");
+  assert.equal(held.judgment.promotion, "held");
+  assert.deepEqual(held.judgment_reasons, [
+    "Promotion held: war record incomplete in the review window.",
+  ]);
+  assert.equal(
+    r.body.inbox.some((c) => c.player_tag === "#HELD"),
+    false,
+  );
+});
+
 test("manage: a member is refused; a foreign clan is refused", async () => {
   const h = harness({
     players: [player({ clan_role: "member" })],
