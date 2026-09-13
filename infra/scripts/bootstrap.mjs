@@ -217,11 +217,29 @@ await iam.send(
           Resource: [
             `arn:aws:logs:${REGION}:${accountId}:log-group:/aws/lambda/elixir-clan-*`,
             `arn:aws:logs:${REGION}:${accountId}:log-group:/aws/lambda/elixir-clan-*:*`,
+            // The HTTP API's access log (2026-09-12).
+            `arn:aws:logs:${REGION}:${accountId}:log-group:/aws/apigateway/elixir-clan-*`,
+            `arn:aws:logs:${REGION}:${accountId}:log-group:/aws/apigateway/elixir-clan-*:*`,
           ],
         },
         {
           Effect: "Allow",
           Action: ["logs:DescribeLogGroups"],
+          Resource: "*",
+        },
+        {
+          // Vended logs: what API Gateway needs to write an HTTP API's
+          // access log to a log group. Resource-less by AWS's design.
+          Effect: "Allow",
+          Action: [
+            "logs:CreateLogDelivery",
+            "logs:GetLogDelivery",
+            "logs:UpdateLogDelivery",
+            "logs:DeleteLogDelivery",
+            "logs:ListLogDeliveries",
+            "logs:PutResourcePolicy",
+            "logs:DescribeResourcePolicies",
+          ],
           Resource: "*",
         },
         {
