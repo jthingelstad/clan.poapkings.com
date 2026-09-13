@@ -276,3 +276,42 @@ to the wordmark and the Elixir link, `views/Away.jsx`, departure cards
 with three buttons, CopyLine on cards and timeline rows. 3 API tests, 2
 web tests. One design note for the pass to come: `/you` is "Players" in
 the rail and "You" on the page; the design pass should name it once.
+
+## 2026-09-12 — Logging: one story per request, and what it found
+
+Jamie: "several requests in the browser are very slow; let's make sure we
+have good logging all the way through." The Lambda log group held START,
+END and REPORT and nothing else: 146 invocations in six hours, p50 326 ms,
+p90 2.7 s, p99 20 s, max 22.8 s, with no line saying where a second went.
+Init durations were ~300 ms, so cold starts were not it.
+
+Built (`services/api/src/trace.mjs`): a per-request trace on
+AsyncLocalStorage; every Elixir call, OAuth call and table operation timed
+into it; one JSON line per request (route with ids as `*`, status, ms,
+per-call durations with Elixir's own `meta.request_id`, cold), one EMF line
+(namespace `ElixirClan`, by Route), a `Server-Timing` header; `warn` on a
+request over 8 s or a 5xx, and a `slow_elixir_call` line for any single
+call over 5 s. The HTTP API is now spelled out (integration, route, stage)
+so its `$default` stage carries an access log (`/aws/apigateway/elixir-clan-api`)
+with the gateway's integration and response latency, sharing `request_id`
+with the Lambda's line; the execution role needed the log-group scope and
+the vended-log actions (bootstrap re-run). The browser warns in the console
+for any request over 3 s with wall time beside Server-Timing; the smoke
+prints each read's time. Alarm `elixir-clan-slow-requests` on p90 > 8 s.
+
+**What it found, before a single user request:** Elixir's own metrics
+(`ElixirMCP/Tools DurationMs`, last 12 h) put `clans_participation` at
+**12.8 s average, 19.3 s max over 16 calls**, and `clans_roster` at 1.6 s
+average. Every evaluation (Manage, Standing, Awards, cached five minutes)
+waits for that one call, which is the whole of the slowness Jamie felt.
+The gate's `elixir_my_players` (103 ms) and Scout's reads (~200 ms) are
+fine. Two smaller things the smoke showed: the first table operation in a
+fresh container costs ~400 ms (SDK client and credentials) and the first
+OAuth discovery ~650 ms; both once per container, neither the story.
+
+**Next:** the fix is Elixir's, in `services/mcp/src/tools/clans.mjs`: the
+two `battle_participant ⋈ battle` aggregates over eight weeks for 47 tags
+are the suspects (the per-day war-battle count and the per-week battle
+count); an EXPLAIN through the ops Lambda decides between an index on
+(player_tag, battle_time) and a precomputed weekly projection. A fact
+request to Elixir, never a judgment.
