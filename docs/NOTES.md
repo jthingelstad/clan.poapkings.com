@@ -417,3 +417,35 @@ touched, under the ratchet.
 pushed. Pre-existing flake noted: `recruit.test.jsx` "my own words" can
 time out under full-suite load and passes alone.
 
+
+## 2026-09-13: the live walk, and where the slowness was
+
+Jamie: "performance seemed problematic on parts of it." A signed-in
+Playwright walk of every page (through Elixir's OAuth, code read from the
+inbox) with wall time and `Server-Timing` per API call. Everything rendered,
+no boundaries, no page errors; the slow numbers were all one thing:
+
+| page | before | after |
+|---|---|---|
+| Standing, first load | 23.4 s (a 20 s client timeout, then the retry) | 1.0 s |
+| Awards | 22.5 s (`elixir;dur=17839`, one call) | `elixir;dur=379` |
+| re-judge now | timed out at 20.0 s | 663 ms for two calls |
+| every other page | 2–5 s, of which the API was < 1 s | unchanged |
+
+The one call was `clans_participation`; the cause and the fix (a covering
+index, one pass) are Elixir's, in `elixir-mcp/docs/NOTES.md` under the same
+date. Nothing in this app changed for it.
+
+**One defect found and fixed here (1677d76):** every member sheet's awards
+panel answered 401, for everyone, since the public awards document shipped
+on 2026-09-12 - CloudFront's `*` matches across slashes, so the
+public-document behaviour for `/api/clans/*/awards` (no cookie forwarded)
+also captured `/members/<player>/awards`. The route is `/members/<player>/grants`
+now; the template says no other route may end in `/awards`.
+
+**What the client does at 20 s:** `createClient`'s timeout is 20 s, so a
+server read that takes longer is a `timeout` envelope: `useGated` leaves
+the cache alone and the page shows what it had, while the Lambda finishes
+the evaluation anyway (the board read seconds later said "judged 22 s
+ago"). With the Elixir fix nothing approaches it, but the shape - the
+server finishing work the client already gave up on - is worth knowing.
