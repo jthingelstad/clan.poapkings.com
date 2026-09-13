@@ -366,3 +366,15 @@ identity fields to resolve those without Jamie. The billing alarm is
 account, not this product: its $19.73 datapoint crossed the $10 threshold.
 The API error, 5xx and slow-request alarms are OK. Run Elixir Clan owns
 the billing alarm's operational interpretation; this run does not change it.
+
+**Shipped and read back.** Repair commit `1ceee42` passed validate
+`34758014677` and deploy `34758044948`. The stack is `UPDATE_COMPLETE`
+on `code/api/1cb3c22e4da543ac.zip`; the uploaded bundle matches this
+checkout byte-for-byte, and the uploaded ZIP's SHA-256 matches the active
+Lambda's `CodeSha256`. After deployment, the host feedback read returns
+"nothing waiting", read-only smoke passes, and the public Elder policy
+answers version 0. There were no real feedback items to answer. Organic
+feedback notification, member-list and reply acceptance remain watches,
+not fabricated tests. The first W37 synthesis is recorded in
+`AGENT-TEAM/summaries/2026-W37.md`; the next is Friday September 18 at
+19:40 Chicago time.
