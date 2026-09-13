@@ -15,7 +15,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-router": "^1.170.32",
-    "elixir-mcp": "github:jthingelstad/elixir-mcp#da57a09f1aba6f71190a97f9678cff238cd08326",
+    "elixir-mcp": "github:jthingelstad/elixir-mcp#a84e651f289aee1ea603e84d3da396ebcbffdb4d",
     "lucide-react": "^1.43.0",
     "marked": "^18.0.12",
     "react": "^19.3.0",

@@ -2,16 +2,10 @@ import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { HOW_ELDER_WORKS, mockApi, signedIn } from "./fixtures.ts";
 
-/** Nothing serious or critical. One rule is set aside, deliberately:
- *  link-in-text-block - Elixir's links are coloured, not underlined
- *  (`a { text-decoration: none }` in the design), and the link ink
- *  against body ink is under 3:1, so a link inside a lede is told apart
- *  by colour alone. That is a token decision for the design, not a fix
- *  for this app; it is reported, not hidden. */
+/** Nothing serious or critical, on every page a journey lands on. */
 async function accessible(page: Page, name: string) {
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
-    .disableRules(["link-in-text-block"])
     .analyze();
   const serious = results.violations.filter((v) =>
     ["serious", "critical"].includes(v.impact ?? ""),
