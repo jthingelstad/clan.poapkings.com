@@ -274,9 +274,10 @@ the way Elixir does (`Fresh`).
 
 - `--profile jamie`, `us-east-1`, hobby-account rules from `~/Projects/AGENTS.md`.
   No em dashes in resource names.
-- One stack `elixir-clan` (`infra/template.yaml`): table, function, HTTP API,
-  private bucket + CloudFront, SNS `elixir-clan-alarms`, three alarms (Lambda
-  errors, API 5xx, estimated charges), 30-day logs.
+- One stack `elixir-clan` (`infra/template.yaml`): table, function, HTTP API
+  (spelled out: integration, `$default` route and stage with an access log),
+  private bucket + CloudFront, SNS `elixir-clan-alarms`, four alarms (Lambda
+  errors, API 5xx, slow requests p90 > 8 s, estimated charges), 30-day logs.
 - `infra/scripts/parameters.mjs` carries Drop's discipline: REQUIRED (code
   key) is always sent; PRESERVED (`AppUrl`, `ElixirUrl`, `OAuthClientId`,
   `AppSecretName`, `SiteCertificateArn`, `MonthlyCostAlarmUsd`) rides
@@ -295,6 +296,38 @@ the way Elixir does (`Fresh`).
   `get-secret-value`.
 - Tests: `npm run verify` (prettier, oxlint, node:test + vitest). Every seam
   is injected; no test reaches the network.
+
+## Logging: one story per request
+
+`services/api/src/trace.mjs` (2026-09-12, after slow pages and a log group
+holding only START/END/REPORT). Every request runs inside a trace; every
+Elixir call (`mcp.mjs`, `oauth.mjs`) and every table operation (`store.mjs`,
+`ledger.mjs`) is timed into it. The handler ends the request with:
+
+- **one JSON line** in `/aws/lambda/elixir-clan-api`: `http` (the route with
+  ids and tags as `*`), `status`, `ms`, `elixir_ms`/`elixir_calls`,
+  `store_ms`/`store_ops`, `cold`, the clan and role for a clan route, and
+  `elixir: [{ call, ms, ok, status|code, request_id, bytes }]` where
+  `request_id` is Elixir's own `meta.request_id` for that call, the key to
+  its call log. Level `warn` when the request took over 8 s or answered
+  5xx; a single Elixir call over 5 s gets its own `slow_elixir_call` line.
+  Never a token, a cookie or a body.
+- **one EMF line** (namespace `ElixirClan`, dimension `Route` and none):
+  `DurationMs`, `ElixirMs`, `StoreMs`, `ElixirCalls`, `Errors5xx`,
+  `ColdStarts`. The `elixir-clan-slow-requests` alarm watches p90.
+- a **`Server-Timing`** header (`total`, `elixir`, `store`, `own`, `cold`) so
+  the browser's wall clock can be read against the server's: the
+  difference is time in front of the edge.
+
+In front of the Lambda, the HTTP API's access log
+(`/aws/apigateway/elixir-clan-api`) writes one JSON line per request with
+the gateway's `integration_ms` and `response_ms`, sharing `request_id` with
+the Lambda's line. In the browser, `apps/web/src/api.js` warns in the
+console for any request over 3 s with the wall time and the Server-Timing.
+The smoke script prints each read's time and timing. Reading a slow
+report: gateway `integration_ms` ≈ Lambda `ms`? then the time is Elixir's
+(`elixir` entries) or ours (`own`); the browser's `wall_ms` far above
+`total`? then it is the edge or the network.
 
 ## Design dependency
 

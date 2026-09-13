@@ -17,6 +17,8 @@ import { createHash, randomBytes } from "node:crypto";
 export const SCOPE = "cr:read";
 const DISCOVERY_TTL_MS = 300_000;
 
+import { timedElixir } from "./trace.mjs";
+
 export function pkcePair() {
   const verifier = randomBytes(32).toString("base64url");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
@@ -42,9 +44,11 @@ export function createOAuthClient({
   async function discovery() {
     if (discovered && now() - discoveredAt < DISCOVERY_TTL_MS)
       return discovered;
-    const response = await fetchImpl(
-      `${issuer}/.well-known/oauth-authorization-server`,
-      { headers: { accept: "application/json" } },
+    const response = await timedElixir("oauth:discovery", () =>
+      fetchImpl(`${issuer}/.well-known/oauth-authorization-server`, {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(10_000),
+      }),
     );
     if (!response.ok) throw new Error(`discovery http ${response.status}`);
     const doc = await response.json();
@@ -61,15 +65,17 @@ export function createOAuthClient({
     const { token_endpoint } = await discovery();
     let response;
     try {
-      response = await fetchImpl(token_endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/x-www-form-urlencoded",
-          accept: "application/json",
-        },
-        body: new URLSearchParams(form).toString(),
-        signal: AbortSignal.timeout(20_000),
-      });
+      response = await timedElixir(`oauth:${form.grant_type}`, () =>
+        fetchImpl(token_endpoint, {
+          method: "POST",
+          headers: {
+            "content-type": "application/x-www-form-urlencoded",
+            accept: "application/json",
+          },
+          body: new URLSearchParams(form).toString(),
+          signal: AbortSignal.timeout(20_000),
+        }),
+      );
     } catch (error) {
       return { ok: false, error: `transport: ${error.message}` };
     }

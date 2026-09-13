@@ -55,6 +55,8 @@ export function rosterBody(members) {
  * `refuse` makes every call answer HTTP 401 until cleared, which is how
  * an expired or revoked access token looks from here.
  */
+import { timedElixir } from "../src/trace.mjs";
+
 export function fakeMcp({
   principal = PERSON,
   players = [player()],
@@ -74,17 +76,24 @@ export function fakeMcp({
   return {
     calls,
     state,
-    async initialize(token) {
-      calls.push(["initialize", token]);
-      if (!tokenOk(token)) return refused();
-      return {
-        ok: true,
-        body: {},
-        version: "1.7.0+tools.abc",
-        principal: state.principal,
-      };
+    // Timed into the request's trace like the real client, so a test can
+    // read the story a request tells.
+    initialize(token) {
+      return timedElixir("initialize", async () => {
+        calls.push(["initialize", token]);
+        if (!tokenOk(token)) return refused();
+        return {
+          ok: true,
+          body: {},
+          version: "1.7.0+tools.abc",
+          principal: state.principal,
+        };
+      });
     },
-    async callTool(token, name, args) {
+    callTool(token, name, args) {
+      return timedElixir(name, () => this.rawCallTool(token, name, args));
+    },
+    async rawCallTool(token, name, args) {
       calls.push([name, token, args]);
       if (!tokenOk(token)) return refused();
       if (name === "elixir_my_players")

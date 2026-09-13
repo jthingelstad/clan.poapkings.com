@@ -41,6 +41,7 @@ import {
   QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { randomBytes } from "node:crypto";
+import { timedStore } from "../trace.mjs";
 
 const clanKey = (tag) => `clan#${tag}`;
 const FEEDBACK_PARTITION = "feedback#queue";
@@ -48,9 +49,16 @@ export const newId = () => randomBytes(9).toString("base64url");
 const pad = (n) => String(n).padStart(6, "0");
 
 export function createDynamoLedger({ tableName, region }) {
-  const doc = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
+  const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
     marshallOptions: { removeUndefinedValues: true },
   });
+  const doc = {
+    send: (command) =>
+      timedStore(
+        `${command.constructor.name.replace("Command", "")} ${String(command.input?.Key?.pk ?? command.input?.Item?.pk ?? command.input?.ExpressionAttributeValues?.[":p"] ?? "").split("#")[0] || "query"}`,
+        () => client.send(command),
+      ),
+  };
   async function put(item) {
     await doc.send(new PutCommand({ TableName: tableName, Item: item }));
   }

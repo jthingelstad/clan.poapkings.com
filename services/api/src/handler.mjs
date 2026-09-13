@@ -25,6 +25,14 @@ import {
   verifySessionCookie,
 } from "./cookies.mjs";
 import { normalizeTag, runGate } from "./gate.mjs";
+import {
+  withTrace,
+  current,
+  annotate,
+  summarize,
+  serverTiming,
+  emf,
+} from "./trace.mjs";
 import { pkcePair, randomState } from "./oauth.mjs";
 import { roleLabel, roleRank } from "./roles.mjs";
 
@@ -588,6 +596,7 @@ export function createHandler({
     if (ctx.response) return ctx.response;
     const { clan, who, token } = ctx;
     const tag = clan.clan_tag;
+    annotate({ clan: tag, role: who.role });
     const body =
       method === "GET" || method === "DELETE" ? {} : parseBody(event);
     if (body === null) return json(400, { error: "bad_request" });
@@ -730,9 +739,36 @@ export function createHandler({
     }
   }
 
-  return async function handler(event) {
+  return function handler(event) {
     const method = event.requestContext?.http?.method ?? event.httpMethod;
     const path = event.rawPath ?? event.path ?? "/";
+    return withTrace(
+      {
+        http: routeKey(method, path),
+        request_id: event.requestContext?.requestId ?? null,
+      },
+      async () => {
+        const trace = current();
+        const res = await dispatch(event, method, path);
+        const summary = summarize(trace, res.statusCode ?? 200);
+        (summary.level === "warn" ? console.warn : console.log)(
+          JSON.stringify(summary),
+        );
+        // The EMF line is its own event: a raw write, never console.log's
+        // prefix (Elixir's lesson, services/mcp/src/index.mjs).
+        process.stdout.write(`${emf(summary)}\n`);
+        return {
+          ...res,
+          headers: {
+            ...(res.headers ?? {}),
+            "server-timing": serverTiming(summary),
+          },
+        };
+      },
+    );
+  };
+
+  async function dispatch(event, method, path) {
     try {
       if (manage && path.startsWith("/api/clans/")) {
         const answered = await manageRoute(event, method, path);
@@ -761,7 +797,20 @@ export function createHandler({
       log.error?.("unhandled", { path, error: error?.message });
       return json(500, { error: "internal" });
     }
-  };
+  }
+}
+
+/**
+ * The request as the log names it: ids and tags replaced by `*` so one
+ * route is one series, never a line per member.
+ */
+export function routeKey(method, path) {
+  const generic = path
+    .replace(/^\/api\/clans\/[0-9A-Za-z]+/, "/api/clans/*")
+    .replace(/\/(cards|notes|holds|members)\/[^/]+/g, "/$1/*")
+    .replace(/\/awards\/grants\/.+$/, "/awards/grants/*")
+    .replace(/^(\/api\/(?:maintain\/)?feedback)\/[^/]+$/, "$1/*");
+  return `${method} ${generic}`;
 }
 
 /** The roster as the page wants it: grouped by role rank, then trophies,

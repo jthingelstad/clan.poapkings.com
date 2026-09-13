@@ -13,6 +13,8 @@
  * failure's closed-set code (`not_recorded`, `no_subject`, ...).
  */
 
+import { timedElixir } from "./trace.mjs";
+
 export const PRINCIPAL_META_KEY = "elixir.poapkings.com/principal";
 const TIMEOUT_MS = 20_000;
 export const CLIENT_INFO = { name: "elixir-clan", version: "0.1.0" };
@@ -24,7 +26,14 @@ export function createMcpClient({
   if (!url) throw new Error("mcp client needs a door url");
   let nextId = 0;
 
-  async function rpc(token, method, params) {
+  /** initialize is timed under its own name; a tool call is timed in
+   *  callTool, once the tool's body (and its meta.request_id) is parsed. */
+  const rpc = (token, method, params) =>
+    method === "tools/call"
+      ? rawRpc(token, method, params)
+      : timedElixir(method, () => rawRpc(token, method, params));
+
+  async function rawRpc(token, method, params) {
     const id = ++nextId;
     let response;
     try {
@@ -50,8 +59,11 @@ export function createMcpClient({
       };
     }
     let envelope;
+    let bytes = 0;
     try {
-      envelope = await response.json();
+      const text = await response.text();
+      bytes = text.length;
+      envelope = JSON.parse(text);
     } catch (error) {
       return { ok: false, error: `malformed envelope: ${error.message}` };
     }
@@ -60,9 +72,10 @@ export function createMcpClient({
         ok: false,
         error: `rpc ${envelope.error.code}: ${envelope.error.message}`,
         rpcCode: envelope.error.code,
+        bytes,
       };
     }
-    return { ok: true, body: envelope.result };
+    return { ok: true, body: envelope.result, bytes };
   }
 
   return {
@@ -87,29 +100,35 @@ export function createMcpClient({
     /** One tools/call, unwrapped to the tool's parsed JSON body. A failed
      *  call (isError) is `{ ok: false, code, error, body }` so a caller can
      *  branch on the closed-set code rather than the English. */
-    async callTool(token, name, args = {}) {
-      const result = await rpc(token, "tools/call", { name, arguments: args });
-      if (!result.ok) return result;
-      const text = result.body?.content?.[0]?.text;
-      if (typeof text !== "string") {
-        return { ok: false, error: "no text content in tool result" };
-      }
-      let body;
-      try {
-        body = JSON.parse(text);
-      } catch {
-        return { ok: false, error: "tool answered non-JSON text" };
-      }
-      if (result.body?.isError) {
-        return {
-          ok: false,
-          code: body?.error?.code ?? "unknown",
-          error: body?.error?.message ?? "tool error",
-          hint: body?.error?.hint,
-          body,
-        };
-      }
-      return { ok: true, body };
+    callTool(token, name, args = {}) {
+      return timedElixir(name, async () => {
+        const result = await rpc(token, "tools/call", {
+          name,
+          arguments: args,
+        });
+        if (!result.ok) return result;
+        const text = result.body?.content?.[0]?.text;
+        if (typeof text !== "string") {
+          return { ok: false, error: "no text content in tool result" };
+        }
+        let body;
+        try {
+          body = JSON.parse(text);
+        } catch {
+          return { ok: false, error: "tool answered non-JSON text" };
+        }
+        if (result.body?.isError) {
+          return {
+            ok: false,
+            code: body?.error?.code ?? "unknown",
+            error: body?.error?.message ?? "tool error",
+            hint: body?.error?.hint,
+            body,
+            bytes: result.bytes,
+          };
+        }
+        return { ok: true, body, bytes: result.bytes };
+      });
     },
   };
 }

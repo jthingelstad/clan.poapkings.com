@@ -181,12 +181,54 @@ Resources:
         - Key: application
           Value: elixir-clan
 
-  HttpApi:
+  # The HTTP API, spelled out (2026-09-12): the quick-create form
+  # (`Target`) owns its own $default stage, and a stage owned that way
+  # cannot carry access logs. These four resources are what quick-create
+  # made implicitly, plus the access log: one JSON line per request in
+  # front of the Lambda, with the gateway's own integration and response
+  # latency, which is the only place a 29-second gateway timeout or a
+  # Lambda that never answered is written down.
+  Api:
     Type: AWS::ApiGatewayV2::Api
     Properties:
       Name: elixir-clan-api
       ProtocolType: HTTP
-      Target: !GetAtt ApiFunction.Arn
+
+  ApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Api
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ApiFunction.Arn
+      PayloadFormatVersion: "2.0"
+      TimeoutInMillis: 29000
+
+  ApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: $default
+      Target: !Sub integrations/${ApiIntegration}
+
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/apigateway/elixir-clan-api
+      RetentionInDays: 30
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref Api
+      StageName: $default
+      AutoDeploy: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        # No viewer address: CloudFront is the caller, so it would be an
+        # edge node. The gateway's request id joins this line to the
+        # Lambda's own (request_id there).
+        Format: >-
+          {"at":"$context.requestTime","request_id":"$context.requestId","method":"$context.httpMethod","path":"$context.path","status":"$context.status","integration_status":"$context.integrationStatus","integration_ms":"$context.integrationLatency","response_ms":"$context.responseLatency","bytes":"$context.responseLength","error":"$context.error.message","integration_error":"$context.integrationErrorMessage","user_agent":"$context.identity.userAgent"}
 
   HttpApiPermission:
     Type: AWS::Lambda::Permission
@@ -194,7 +236,7 @@ Resources:
       FunctionName: !Ref ApiFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${Api}/*
 
   # ------------------------------------------------------------ the site
   WebBucket:
@@ -317,7 +359,7 @@ Resources:
             OriginAccessControlId: !Ref WebOac
             S3OriginConfig: { OriginAccessIdentity: "" }
           - Id: api
-            DomainName: !Sub ${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+            DomainName: !Sub ${Api}.execute-api.${AWS::Region}.amazonaws.com
             CustomOriginConfig:
               OriginProtocolPolicy: https-only
               OriginSSLProtocols: [TLSv1.2]
@@ -428,6 +470,24 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions: [!Ref AlarmTopic]
 
+  # The request story's own metric (services/api/src/trace.mjs): a p90
+  # over 8 s for ten minutes is a product that feels broken, whether the
+  # time is Elixir's or ours; the log lines say which.
+  SlowRequestsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: elixir-clan-slow-requests
+      AlarmDescription: Elixir Clan API requests are slow (p90 over 8 s)
+      Namespace: ElixirClan
+      MetricName: DurationMs
+      ExtendedStatistic: p90
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 8000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
   Api5xxAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -435,7 +495,7 @@ Resources:
       AlarmDescription: The Elixir Clan HTTP API is answering 5xx
       Namespace: AWS/ApiGateway
       MetricName: 5xx
-      Dimensions: [{ Name: ApiId, Value: !Ref HttpApi }]
+      Dimensions: [{ Name: ApiId, Value: !Ref Api }]
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 2
@@ -469,7 +529,7 @@ Outputs:
   WebBucketName:
     Value: !Ref WebBucket
   ApiUrl:
-    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com
   ApiFunctionName:
     Value: !Ref ApiFunction
   TableName:

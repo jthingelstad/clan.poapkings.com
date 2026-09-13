@@ -25,6 +25,7 @@ import {
   PutCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { timedStore } from "./trace.mjs";
 
 export const LOGIN_TTL_S = 600;
 
@@ -32,9 +33,18 @@ const seconds = (ms) => Math.floor(ms / 1000);
 
 export function createDynamoStore({ tableName, region }) {
   if (!tableName) throw new Error("store needs a table name");
-  const doc = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
+  const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
     marshallOptions: { removeUndefinedValues: true },
   });
+  // Every operation timed into the request's trace, named by its command
+  // and the item kind (the key's prefix), never the key itself.
+  const doc = {
+    send: (command) =>
+      timedStore(
+        `${command.constructor.name.replace("Command", "")} ${String(command.input?.Key?.pk ?? command.input?.Item?.pk ?? "").split("#")[0]}`,
+        () => client.send(command),
+      ),
+  };
 
   return {
     async putLogin(state, login, nowMs) {

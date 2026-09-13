@@ -2,9 +2,27 @@
  *  a non-JSON body (an edge error page) is a failure whatever its status. */
 
 const TIMEOUT_MS = 20_000;
+/** A request the person waited this long for is said so in the console,
+ *  with the server's own timing beside the wall clock: the difference is
+ *  the time in front of the edge, which no server log can see. */
+const SLOW_MS = 3_000;
+
+function report(method, path, started, res, error) {
+  const ms = Math.round(performance.now() - started);
+  if (ms < SLOW_MS && !error) return;
+  const timing = res?.headers?.get?.("server-timing") ?? null;
+  console.warn("[elixir-clan] slow request", {
+    request: `${method} ${path}`,
+    wall_ms: ms,
+    status: res?.status ?? 0,
+    server_timing: timing,
+    ...(error ? { error } : {}),
+  });
+}
 
 async function get(path) {
   let res;
+  const started = performance.now();
   try {
     res = await fetch(path, {
       credentials: "same-origin",
@@ -12,6 +30,13 @@ async function get(path) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (err) {
+    report(
+      "GET",
+      path,
+      started,
+      null,
+      err?.name === "TimeoutError" ? "timeout" : "network",
+    );
     return {
       ok: false,
       status: 0,
@@ -20,6 +45,7 @@ async function get(path) {
     };
   }
   const text = await res.text();
+  report("GET", path, started, res);
   try {
     return {
       ok: res.ok,
@@ -33,6 +59,7 @@ async function get(path) {
 
 async function post(path, body) {
   let res;
+  const started = performance.now();
   try {
     res = await fetch(path, {
       method: "POST",
@@ -45,6 +72,13 @@ async function post(path, body) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (err) {
+    report(
+      "POST",
+      path,
+      started,
+      null,
+      err?.name === "TimeoutError" ? "timeout" : "network",
+    );
     return {
       ok: false,
       status: 0,
@@ -53,6 +87,7 @@ async function post(path, body) {
     };
   }
   const text = await res.text();
+  report("POST", path, started, res);
   try {
     return {
       ok: res.ok,
@@ -66,6 +101,7 @@ async function post(path, body) {
 
 async function del(path) {
   let res;
+  const started = performance.now();
   try {
     res = await fetch(path, {
       method: "DELETE",
@@ -74,6 +110,13 @@ async function del(path) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (err) {
+    report(
+      "DELETE",
+      path,
+      started,
+      null,
+      err?.name === "TimeoutError" ? "timeout" : "network",
+    );
     return {
       ok: false,
       status: 0,
@@ -82,6 +125,7 @@ async function del(path) {
     };
   }
   const text = await res.text();
+  report("DELETE", path, started, res);
   try {
     return {
       ok: res.ok,
@@ -95,6 +139,7 @@ async function del(path) {
 
 async function put(path, body) {
   let res;
+  const started = performance.now();
   try {
     res = await fetch(path, {
       method: "PUT",
@@ -107,6 +152,13 @@ async function put(path, body) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (err) {
+    report(
+      "PUT",
+      path,
+      started,
+      null,
+      err?.name === "TimeoutError" ? "timeout" : "network",
+    );
     return {
       ok: false,
       status: 0,
@@ -115,6 +167,7 @@ async function put(path, body) {
     };
   }
   const text = await res.text();
+  report("PUT", path, started, res);
   try {
     return {
       ok: res.ok,

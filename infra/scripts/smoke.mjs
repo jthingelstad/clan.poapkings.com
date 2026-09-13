@@ -58,7 +58,19 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? ` (${detail})` : ""}`);
 };
 
-const home = await fetchRetry(`${base}/`);
+// Every read prints how long it took and, for the API, the server's own
+// Server-Timing, so a slow smoke says where the time went.
+const timed = async (url, init) => {
+  const t = Date.now();
+  const res = await fetchRetry(url, init);
+  const timing = res.headers.get("server-timing");
+  console.log(
+    `     ${Date.now() - t} ms  ${url.slice(base.length)}${timing ? `  [${timing}]` : ""}`,
+  );
+  return res;
+};
+
+const home = await timed(`${base}/`);
 const homeText = await home.text();
 check(
   "GET / is the app shell",
@@ -71,21 +83,21 @@ check(
     Boolean(home.headers.get("strict-transport-security")),
 );
 
-const route = await fetchRetry(`${base}/clan`);
+const route = await timed(`${base}/clan`);
 check(
   "GET /clan serves the app shell (SPA router)",
   route.status === 200 && (await route.text()).includes("Elixir Clan"),
   String(route.status),
 );
 
-const missing = await fetchRetry(`${base}/nope.txt`);
+const missing = await timed(`${base}/nope.txt`);
 check(
   "a missing file is honestly a miss",
   missing.status === 403 || missing.status === 404,
   String(missing.status),
 );
 
-const health = await fetchRetry(`${base}/api/health`);
+const health = await timed(`${base}/api/health`);
 let healthBody = {};
 try {
   healthBody = await health.json();
@@ -98,7 +110,7 @@ check(
   String(health.status),
 );
 
-const me = await fetchRetry(`${base}/api/me`);
+const me = await timed(`${base}/api/me`);
 let meBody = {};
 try {
   meBody = await me.json();
@@ -113,7 +125,7 @@ check(
 
 // The public awards document: a GET with no session answers JSON either
 // way (the document, or 404 not_published) and carries its cache header.
-const awards = await fetchRetry(`${base}/api/clans/J2RGCRVG/awards`);
+const awards = await timed(`${base}/api/clans/J2RGCRVG/awards`);
 let awardsBody = {};
 try {
   awardsBody = await awards.json();
@@ -131,7 +143,7 @@ check(
   (awards.headers.get("cache-control") ?? "").includes("max-age=300"),
 );
 
-const login = await fetchRetry(`${base}/auth/login`);
+const login = await timed(`${base}/auth/login`);
 const location = login.headers.get("location") ?? "";
 const loginOk =
   login.status === 303 &&
