@@ -72,6 +72,7 @@ export function createHandler({
   manage = null,
   awards = null,
   scout = null,
+  recruit = null,
   feedback = null,
   /** Verified player tags of the product's maintainer(s): MaintainerTags. */
   maintainerTags = [],
@@ -572,7 +573,7 @@ export function createHandler({
     if (!m) return null;
     const rest = m[2] ?? "";
     // The public page needs no session.
-    if (method === "GET" && rest === "/how-elder-works") {
+    if (method === "GET" && rest === "/how-elder-works" && manage) {
       const tag = normalizeTag(m[1]);
       if (!tag) return json(400, { error: "bad_request" });
       return json(200, await manage.howElderWorks(tag));
@@ -601,6 +602,27 @@ export function createHandler({
       method === "GET" || method === "DELETE" ? {} : parseBody(event);
     if (body === null) return json(400, { error: "bad_request" });
     try {
+      // Recruiting: every member reads and copies; leaders write the pitch.
+      if (recruit && rest === "/recruit") {
+        if (method === "GET")
+          return json(
+            200,
+            await recruit.view(tag, who, token, {
+              refresh: event.queryStringParameters?.refresh === "1",
+            }),
+          );
+        if (method === "POST")
+          return json(
+            200,
+            await recruit.savePitch(
+              tag,
+              who,
+              body.values ?? {},
+              body.note ?? null,
+            ),
+          );
+      }
+      if (!manage) return json(404, { error: "not_found" });
       if (method === "GET" && rest === "/manage")
         return json(
           200,
@@ -751,12 +773,12 @@ export function createHandler({
         const trace = current();
         const res = await dispatch(event, method, path);
         const summary = summarize(trace, res.statusCode ?? 200);
-        (summary.level === "warn" ? console.warn : console.log)(
+        (summary.level === "warn" ? log.warn : log.info)?.(
           JSON.stringify(summary),
         );
-        // The EMF line is its own event: a raw write, never console.log's
-        // prefix (Elixir's lesson, services/mcp/src/index.mjs).
-        process.stdout.write(`${emf(summary)}\n`);
+        // The EMF line is its own event: a raw write in production
+        // (index.mjs), never console.log's prefix (Elixir's lesson).
+        log.metric?.(emf(summary));
         return {
           ...res,
           headers: {
@@ -770,7 +792,7 @@ export function createHandler({
 
   async function dispatch(event, method, path) {
     try {
-      if (manage && path.startsWith("/api/clans/")) {
+      if ((manage || awards || recruit) && path.startsWith("/api/clans/")) {
         const answered = await manageRoute(event, method, path);
         if (answered) return answered;
       }

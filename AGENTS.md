@@ -30,13 +30,14 @@ removal clock, action cards leaders decide, notes, holds, and scouting.
 
 ```
 apps/web/          React 18 + Vite SPA with Elixir's left rail: /, /clans, /clan/<TAG>,
-                   /clan/<TAG>/standing, /clan/<TAG>/manage/{inbox,board,history,policy,awards,scout},
+                   /clan/<TAG>/standing, /clan/<TAG>/recruit,
+                   /clan/<TAG>/manage/{inbox,board,history,policy,awards,scout},
                    /clan/<TAG>/how-elder-works (public), /you, /you/away, /feedback,
                    /maintain/feedback, /refused/<reason>
 services/engine/   the management engine, PURE: policy schema, facts, standing,
-                   evaluate, render, awards. No I/O, no clock. Golden tests in test/.
+                   evaluate, render, awards, recruit. No I/O, no clock. Golden tests in test/.
 services/api/      Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*,
-                   /api/clans/<TAG>/* (manage/ = ledger, service, awards, scout)
+                   /api/clans/<TAG>/* (manage/ = ledger, service, awards, recruit, scout)
 scripts/           import-elixir-bot.mjs (read-only dry run of elixir-bot's ledger;
                    importing was DECLINED 2026-09-12, never offer to run --write)
 infra/             one CloudFormation stack + scripts (bootstrap, deploy, smoke)
@@ -190,6 +191,29 @@ max-age=300`; edge-cached on its own CloudFront behavior; `404
 not_published` until the clan switches publish on). Nothing here narrates
 an award; poapkings.com or any site reads the document. No public HTML
 page, by decision.
+
+## Recruit (2026-09-13)
+
+elixir-bot's `promotion-content` job (Friday copy for five channels, composed
+by a model from live clan stats, posted to #recruiting for members to
+reuse) as a page every member can use, without a model:
+`services/engine/src/recruit.mjs`. Two inputs: the clan's **pitch** (a
+leader's words, versioned like policy: `recruit#<clan>#v<n>`; tagline,
+about, up to six points, who we want, website, how to get in; POAP KINGS'
+defaults from `prompts/lanes/recruiting.md`) and **facts** from one live
+read of `/clans/{tag}` through Elixir's `live_fetch` (required trophies,
+members and open slots, clan score, war trophies, donations a week, top
+trophies and donors), cached six hours in `recruit_facts#<clan>` so a
+member's page open never spends a live read; a pending read is passed
+through with the recorded roster standing in; a leader's "read again" is
+floored at ten minutes. `recruitCopy` writes the five channels (message,
+social, email, Discord, Reddit) deterministically; `validateCopy` keeps the
+bot's rules (Discord title line ends `Required Trophies: [N]`, Reddit title
+carries `[N]` for r/RoyaleRecruit, no invite link in the Reddit body, plain
+channels plain, no backticks) and the page shows a break rather than
+hiding it. Every piece is editable before copying and resets to the clan's
+words. `GET /api/clans/<TAG>/recruit` for every member; `POST` for leaders.
+Live reads are the person's Elixir quota: one per clan per six hours.
 
 ## Feedback (2026-09-12)
 
@@ -352,6 +376,7 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.away_set`, `clan.away_cleared` | (none) |
 | `clan.feedback_sent`, `clan.feedback_answered` | the category; the status |
 | `clan.copy_in_game` | (none) |
+| `clan.recruit_copied`, `clan.recruit_saved` | the channel; `v<n>` |
 | `web.api_timeout`, `web.api_network`, `web.api_bad_response`, `web.api_slow` (over 3 s) | the route key, ids as `*` |
 
 No server-side events: Elixir's go through its email relay with an API

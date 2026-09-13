@@ -315,3 +315,20 @@ are the suspects (the per-day war-battle count and the per-week battle
 count); an EXPLAIN through the ops Lambda decides between an index on
 (player_tag, battle_time) and a precomputed weekly projection. A fact
 request to Elixir, never a judgment.
+
+## 2026-09-13 — Recruit: the bot's promotion job as a page for every member
+
+Jamie: "Let's create a Recruiting feature… model it off what the recruiting
+task in elixir-bot did… a feature in the left hand navigation." The bot's
+job (`runtime/jobs/_promotion.py`, `prompts/lanes/recruiting.md`,
+`_promote_system`) composed copy for five channels with a model from live
+clan stats every Friday and posted it to #recruiting. This product has no
+model, so the copy is templates over a leader's pitch and the game's own
+numbers; the bot's validator is carried whole (`validateCopy`), and a
+member can edit any piece before copying. The facts need a clan-level read
+Elixir does not record (required trophies, clan score, war trophies):
+`live_fetch /clans/{tag}`, cached six hours per clan in the ledger, the
+recorded roster standing in while a read is pending. Recruit sits in the
+rail after Standing, for everyone in the clan. 5 engine tests, 3 API
+tests, 3 web tests. Not built: a public recruiting page (the design pass);
+posting anywhere (Discord webhooks are deferred).

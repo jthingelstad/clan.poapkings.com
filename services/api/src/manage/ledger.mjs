@@ -12,6 +12,10 @@
  *   hold#<clan>#<tag>        a member on hold: until (or null), who, note
  *   note#<clan>#<id>         a note on a member: tier (leader | elder),
  *                            author, text, when
+ *   recruit#<clan>           the pointer: { version }
+ *   recruit#<clan>#v<n>      one immutable pitch: the clan's own recruiting words
+ *   recruit_facts#<clan>     the last live read of the clan (facts only,
+ *                            no member list), a few hours
  *   awards#<clan>            the pointer: { version }
  *   awards#<clan>#v<n>       one immutable awards document: the clan's
  *                            awards (kind, name, parameters), publish flag
@@ -282,6 +286,46 @@ function ledgerOver(io) {
     async removeGrant(clanTag, { season_id, award_id, player_tag }) {
       await remove(`award#${clanTag}#${season_id}#${award_id}#${player_tag}`);
     },
+    // ---- recruiting: the pitch, versioned; the last live facts --------
+    async currentPitch(clanTag) {
+      const pointer = await io.get(`recruit#${clanTag}`);
+      if (!pointer?.version) return null;
+      return io.get(`recruit#${clanTag}#v${pointer.version}`);
+    },
+    async pitchVersions(clanTag) {
+      return (await io.listByPrefix(clanTag, "recruit#v")).map(stripKeys);
+    },
+    async savePitch(clanTag, { values, by, note = null }) {
+      const versions = await io.listByPrefix(clanTag, "recruit#v");
+      const version = versions.length + 1;
+      const saved_at = new Date().toISOString();
+      const item = {
+        pk: `recruit#${clanTag}#v${version}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: `recruit#v${pad(version)}`,
+        clan_tag: clanTag,
+        version,
+        values,
+        saved_by: by,
+        saved_at,
+        note,
+      };
+      await io.put(item);
+      await io.put({ pk: `recruit#${clanTag}`, version, saved_at });
+      return stripKeys(item);
+    },
+    async recruitFacts(clanTag) {
+      const item = await io.get(`recruit_facts#${clanTag}`);
+      return item ? stripKeys(item) : null;
+    },
+    async saveRecruitFacts(clanTag, facts) {
+      await io.put({
+        pk: `recruit_facts#${clanTag}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: "recruit_facts#latest",
+        ...facts,
+      });
+    },
     // ---- feedback: one partition, the queue ---------------------------
     async feedback() {
       return (await io.listByPartition(FEEDBACK_PARTITION, "")).map(stripKeys);
@@ -305,6 +349,7 @@ function ledgerOver(io) {
       for (const item of all) await remove(item.pk);
       await remove(`policy#${clanTag}`);
       await remove(`awards#${clanTag}`);
+      await remove(`recruit#${clanTag}`);
       return all.length;
     },
   };

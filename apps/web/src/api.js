@@ -219,6 +219,11 @@ export const manageApi = {
   standing: (tag) => get(`${clanBase(tag)}/standing`),
   scout: (tag, playerTag) => post(`${clanBase(tag)}/scout`, { tag: playerTag }),
   howElderWorks: (tag) => get(`${clanBase(tag)}/how-elder-works`),
+  // Recruiting (2026-09-13): the pitch, the facts, the copy.
+  recruit: (tag, refresh = false) =>
+    get(`${clanBase(tag)}/recruit${refresh ? "?refresh=1" : ""}`),
+  savePitch: (tag, values, note) =>
+    post(`${clanBase(tag)}/recruit`, { values, note }),
   // Away: the member's own word (2026-09-12).
   myAway: (tag) => get(`${clanBase(tag)}/me/away`),
   setAway: (tag, body) => put(`${clanBase(tag)}/me/away`, body),

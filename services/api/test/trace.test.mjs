@@ -25,27 +25,24 @@ import { member, participation, NOW } from "../../engine/test/fixture.mjs";
 import { emf, serverTiming, summarize, timedElixir } from "../src/trace.mjs";
 import { routeKey } from "../src/handler.mjs";
 
-function capture(fn) {
+/** The logger the handler is given: the story and the metric, captured. */
+function capturing() {
   const lines = [];
-  const orig = {
-    log: console.log,
-    warn: console.warn,
-    write: process.stdout.write,
+  return {
+    lines,
+    log: {
+      info: (l) => lines.push(["log", l]),
+      warn: (l) => lines.push(["warn", l]),
+      error() {},
+      metric: (l) => lines.push(["out", l]),
+    },
   };
-  console.log = (l) => lines.push(["log", l]);
-  console.warn = (l) => lines.push(["warn", l]);
-  process.stdout.write = (l) => {
-    lines.push(["out", l]);
-    return true;
-  };
-  return fn()
-    .finally(() => {
-      console.log = orig.log;
-      console.warn = orig.warn;
-      process.stdout.write = orig.write;
-    })
-    .then((r) => ({ r, lines }));
 }
+const capture = async (fn, cap) => {
+  cap.lines.length = 0;
+  const r = await fn();
+  return { r, lines: [...cap.lines] };
+};
 
 test("every request ends with one JSON line naming the route, the status, the time, and each Elixir call with its request_id; plus EMF and Server-Timing", async () => {
   const now = () => NOW.getTime();
@@ -64,6 +61,7 @@ test("every request ends with one JSON line naming the route, the status, the ti
       return inner(token, name, args);
     });
   const ledger = createMemoryLedger();
+  const cap = capturing();
   const handler = createHandler({
     mcp,
     oauth: fakeOAuth({ now }),
@@ -78,14 +76,17 @@ test("every request ends with one JSON line naming the route, the status, the ti
     appUrl: "https://clan.test",
     elixirUrl: "https://elixir.test",
     now,
-    log: { warn() {}, error() {} },
+    log: cap.log,
   });
   const h = { handler };
-  const { r: cookie } = await capture(async () =>
-    cookieHeader((await signIn(h)).sessionCookie),
+  const { r: cookie } = await capture(
+    async () => cookieHeader((await signIn(h)).sessionCookie),
+    cap,
   );
-  const { r, lines } = await capture(() =>
-    handler(req("GET", "/api/clans/J2RGCRVG/manage", { cookies: cookie })),
+  const { r, lines } = await capture(
+    () =>
+      handler(req("GET", "/api/clans/J2RGCRVG/manage", { cookies: cookie })),
+    cap,
   );
   assert.equal(r.statusCode, 200);
   assert.match(
@@ -121,6 +122,7 @@ test("every request ends with one JSON line naming the route, the status, the ti
 
 test("route keys hide ids and tags; a slow or failed request logs at warn", async () => {
   const now = () => NOW.getTime();
+  const cap = capturing();
   const handler = createHandler({
     mcp: fakeMcp(),
     oauth: fakeOAuth({ now }),
@@ -129,9 +131,12 @@ test("route keys hide ids and tags; a slow or failed request logs at warn", asyn
     appUrl: "https://clan.test",
     elixirUrl: "https://elixir.test",
     now,
-    log: { warn() {}, error() {} },
+    log: cap.log,
   });
-  const { lines } = await capture(() => handler(req("GET", "/api/roster", {})));
+  const { lines } = await capture(
+    () => handler(req("GET", "/api/roster", {})),
+    cap,
+  );
   const line = JSON.parse(lines.find(([k]) => k === "log" || k === "warn")[1]);
   assert.equal(line.http, "GET /api/roster");
   assert.equal(line.status, 401);

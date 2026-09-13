@@ -169,6 +169,7 @@ describe("feedback", () => {
     expect(keys("leader")).toEqual([
       "clan",
       "standing",
+      "recruit",
       "inbox",
       "board",
       "history",
@@ -182,6 +183,7 @@ describe("feedback", () => {
     expect(keys("elder")).toEqual([
       "clan",
       "standing",
+      "recruit",
       "awards",
       "scout",
       "you",
@@ -191,6 +193,7 @@ describe("feedback", () => {
     expect(keys("member")).toEqual([
       "clan",
       "standing",
+      "recruit",
       "you",
       "away",
       "feedback",

@@ -31,6 +31,12 @@ export function railItems(me) {
       icon: "chart-column",
       to: `${base}/standing`,
     });
+    items.push({
+      key: "recruit",
+      label: "Recruit",
+      icon: "megaphone",
+      to: `${base}/recruit`,
+    });
     const leader = LEADERS.has(clan.role);
     const elder = ELDER_PLUS.has(clan.role);
     if (leader) {
@@ -117,12 +123,12 @@ export function railKey(path) {
   if (path.startsWith("/feedback")) return "feedback";
   if (path.startsWith("/maintain")) return "maintain";
   const m =
-    /^\/clan\/[0-9A-Za-z]+(?:\/(standing|manage)(?:\/([a-z-]+))?)?\/?$/.exec(
+    /^\/clan\/[0-9A-Za-z]+(?:\/(standing|recruit|manage)(?:\/([a-z-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
   if (!m[1]) return "clan";
-  if (m[1] === "standing") return "standing";
+  if (m[1] === "standing" || m[1] === "recruit") return m[1];
   return m[2] ?? "inbox";
 }
 

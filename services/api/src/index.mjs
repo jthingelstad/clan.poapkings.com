@@ -7,6 +7,7 @@ import { createDynamoStore } from "./store.mjs";
 import { createDynamoLedger } from "./manage/ledger.mjs";
 import { createManageService, fetchParticipation } from "./manage/service.mjs";
 import { createAwardsService } from "./manage/awards.mjs";
+import { createRecruitService } from "./manage/recruit.mjs";
 import { createScout } from "./manage/scout.mjs";
 import { createFeedbackService } from "./feedback.mjs";
 import { createSnsNotifier } from "./notify.mjs";
@@ -40,6 +41,7 @@ export const handler = createHandler({
       fetchParticipation(mcp, token, clanTag),
   }),
   scout: createScout({ mcp }),
+  recruit: createRecruitService({ ledger, mcp }),
   feedback: createFeedbackService({
     ledger,
     notify: createSnsNotifier({
