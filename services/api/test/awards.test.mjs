@@ -361,7 +361,7 @@ test("awards: a member's trophy case lists their grants, newest season first", a
     h,
     cookies,
     "GET",
-    "/api/clans/J2RGCRVG/members/20JJJ2CCRU/awards",
+    "/api/clans/J2RGCRVG/members/20JJJ2CCRU/grants",
   );
   assert.equal(r.status, 200);
   assert.deepEqual(

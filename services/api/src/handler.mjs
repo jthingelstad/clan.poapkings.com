@@ -729,7 +729,12 @@ export function createHandler({
           });
           return json(200, { ok: true });
         }
-        const trophy = /^\/members\/([0-9A-Za-z]{3,12})\/awards$/.exec(rest);
+        // /members/<tag>/grants, NOT .../awards: CloudFront's `*` matches
+        // across slashes, so the public-document behaviour for
+        // /api/clans/*/awards (no cookie forwarded) captured this route
+        // too and every member sheet's awards panel answered 401
+        // (found live, 2026-09-13).
+        const trophy = /^\/members\/([0-9A-Za-z]{3,12})\/grants$/.exec(rest);
         if (method === "GET" && trophy) {
           const ptag = normalizeTag(trophy[1]);
           if (!ptag) return json(400, { error: "bad_request" });

@@ -72,7 +72,7 @@ export const manageApi = {
     ),
   memberAwards: (tag, playerTag) =>
     get(
-      `${clanBase(tag)}/members/${String(playerTag).replace(/^#/, "")}/awards`,
+      `${clanBase(tag)}/members/${String(playerTag).replace(/^#/, "")}/grants`,
     ),
 };
 
