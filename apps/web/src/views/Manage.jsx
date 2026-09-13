@@ -8,6 +8,7 @@ import { Scout } from "./Scout.jsx";
 import { Awards } from "./Awards.jsx";
 import { ago } from "../lib/time.js";
 import { Icon } from "../components/Icon.jsx";
+import { trackEvent } from "../analytics.js";
 
 const TITLES = {
   inbox: "Inbox",
@@ -378,6 +379,7 @@ function Card({ card, clan, reasons, onDecided, who }) {
           ? "This card was already decided or withdrawn."
           : "That did not work.",
       );
+    trackEvent("clan.card_decided", `${card.type}:${classification ?? status}`);
     onDecided();
   };
   const ev = card.evidence ?? {};
@@ -594,6 +596,7 @@ function CopyLine({ text }) {
         onClick={async () => {
           try {
             await navigator.clipboard.writeText(text);
+            trackEvent("clan.copy_in_game");
             setDone(true);
             setTimeout(() => setDone(false), 1500);
           } catch {

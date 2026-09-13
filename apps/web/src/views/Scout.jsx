@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { manageApi } from "../api.js";
+import { trackEvent } from "../analytics.js";
 
 /**
  * Scout an applicant: paste the tag from the game, read it live on your
@@ -22,6 +23,7 @@ export function Scout({ clan }) {
             : (r.data?.error ?? "Elixir did not answer."),
       });
     setState({ result: r.data });
+    trackEvent("clan.scout", r.data.pending ? "pending" : "answered");
     if (r.data.pending?.retry_after_s) {
       timer.current = window.setTimeout(
         () => read(t),

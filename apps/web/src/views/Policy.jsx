@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { manageApi } from "../api.js";
+import { trackEvent } from "../analytics.js";
 
 /**
  * The policy editor: every field with its help text (the documentation of
@@ -46,6 +47,7 @@ export function Policy({ clan }) {
       return;
     }
     setErrors({});
+    trackEvent("clan.policy_previewed");
     setPreview(r.data);
   };
   const save = async () => {
@@ -63,6 +65,7 @@ export function Policy({ clan }) {
     setErrors({});
     setPreview(null);
     setNote("");
+    trackEvent("clan.policy_saved", `v${r.data.version}`);
     setMessage(`Saved as version ${r.data.version}.`);
     load();
   };

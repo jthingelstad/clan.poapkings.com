@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { manageApi } from "../api.js";
 import { Fresh } from "../components/Fresh.jsx";
 import { ago } from "../lib/time.js";
+import { trackEvent } from "../analytics.js";
 
 /**
  * Manage ▸ Awards: the open season's races (provisional, tie-aware), each
@@ -290,6 +291,7 @@ function AwardPanel({
                     setBusy(false);
                     if (!r.ok)
                       return setError(r.data?.error ?? "That did not work.");
+                    trackEvent("clan.award_granted", award.kind);
                     setGranting(false);
                     setTag("");
                     setNote("");
@@ -509,6 +511,7 @@ function AwardsConfig({ clan, view, onDone }) {
       );
       return;
     }
+    trackEvent("clan.awards_saved", draft.publish ? "published" : "private");
     onDone();
   };
   const err = (key) =>

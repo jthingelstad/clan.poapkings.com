@@ -75,7 +75,12 @@ export function Landing({ error }) {
         </div>
       </div>
 
-      <a className="btn btn--primary" href="/auth/login">
+      <a
+        className="btn btn--primary"
+        href="/auth/login"
+        data-tinylytics-event="clan.signin_started"
+        data-tinylytics-event-value="landing"
+      >
         Sign in with Elixir
       </a>
     </div>

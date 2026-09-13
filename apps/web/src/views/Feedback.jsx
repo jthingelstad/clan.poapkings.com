@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { feedbackApi } from "../api.js";
 import { Markdown } from "../components/Markdown.jsx";
 import { ago } from "../lib/time.js";
+import { trackEvent } from "../analytics.js";
 
 /**
  * Feedback: what you have told us, and what we did about it. Elixir's
@@ -102,6 +103,7 @@ function Compose({ context, onSent, onClose }) {
                     context,
                   });
                   if (r.ok) {
+                    trackEvent("clan.feedback_sent", category);
                     setSent(true);
                     onSent();
                   } else setFailed("Could not send that. Try again.");

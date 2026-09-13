@@ -27,6 +27,8 @@ export function Chrome({ me, navigate }) {
           <a
             className="chrome__console"
             href="/auth/login"
+            data-tinylytics-event="clan.signin_started"
+            data-tinylytics-event-value="chrome"
             style={{ marginLeft: "auto" }}
           >
             Sign in with Elixir

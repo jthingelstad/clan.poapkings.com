@@ -329,6 +329,34 @@ report: gateway `integration_ms` ≈ Lambda `ms`? then the time is Elixir's
 (`elixir` entries) or ours (`own`); the browser's `wall_ms` far above
 `total`? then it is the edge or the network.
 
+## Analytics: Tinylytics, the way Elixir loads it
+
+`apps/web/src/analytics.js` (2026-09-12; site `J4GMM7Mti-Quk1gfx6zQ`). The
+embed records the document load; the route bridge records pushState
+navigation as virtual hits with the page collapsed (`/clan/<TAG>/manage/board`
+reports as `/clan/manage/board?clan=#TAG`; `/feedback/<id>` as
+`/feedback?id=`). localhost never tracks. The CSP allows `tinylytics.app` for
+script, connect and img and no other third party (the smoke pins it).
+Events are counted the Tinylytics way, a hidden `data-tinylytics-event`
+node clicked once (`trackEvent`), or the attribute on a real link. The
+taxonomy, and it is REAL (add here when adding there):
+
+| Event | Value |
+|---|---|
+| `clan.signin_started` | `landing` \| `chrome` (the link clicked) |
+| `clan.card_decided` | `<type>:<status or classification>` e.g. `removal:done`, `departure:leave` |
+| `clan.hold_set`, `clan.note_added` | `until` \| `open`; `leader` \| `elder` |
+| `clan.policy_previewed`, `clan.policy_saved` | (none); `v<n>` |
+| `clan.awards_saved`, `clan.award_granted` | `published` \| `private`; the award kind |
+| `clan.scout` | `answered` \| `pending` |
+| `clan.away_set`, `clan.away_cleared` | (none) |
+| `clan.feedback_sent`, `clan.feedback_answered` | the category; the status |
+| `clan.copy_in_game` | (none) |
+| `web.api_timeout`, `web.api_network`, `web.api_bad_response`, `web.api_slow` (over 3 s) | the route key, ids as `*` |
+
+No server-side events: Elixir's go through its email relay with an API
+token; this product has no relay and sends nothing from the Lambda.
+
 ## Design dependency
 
 `apps/web` depends on `elixir-mcp` as a **pinned git dependency** (a commit

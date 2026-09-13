@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { manageApi } from "../api.js";
+import { trackEvent } from "../analytics.js";
 
 /**
  * Away: a member tells the clan they will be gone, on their own page.
@@ -81,6 +82,7 @@ export function Away({ me }) {
                 onClick={async () => {
                   setBusy(true);
                   await manageApi.clearAway(clan.clan_tag);
+                  trackEvent("clan.away_cleared");
                   setBusy(false);
                   load();
                 }}
@@ -104,6 +106,7 @@ export function Away({ me }) {
             setBusy(false);
             if (!r.ok)
               return setError(ERRORS[r.data?.error] ?? "That did not work.");
+            trackEvent("clan.away_set");
             setUntil("");
             setNote("");
             load();

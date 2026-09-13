@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { manageApi } from "../api.js";
+import { trackEvent } from "../analytics.js";
 
 /**
  * One member, for an elder or a leader: notes (elders read and write elder
@@ -125,6 +126,7 @@ export function MemberSheet({ clanTag, member, role, onChange }) {
                 manageApi.addNote(clanTag, member.player_tag, text),
               );
               if (r.ok) {
+                trackEvent("clan.note_added", isLeader ? "leader" : "elder");
                 setText("");
                 load();
               }
@@ -186,7 +188,10 @@ export function MemberSheet({ clanTag, member, role, onChange }) {
                     note: holdNote || null,
                   }),
                 );
-                if (r.ok) onChange?.();
+                if (r.ok) {
+                  trackEvent("clan.hold_set", holdUntil ? "until" : "open");
+                  onChange?.();
+                }
               }}
             >
               <input

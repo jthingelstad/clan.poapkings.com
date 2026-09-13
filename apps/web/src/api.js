@@ -1,6 +1,8 @@
 /** Same-origin /api/*, cookie-authed. Every answer is `{ ok, status, data }`;
  *  a non-JSON body (an edge error page) is a failure whatever its status. */
 
+import { routeLabel, trackEvent } from "./analytics.js";
+
 const TIMEOUT_MS = 20_000;
 /** A request the person waited this long for is said so in the console,
  *  with the server's own timing beside the wall clock: the difference is
@@ -9,6 +11,10 @@ const SLOW_MS = 3_000;
 
 function report(method, path, started, res, error) {
   const ms = Math.round(performance.now() - started);
+  // A failure that never reached the origin is the class of problem only
+  // the browser can count (Elixir's lesson); a slow one is counted too.
+  if (error) trackEvent(`web.api_${error}`, routeLabel(method, path));
+  else if (ms >= SLOW_MS) trackEvent("web.api_slow", routeLabel(method, path));
   if (ms < SLOW_MS && !error) return;
   const timing = res?.headers?.get?.("server-timing") ?? null;
   console.warn("[elixir-clan] slow request", {
@@ -53,6 +59,7 @@ async function get(path) {
       data: text ? JSON.parse(text) : {},
     };
   } catch {
+    trackEvent("web.api_bad_response", routeLabel("GET", path));
     return { ok: false, status: res.status, data: {}, error: "bad_response" };
   }
 }
@@ -95,6 +102,7 @@ async function post(path, body) {
       data: text ? JSON.parse(text) : {},
     };
   } catch {
+    trackEvent("web.api_bad_response", routeLabel("POST", path));
     return { ok: false, status: res.status, data: {}, error: "bad_response" };
   }
 }
@@ -133,6 +141,7 @@ async function del(path) {
       data: text ? JSON.parse(text) : {},
     };
   } catch {
+    trackEvent("web.api_bad_response", routeLabel("DELETE", path));
     return { ok: false, status: res.status, data: {}, error: "bad_response" };
   }
 }
@@ -175,6 +184,7 @@ async function put(path, body) {
       data: text ? JSON.parse(text) : {},
     };
   } catch {
+    trackEvent("web.api_bad_response", routeLabel("PUT", path));
     return { ok: false, status: res.status, data: {}, error: "bad_response" };
   }
 }

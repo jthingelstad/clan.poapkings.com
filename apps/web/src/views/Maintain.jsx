@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { feedbackApi } from "../api.js";
 import { Markdown } from "../components/Markdown.jsx";
 import { ago } from "../lib/time.js";
+import { trackEvent } from "../analytics.js";
 
 /**
  * The maintainer's lane: the feedback queue, unread first, and one item
@@ -149,6 +150,7 @@ export function MaintainItem({ id, navigate }) {
       ...(shipped.trim() ? { shipped_in: shipped.trim() } : {}),
     });
     if (r.ok) {
+      trackEvent("clan.feedback_answered", status);
       setSaved(withReply ? "Reply sent." : "Status saved.");
       load();
     } else setSaved("That did not save.");

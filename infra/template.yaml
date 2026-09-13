@@ -311,9 +311,9 @@ Resources:
               object-src 'none';
               frame-ancestors 'none';
               form-action 'self';
-              script-src 'self';
-              connect-src 'self';
-              img-src 'self' data:;
+              script-src 'self' https://tinylytics.app;
+              connect-src 'self' https://tinylytics.app;
+              img-src 'self' data: https://tinylytics.app;
               font-src 'self' https://fonts.gstatic.com;
               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com
           ContentTypeOptions:

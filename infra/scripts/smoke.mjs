@@ -82,6 +82,16 @@ check(
   Boolean(home.headers.get("content-security-policy")) &&
     Boolean(home.headers.get("strict-transport-security")),
 );
+const csp = home.headers.get("content-security-policy") ?? "";
+const scriptSrc = /script-src ([^;]+)/.exec(csp)?.[1] ?? "";
+check(
+  "app shell CSP allows only tinylytics as third-party script",
+  scriptSrc
+    .split(/\s+/)
+    .filter((s) => s.startsWith("http"))
+    .every((s) => s === "https://tinylytics.app"),
+  scriptSrc,
+);
 
 const route = await timed(`${base}/clan`);
 check(
