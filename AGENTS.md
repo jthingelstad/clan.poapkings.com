@@ -20,8 +20,8 @@ removal clock, action cards leaders decide, notes, holds, and scouting.
    at `/mcp` with the person's own bearer token, nothing privileged. We never
    touch Elixir's database and never ask for more than `cr:read`.
 4. **Judgment lives here, never in Elixir.** Elixir records facts and has no
-   opinions; this vertical will hold the clan-management engine and leader
-   action cards (next push). Facts in, judgment in our code.
+   opinions; this vertical owns the clan-management engine and leader
+   action cards. Facts in, judgment in our code.
 5. **Design is Elixir's.** Same tokens, chrome, chips and cards, imported
    from the pinned `elixir-mcp` dependency, never copied. The unofficial
    disclaimer is on every page.
@@ -101,10 +101,11 @@ by a person or an agent. A second cookie `__Host-elixir_clan_login` binds the
 OAuth `state` to the browser that started it. `POST /auth/logout` deletes the
 session.
 
-**What is deliberately not stored:** player, clan or member data beyond the
-session's cache window (gate 2 min, roster 3 min per clan, bounded to the
-set). No profile, no history, no awards. Sessions, plus one remembered
-clan choice per person, and nothing else.
+**Session caches are bounded:** gate 2 min, roster 3 min per clan, bounded
+to the verified clan set. No independent player profile or game-history
+database is kept here. The remembered clan choice, management ledger,
+recruiting facts cache, awards and feedback are described below; their
+retention is separate from the session cache window.
 
 ## The engine's contract (`services/engine`)
 
@@ -320,6 +321,9 @@ the way Elixir does (`Fresh`).
   `get-secret-value`.
 - Tests: `npm run verify` (prettier, oxlint, node:test + vitest). Every seam
   is injected; no test reaches the network.
+- Deployment smoke uses only reads that cannot change live state. It never
+  visits `/auth/login`, which creates a pending login even on GET; the
+  handler tests cover the OAuth redirect and PKCE offline.
 
 ## Logging: one story per request
 

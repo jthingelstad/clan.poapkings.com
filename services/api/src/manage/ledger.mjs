@@ -80,8 +80,14 @@ export function createDynamoLedger({ tableName, region }) {
         new QueryCommand({
           TableName: tableName,
           IndexName: "ByClan",
-          KeyConditionExpression: "gsi1pk = :c and begins_with(gsi1sk, :p)",
-          ExpressionAttributeValues: { ":c": partition, ":p": prefix },
+          // DynamoDB forbids an empty string for an index key. An empty
+          // prefix means the whole partition, not an empty sort-key value.
+          KeyConditionExpression: prefix
+            ? "gsi1pk = :c and begins_with(gsi1sk, :p)"
+            : "gsi1pk = :c",
+          ExpressionAttributeValues: prefix
+            ? { ":c": partition, ":p": prefix }
+            : { ":c": partition },
           ExclusiveStartKey: key,
         }),
       );

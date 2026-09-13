@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * Read-only checks against the deployed site. Runs after every deploy;
- * no sign-in, no spend. The one write it causes is a pending-login item
- * with a ten-minute TTL, from following /auth/login as far as the
- * redirect to Elixir.
+ * no sign-in, no spend, no writes. /auth/login is deliberately excluded:
+ * even its GET creates a pending-login item. The injected handler tests
+ * cover the OAuth redirect, cr:read, PKCE and login cookie offline.
  *
  *   node infra/scripts/smoke.mjs            the stack's AppUrl (or its CloudFront hostname)
  *   SMOKE_ORIGIN=https://... node infra/scripts/smoke.mjs
@@ -151,26 +151,6 @@ check(
 check(
   "the awards document is edge-cacheable",
   (awards.headers.get("cache-control") ?? "").includes("max-age=300"),
-);
-
-const login = await timed(`${base}/auth/login`);
-const location = login.headers.get("location") ?? "";
-const loginOk =
-  login.status === 303 &&
-  location.includes("/oauth/authorize") &&
-  location.includes("scope=cr%3Aread") &&
-  location.includes("code_challenge_method=S256") &&
-  location.includes(
-    `redirect_uri=${encodeURIComponent(`${base}/auth/callback`)}`,
-  );
-check(
-  "GET /auth/login sends the browser to Elixir with cr:read and PKCE",
-  loginOk,
-  loginOk ? "" : `${login.status} ${location.slice(0, 120)}`,
-);
-check(
-  "login sets the __Host- login cookie",
-  (login.headers.get("set-cookie") ?? "").includes("__Host-elixir_clan_login="),
 );
 
 if (checks.every(Boolean)) {

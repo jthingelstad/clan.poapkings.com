@@ -170,22 +170,9 @@ member; no policy version was saved.
 - The public page shows the clan tag, not its name (no session, no roster
   read); a name on the policy item would fix it.
 
-- **GitHub deploy secrets.** The CI user's keys sit in this repo's `.env`
-  (0600, gitignored). The session's tool policy would not move them to
-  GitHub. From the repo root:
-  ```
-  grep '^ELIXIR_CLAN_AWS_ACCESS_KEY_ID=' .env | cut -d= -f2- | gh secret set ELIXIR_CLAN_AWS_ACCESS_KEY_ID
-  grep '^ELIXIR_CLAN_AWS_SECRET_ACCESS_KEY=' .env | cut -d= -f2- | gh secret set ELIXIR_CLAN_AWS_SECRET_ACCESS_KEY
-  ```
-  The `ELIXIR_CLAN_CFN_ROLE_ARN` variable is already set. Until the
-  secrets exist the deploy workflow skips (green, not red); deploys run
-  from this machine with `AWS_PROFILE=jamie`.
-
-- **DNS:** `clan` CNAME at Namecheap → the CloudFront domain (emailed).
-  Then: `node infra/scripts/deploy.mjs --param=AppUrl=https://clan.poapkings.com
-  --param=SiteCertificateArn=<wildcard arn>`, re-register the OAuth client
-  with only the real callback (`register-client.mjs https://clan.poapkings.com`)
-  and set `--param=OAuthClientId=<new id>`.
+- GitHub deploy credentials and the production hostname were verified
+  working on 2026-09-13; see the Close the Loop receipt below. They no
+  longer need Jamie's setup action.
 - **npm org** for publishing `@elixir-mcp/design` (optional; the pin works).
 - Anything under "Open" below.
 
@@ -332,3 +319,50 @@ recorded roster standing in while a read is pending. Recruit sits in the
 rail after Standing, for everyone in the clan. 5 engine tests, 3 API
 tests, 3 web tests. Not built: a public recruiting page (the design pass);
 posting anywhere (Discord webhooks are deferred).
+
+## 2026-09-13 — Close the Loop: feedback reads and current setup
+
+**Measured before editing.** The first scheduled loop run's preflight
+allowed mutation on clean, synchronized `main` at `0333ebf`. The required
+`AWS_PROFILE=jamie node scripts/feedback.mjs list` failed with DynamoDB's
+`ValidationException`: the query passed an empty string for index key
+`gsi1sk`. A direct, partition-only read of `feedback#queue` found **zero
+items**: zero unanswered, no oldest age, no one-day target breach. The
+feedback email subscription is confirmed; there is no natural delivery
+sample yet.
+
+**Source repair.** Whole-partition reads now omit the sort-key predicate
+and its value; nonempty prefixes still select only their item kind.
+This repairs the shared path used by feedback lists, unseen counts and
+the maintainer queue, as well as clan cleanup. Pagination is preserved.
+The transport-level regression tests fail against the previous queries,
+including a page with no items and a continuation key. AWS's
+[Query contract](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html)
+allows partition equality without a sort-key comparison. No live clan
+cleanup or feedback write was used for verification.
+
+**Smoke is now read-only.** The old smoke visited `/auth/login`, creating
+a pending-login item even though it called itself read-only. Default
+smoke now checks the shell, headers, routing, health, signed-out session
+and public awards document without entering login. A subprocess regression
+records the real smoke's fetches under a fixture transport and rejects
+the previous login request. OAuth redirect, `cr:read`, PKCE and cookie
+coverage remain in the offline handler tests; smoke does not certify a
+fresh human sign-in.
+
+**Resolved setup entries.** Both deployment secret names are present in
+GitHub (values were never read). Deploy run `34752733118` actually uploaded
+API key `code/api/fbf571bc87c41560.zip`, updated the stack and web, and
+passed smoke at `https://clan.poapkings.com`; it did not skip deployment.
+The live stack is `UPDATE_COMPLETE`, its `AppUrl` is that hostname, and
+the site's health and public Elder policy answer there. The old first-push
+notes remain historical; DNS and CI credential setup are no longer pending.
+
+**Still open.** The poapkings.com Elder prose still has no link to this
+product; the public Elder page still names the tag, not the clan; an npm
+org is still optional. Do not change public document shape or add stored
+identity fields to resolve those without Jamie. The billing alarm is
+`AWS/Billing EstimatedCharges`, dimension `Currency=USD`, for the whole
+account, not this product: its $19.73 datapoint crossed the $10 threshold.
+The API error, 5xx and slow-request alarms are OK. Run Elixir Clan owns
+the billing alarm's operational interpretation; this run does not change it.
