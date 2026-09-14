@@ -471,3 +471,26 @@ Regression coverage checks missing war records, no closed review, unknown
 tenure, a missing inactivity anchor, simultaneous dimensions and a cached
 snapshot through the handler. Live acceptance must use reads only; a
 leader's natural opening supplies the rendered production sample.
+
+## 2026-09-13: Guard the Door - cap delegated deployment IAM
+
+The security audit in projects-sysadmin #48 found that the execution role's
+`elixir-clan-*` IAM family included the execution role itself. Jamie approved
+the bounded correction and `jamie` administrator inspection; full live reads
+confirmed that self-policy/trust writes were allowed and the application role
+had no boundary.
+
+The reviewed source restricts delegated IAM to `elixir-clan-api`, requires the
+administrator-owned `elixir-clan-runtime-boundary` on creation and attachment,
+and restricts PassRole to that role and Lambda. The runtime cap preserves the
+application's existing table/index, log, and feedback grants. Access Analyzer
+also identified two redundant log-resource patterns; removing them preserves
+the existing match set. CI credentials, CI policy, the stack's service role,
+and other service permissions retain their existing design.
+
+The boundary lives outside the application stack so its execution role cannot
+edit it. `infra/IAM.md` documents administrator installation before deployment,
+private rollback metadata, verification, and natural acceptance. The dedicated
+repair script does not run bootstrap's secret/key operations. Broader API
+Gateway and CloudFront resource scoping and durable-table recovery are separate
+decisions; this change addresses the measured delegated IAM escape path.

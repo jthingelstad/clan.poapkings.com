@@ -319,6 +319,11 @@ the way Elixir does (`Fresh`).
   after green, with the `elixir-clan-deploy` user's static keys and the
   `elixir-clan-cloudformation-execution` role, both from
   `infra/scripts/bootstrap.mjs`, exactly Drop's pattern.
+- Deployment IAM is defined in `infra/scripts/iam-policies.mjs`. The existing
+  execution role may edit only the application role, whose administrator-owned
+  boundary is retained by the template. IAM repairs use the dedicated approved
+  `secure-iam.mjs` flow in `infra/IAM.md`; general bootstrap also handles secrets
+  and keys. Install the boundary before pushing a template that requires it.
 - Alarms route to the sysadmin `projects-ops-alerts` queue via
   `infra/scripts/wire-alarms.mjs` (queue policy + raw subscription). No email.
 - Secrets: load the `aws-secrets-manager` skill before touching any; never

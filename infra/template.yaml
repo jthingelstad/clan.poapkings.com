@@ -116,6 +116,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: elixir-clan-api
+      PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/elixir-clan-runtime-boundary
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
