@@ -178,8 +178,6 @@ member; no policy version was saved.
 
 ## Open
 
-- `projects-sysadmin/docs/OPERATIONS.md` routing table needs a fifth row
-  for `elixir-clan-alarms` (not edited from here; the Sunday run reconciles).
 - The gate reads `elixir_my_players` on every check; a `verified` beside
   `claim_status` in the principal block would make it one read. Not needed
   yet, so not asked of Elixir.
@@ -494,3 +492,34 @@ private rollback metadata, verification, and natural acceptance. The dedicated
 repair script does not run bootstrap's secret/key operations. Broader API
 Gateway and CloudFront resource scoping and durable-table recovery are separate
 decisions; this change addresses the measured delegated IAM escape path.
+
+## 2026-09-13: Close the Loop - the full host feedback view
+
+The evening run measured the complete feedback partition: zero items, zero
+unanswered, no oldest age and no one-day target breach. W37's COMPLETE
+receipt already exists; it was not repeated. W38 is due September 18 at
+19:40 Chicago time.
+
+An offline queue containing answered items reproduced a host-tool defect:
+`scripts/feedback.mjs list --all` treated the flag as the positional item
+id and silently showed only new and planned items. The command now reads
+list flags from all arguments after the command, preserving the positional
+id and answer flags. Regression coverage runs the real command against
+offline SDK transports and checks both the default filter and every status,
+including delivered replies. No live feedback item or reply was created.
+This is a host-tool repair, not a member-facing behavior change.
+
+The sysadmin operations guide now has the `elixir-clan-alarms` routing row;
+the old Open item above is resolved. The existing Elder-prose link, public
+clan name and optional npm-org decisions remain Jamie's. The shipped policy
+and awards help text still derive from the engine's field/kind definitions;
+the public Elder endpoint answers policy v0, and the awards document answers
+`404 not_published` with its five-minute public cache header.
+
+Elixir's published `tools.json` now names contract 3.0.0. The 2.0.0/3.0.0
+breaking changes replace the event feed with a timeline; this app calls
+neither tool nor its cursor operations. Its participation tool remains
+published, and its pinned UI/client kit is independent of that server
+contract version. The later live-walk entry above supersedes the older
+participation-latency diagnosis; do not present the earlier 12.8-second
+average as current performance.

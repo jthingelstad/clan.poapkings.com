@@ -22,7 +22,8 @@ import {
   DescribeStacksCommand,
 } from "@aws-sdk/client-cloudformation";
 
-const [command, id, ...rest] = process.argv.slice(2);
+const [command, ...args] = process.argv.slice(2);
+const [id, ...rest] = args;
 const flag = (name) => {
   const i = rest.indexOf(`--${name}`);
   return i === -1 ? undefined : rest[i + 1];
@@ -44,7 +45,7 @@ const line = (f) =>
 
 if (command === "list") {
   const all = await service.queue(maintainer);
-  const rows = rest.includes("--all")
+  const rows = args.includes("--all")
     ? all
     : all.filter((f) => f.status === "new" || f.status === "planned");
   if (!rows.length) console.log("nothing waiting");
