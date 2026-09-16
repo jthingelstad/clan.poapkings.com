@@ -19,6 +19,10 @@ import {
 import { createQueryClient } from "elixir-mcp/packages/client/src/index.ts";
 import {
   Chrome as ChromeBar,
+  FAMILY_ORIGIN,
+  FAMILY_PRODUCTS,
+  FAMILY_WORDMARK,
+  familyTabs,
   Disclaimer,
   ErrorBoundary,
   Icon,
@@ -314,29 +318,37 @@ export function App() {
 }
 
 /**
- * The top bar: Elixir's chrome with this product's name in it. Since the
- * rail (2026-09-12) carries every section and the way out, the bar is the
- * wordmark, the way to Elixir, and the gold way in when signed out.
+ * The top bar: the family's, exactly as elixir.poapkings.com draws it -
+ * the Elixir wordmark, the same tabs (absolute, back to the family
+ * home), and the product buttons on the right with Clan lit green
+ * because this is Clan. Sign-in is on the landing page, not here: the
+ * bar carries no session state, so it never reshapes as you sign in.
  */
-function Chrome({ me, navigate }) {
+const PRODUCTS = FAMILY_PRODUCTS.map((p) =>
+  p.key === "clan" ? { ...p, href: "/" } : p,
+);
+const TABS = familyTabs(FAMILY_ORIGIN);
+function Chrome({ navigate }) {
+  const products = PRODUCTS.map((p) =>
+    p.key === "clan"
+      ? {
+          ...p,
+          onClick: (e) => {
+            e.preventDefault();
+            navigate("/");
+          },
+        }
+      : p,
+  );
   return (
     <ChromeBar
-      wordmark="Elixir Clan"
+      wordmark={FAMILY_WORDMARK}
       home="/"
       onHome={() => navigate("/")}
-      tabs={[{ label: "Elixir", href: "https://elixir.poapkings.com/" }]}
-      action={
-        me?.signed_in ? null : (
-          <a
-            className="chrome__console ml-auto"
-            href="/auth/login"
-            data-tinylytics-event="clan.signin_started"
-            data-tinylytics-event-value="chrome"
-          >
-            Sign in with Elixir
-          </a>
-        )
-      }
+      tabs={TABS}
+      products={products}
+      current="clan"
+      menu
     />
   );
 }
@@ -468,7 +480,7 @@ function Shell() {
       value={{ me, checking, refresh, select, selecting }}
     >
       <div className="shell">
-        <Chrome me={me} navigate={navigate} />
+        <Chrome navigate={navigate} />
         <div
           className={`mx-auto flex w-full max-w-page flex-auto items-stretch ${narrow ? "flex-col" : "flex-row"}`}
         >
