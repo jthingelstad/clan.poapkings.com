@@ -688,6 +688,76 @@ test("departures: every unexplained member_left raises one card; Kicked / Left /
   assert.equal(sleepy.copy, null, "no farewell for a kick");
 });
 
+test("departures: a member_left that carries only a tag is named from Elixir's corpus, once, and the ledger remembers", async () => {
+  // Elixir's roster event before 2026-09-13: no name, and the departing
+  // role spelled role_at_departure. The member never had a verdict line
+  // here, so nothing local knows who #VGJJ is.
+  const h = harness({
+    part: partClan(),
+    roster: leftEvents([
+      {
+        type: "member_left",
+        at: "2026-09-11T10:00:00.000Z",
+        detail: {
+          roster_size_before: 48,
+          roster_size_after: 47,
+          player_tag: "#VGJJ",
+          role_at_departure: "elder",
+          joined_observed_at: "2026-09-03T00:00:00.000Z",
+        },
+      },
+    ]),
+  });
+  h.mcp.callTool = ((orig) => (token, name, args) => {
+    if (name === "players_names") {
+      h.mcp.calls.push([name, token, args]);
+      return {
+        ok: true,
+        body: {
+          names: args.player_tags
+            .filter((t) => t === "#VGJJ")
+            .map((t) => ({ player_tag: t, name: "Ditaka", source: "roster" })),
+          unknown: args.player_tags
+            .filter((t) => t !== "#VGJJ")
+            .map((t) => ({ player_tag: t, in_corpus: false })),
+        },
+      };
+    }
+    return orig(token, name, args);
+  })(h.mcp.callTool);
+  const cookies = await leader(h);
+  const first = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const card = first.body.inbox.find(
+    (c) => c.type === "departure" && c.player_tag === "#VGJJ",
+  );
+  assert.ok(card, "the departure is carded");
+  assert.equal(card.player_name, "Ditaka", "named from players_names");
+  assert.equal(card.role_at_raise, "elder", "role_at_departure is read");
+  const named = first.body.inbox.find((c) => c.player_tag === "#GONE1");
+  assert.equal(named.player_name, "Gone One", "an event with a name keeps it");
+  const lookups = h.mcp.calls.filter(([n]) => n === "players_names");
+  assert.equal(lookups.length, 1, "one bulk read");
+  assert.deepEqual(lookups[0][2], { player_tags: ["#VGJJ"] });
+  // The next evaluation asks nothing: the ledger carries the name now.
+  h.clock.t += 60 * 60_000;
+  const again = await api(
+    h,
+    cookies,
+    "GET",
+    "/api/clans/J2RGCRVG/manage?refresh=1",
+  );
+  assert.equal(
+    again.body.inbox.find((c) => c.player_tag === "#VGJJ").player_name,
+    "Ditaka",
+  );
+  assert.equal(h.mcp.calls.filter(([n]) => n === "players_names").length, 1);
+  // The timeline names the row from the card it raised.
+  const hist = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  const row = hist.body.timeline.find((e) => e.player_tag === "#VGJJ");
+  assert.equal(row.name, "Ditaka");
+  assert.equal(row.role, "elder");
+});
+
 test("cards: the inbox carries paste-ready in-game copy, clan-chat safe", async () => {
   const h = harness({ part: partClan() });
   const cookies = await leader(h);

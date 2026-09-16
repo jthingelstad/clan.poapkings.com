@@ -75,6 +75,24 @@ export async function fetchRoster(mcp, token, clanTag) {
   return r.body;
 }
 
+/** Tag → last-observed name for the tags Elixir's corpus knows, from one
+ *  bulk players_names read (nothing from the live lane); an empty map
+ *  when Elixir cannot answer. */
+export async function fetchNames(mcp, token, tags) {
+  const names = new Map();
+  if (tags.length === 0) return names;
+  const r = await mcp.callTool(token, "players_names", {
+    player_tags: tags.slice(0, 100),
+  });
+  if (!r.ok) {
+    if (r.status === 401) throw new ManageError(401, "session_expired");
+    return names;
+  }
+  for (const n of r.body?.names ?? [])
+    if (n.player_tag && n.name) names.set(n.player_tag, n.name);
+  return names;
+}
+
 export function createManageService({ ledger, mcp, now = () => Date.now() }) {
   const isLeader = (who) => LEADERS.has(who.role);
   const requireLeader = (who) => {
@@ -251,6 +269,22 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
               phrase: d.last ? participationPhrase(d.last) : null,
             },
           });
+        }
+      }
+      // A card raised with only a tag (a member_left Elixir observed
+      // before it stamped names on roster events, 2026-09-13, and no
+      // last line for the member here) is unreadable in the inbox. One
+      // bulk read names them; the ledger remembers from then on.
+      const nameless = (await ledger.cards(clanTag)).filter(
+        (c) => !c.player_name,
+      );
+      if (nameless.length > 0) {
+        const names = await fetchNames(mcp, token, [
+          ...new Set(nameless.map((c) => c.player_tag)),
+        ]);
+        for (const c of nameless) {
+          const name = names.get(c.player_tag);
+          if (name) await ledger.putCard(clanTag, { ...c, player_name: name });
         }
       }
     }
@@ -435,7 +469,8 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
 
     async history(clanTag, who, token = null) {
       requireLeader(who);
-      const cards = (await ledger.cards(clanTag))
+      const allCards = await ledger.cards(clanTag);
+      const cards = allCards
         .filter((c) => c.status !== "proposed")
         .sort((a, b) => (a.raised_at < b.raised_at ? 1 : -1));
       const holds = await ledger.holds(clanTag);
@@ -445,11 +480,17 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       const roster = token ? await fetchRoster(mcp, token, clanTag) : null;
       const byTag = (tag) =>
         cards.filter((c) => c.player_tag === tag && c.type === "departure");
+      // Who a tag is, when the event itself does not say: the roster for
+      // anyone still here, else any card (open ones included) that named them.
+      const knownName = new Map(
+        [...allCards.filter((c) => c.player_name), ...(roster?.members ?? [])]
+          .map((x) => [x.player_tag, x.player_name ?? x.name])
+          .filter(([, n]) => n),
+      );
       const timeline = (roster?.recent_events ?? [])
         .filter((e) => e.detail?.player_tag)
         .map((e) => {
           const tag = e.detail.player_tag;
-          const name = e.detail.name ?? null;
           const explained =
             e.type === "member_left"
               ? (byTag(tag).find(
@@ -467,12 +508,15 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
                 ) ??
                 null)
               : null;
+          // An event observed before Elixir stamped names (2026-09-13)
+          // carries only a tag.
+          const name = e.detail.name ?? knownName.get(tag) ?? null;
           return {
             type: e.type,
             at: e.at,
             player_tag: tag,
             name,
-            role: e.detail.role ?? null,
+            role: e.detail.role ?? e.detail.role_at_departure ?? null,
             role_before: e.detail.role_before ?? null,
             role_after: e.detail.role_after ?? null,
             // A Done removal followed by the leave IS the kick, whether or

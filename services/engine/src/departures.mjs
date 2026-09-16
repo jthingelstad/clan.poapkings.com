@@ -38,7 +38,9 @@ export function departuresFrom(events, cards, lastKnown = new Map()) {
       player_tag: e.detail.player_tag,
       player_name: e.detail.name ?? null,
       left_at: e.at,
-      role_before: e.detail.role ?? null,
+      // Elixir's roster event stamps the departing role as
+      // role_at_departure; `role` is the feed's spelling.
+      role_before: e.detail.role_at_departure ?? e.detail.role ?? null,
       last: lastKnown.get(e.detail.player_tag) ?? null,
     }))
     .filter((d) => !explained(d.player_tag, Date.parse(d.left_at)));
