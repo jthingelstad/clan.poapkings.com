@@ -288,6 +288,7 @@ background job and no stored credential.
 | `initialize`, `elixir_my_players` | 1.0.0 | the gate |
 | `clans_roster` | 1.0.0 | the clan page |
 | `clans_participation` | 1.9.0 | every evaluation: one call, eight weeks |
+| `players_names` | 0.39.0 | name legacy departure cards whose roster event carried only a tag; one bulk corpus read, never the live lane |
 | `players_profile({ live: true })`, `battles_query({ live: true, verbosity: "compact" })` | 1.7.0 | scouting an applicant; `live_pending` is passed through with `retry_after_s` |
 
 Elixir returns facts; every threshold, score and verdict is here.
