@@ -355,6 +355,20 @@ function judgmentCell(m) {
   return <span className="chip chip--ok">ready</span>;
 }
 
+/** The leader's word on a decision, stored with the card as
+ *  decision_note and shown in History and on the timeline. */
+function NoteInput({ value, onChange, placeholder = "note (optional)" }) {
+  return (
+    <input
+      className="input basis-full"
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      maxLength={280}
+    />
+  );
+}
+
 function Card({ card, clan, reasons, onDecided, who }) {
   const [reason, setReason] = useState("not_now");
   const [note, setNote] = useState("");
@@ -453,6 +467,11 @@ function Card({ card, clan, reasons, onDecided, who }) {
         </div>
         {card.type === "departure" ? (
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <NoteInput
+              value={note}
+              onChange={setNote}
+              placeholder="why, for the ledger (optional)"
+            />
             <button
               type="button"
               className="btn btn--danger"
@@ -480,6 +499,7 @@ function Card({ card, clan, reasons, onDecided, who }) {
           </div>
         ) : !declining ? (
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <NoteInput value={note} onChange={setNote} />
             <button
               type="button"
               className="btn btn--primary"
@@ -528,13 +548,7 @@ function Card({ card, clan, reasons, onDecided, who }) {
                 </option>
               ))}
             </select>
-            <input
-              className="input"
-              placeholder="note (optional)"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              style={{ flex: "1 1 160px" }}
-            />
+            <NoteInput value={note} onChange={setNote} />
             <button type="submit" className="btn btn--danger" disabled={busy}>
               Decline
             </button>
@@ -676,6 +690,11 @@ function History({ clan }) {
                         unanswered (Inbox)
                       </span>
                     )}
+                    {e.note ? (
+                      <div className="page-head__note mt-1 whitespace-normal">
+                        {e.note}
+                      </div>
+                    ) : null}
                   </td>
                   <td style={{ whiteSpace: "normal", minWidth: "260px" }}>
                     {e.copy ? (

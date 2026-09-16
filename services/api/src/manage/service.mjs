@@ -525,6 +525,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
               explained?.outcome?.classification ??
               (explained?.type === "removal" ? "member_kicked" : null),
             card_id: explained?.card_id ?? null,
+            note: explained?.decision_note ?? null,
             copy:
               e.type === "member_joined"
                 ? inGameCopy("welcome", { name })
@@ -569,7 +570,11 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         decided_at,
         decided_by: who.player_tag,
         decline_reason: status === "declined" ? reason : null,
-        decision_note: note,
+        // The leader's word, in their own words, bounded like a note.
+        decision_note:
+          typeof note === "string" && note.trim()
+            ? note.trim().slice(0, 280)
+            : null,
         ...(card.type === "departure"
           ? {
               outcome: {

@@ -629,11 +629,17 @@ test("departures: every unexplained member_left raises one card; Kicked / Left /
     `/api/clans/J2RGCRVG/cards/${dep[0].card_id}/decide`,
     {
       classification: "leave",
+      note: "  player decided to leave the game  ",
     },
   );
   assert.equal(left.status, 200, JSON.stringify(left.body));
   assert.equal(left.body.status, "done");
   assert.equal(left.body.outcome.classification, "member_left");
+  assert.equal(
+    left.body.decision_note,
+    "player decided to leave the game",
+    "the leader's note rides the decision",
+  );
   // The timeline carries it, with a farewell to paste and a welcome for the join.
   const hist = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
   assert.equal(hist.status, 200);
@@ -646,6 +652,8 @@ test("departures: every unexplained member_left raises one card; Kicked / Left /
       ["role_changed", "#O1", null],
     ],
   );
+  assert.equal(t[0].note, "player decided to leave the game");
+  assert.equal(t[1].note, null);
   assert.match(t[0].copy, /Thanks for your time with us Gone One/);
   assert.match(t[1].copy, /Welcome New One/);
   assert.equal(t[2].role_after, "elder");
