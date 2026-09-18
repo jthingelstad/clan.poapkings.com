@@ -118,10 +118,12 @@ export function createScout({ mcp, now = () => Date.now() }) {
             clan_war_wins: badge(p, "ClanWarWins"),
             clan_donations: badge(p, "ClanDonations"),
             donations_this_week: p.snapshot?.donations_this_week ?? null,
-            battle_count: p.snapshot?.lifetime?.battleCount ?? null,
+            // The lifetime block's one shape (Elixir 4.0.0): the snake_case
+            // keys clans_roster and players_timeline speak.
+            battle_count: p.snapshot?.lifetime?.battle_count ?? null,
             wins: p.snapshot?.lifetime?.wins ?? null,
             losses: p.snapshot?.lifetime?.losses ?? null,
-            collection_level: p.snapshot?.lifetime?.collectionLevel ?? null,
+            collection_level: p.snapshot?.lifetime?.collection_level ?? null,
             snapshot_date: p.snapshot?.date ?? null,
             as_of: p.meta?.as_of ?? null,
             freshness_seconds: p.meta?.freshness_seconds ?? null,

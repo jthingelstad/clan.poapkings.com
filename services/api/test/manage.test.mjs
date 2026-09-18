@@ -497,10 +497,10 @@ test("scout: a pasted tag is read live, pending is passed through, and the polic
         trophies: 7000,
         donations_this_week: 40,
         lifetime: {
-          battleCount: 500,
+          battle_count: 500,
           wins: 300,
           losses: 200,
-          collectionLevel: 900,
+          collection_level: 900,
         },
         path_of_legend: { current: { leagueNumber: 4, trophies: 0 } },
       },
