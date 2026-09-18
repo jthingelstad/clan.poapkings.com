@@ -34,7 +34,11 @@ function door({ players, part, profile = null, log = null, roster = null }) {
           error: "queued",
           hint: "Call again in 45 s.",
           body: {
-            error: { code: "live_pending", hint: "Call again in 45 s." },
+            error: {
+              code: "live_pending",
+              hint: "Call again in 45 s.",
+              retry_after_s: 45,
+            },
           },
         }
       );

@@ -53,10 +53,15 @@ export function createScout({ mcp, now = () => Date.now() }) {
         const ls = r.body?.live_status;
         return ls?.state === "pending" ? (ls.retry_after_s ?? 30) : null;
       }
+      // error.retry_after_s is a field since Elixir 3.14.0; the hint's
+      // English is the fallback for an older door.
       if (r.code === "live_pending")
-        return r.body?.error?.hint?.match(/(\d+)/)?.[1]
-          ? Number(r.body.error.hint.match(/(\d+)/)[1])
-          : 30;
+        return (
+          r.body?.error?.retry_after_s ??
+          (r.body?.error?.hint?.match(/(\d+)/)?.[1]
+            ? Number(r.body.error.hint.match(/(\d+)/)[1])
+            : 30)
+        );
       return null;
     };
     const pending = pendingFrom(profile) ?? pendingFrom(log);
