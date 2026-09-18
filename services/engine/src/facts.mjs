@@ -130,6 +130,14 @@ export function factsAt(participation, policy, at) {
     let warDaysInFloor = 0;
     let floorWarFidelity = floorWars.length ? "daily" : "unknown";
     for (const w of floorWars) {
+      // Elixir 3.16.0 counts the days battled itself (polls and recorded
+      // war battles, null without coverage); the spread below is the
+      // fallback for an older door or an uncovered week.
+      const counted = m.war_days_battled?.[w.i];
+      if (Number.isInteger(counted)) {
+        warDaysInFloor += counted;
+        continue;
+      }
       const ww = warWeekDays(
         m.war_decks[w.i],
         m.war_decks_by_day?.[w.i],
@@ -142,6 +150,11 @@ export function factsAt(participation, policy, at) {
         warDaysInFloor += ww.days.filter((d) => d > 0).length;
       }
     }
+    // Whether the member's battle log is recorded at all (Elixir 3.16.0):
+    // an unrecorded log makes every battle count a zero by construction,
+    // so the ranked floor is unknown for them, never failed.
+    const logRecorded =
+      typeof m.log_recorded === "boolean" ? m.log_recorded : true;
 
     // War rate over the last N closed war weeks: per-day credit averaged
     // over every war day in the window.
@@ -225,11 +238,13 @@ export function factsAt(participation, policy, at) {
         war_days: warDaysInFloor,
         war_fidelity: floorWarFidelity,
         ranked_battles: rankedInFloor,
+        log_recorded: logRecorded,
         passes_war:
           floorWarFidelity !== "unknown" &&
           warDaysInFloor >= policy.floor_war_days &&
           policy.floor_war_days > 0,
         passes_ranked:
+          logRecorded &&
           policy.floor_ranked_battles > 0 &&
           rankedInFloor >= policy.floor_ranked_battles,
       },

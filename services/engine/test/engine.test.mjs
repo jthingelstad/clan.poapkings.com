@@ -708,3 +708,29 @@ test("review boundaries are the observed war-week finishes before now, newest la
   );
   assert.deepEqual(b, ["2026-08-24", "2026-08-31", "2026-09-07"]);
 });
+
+test("the floor reads Elixir 3.16.0's war_days_battled and log_recorded when present; the spread and the ranked floor stay for an older door", () => {
+  // Two decks a week spread over one day: the old spread counts one war
+  // day a week; the door's own count says the member fought all four.
+  const spread = member("#SPREAD", { war: [2, 2, 2, 2, 2, 2] });
+  const counted = {
+    ...member("#COUNTED", {
+      war: [2, 2, 2, 2, 2, 2],
+      ranked: [9, 9, 9, 9, 9, 9],
+    }),
+    war_days_battled: [4, 4, 4, 4, 4, 4],
+    log_recorded: false,
+  };
+  const facts = factsAt(participation([spread, counted]), policy, NOW);
+  const a = facts.find((f) => f.player_tag === "#SPREAD");
+  const b = facts.find((f) => f.player_tag === "#COUNTED");
+  assert.equal(a.floor.war_days, policy.floor_window_weeks);
+  assert.equal(b.floor.war_days, policy.floor_window_weeks * 4);
+  assert.equal(a.floor.log_recorded, true, "absent = recorded (an older door)");
+  assert.equal(b.floor.log_recorded, false);
+  assert.equal(
+    b.floor.passes_ranked,
+    false,
+    "an unrecorded log never passes the ranked floor",
+  );
+});
