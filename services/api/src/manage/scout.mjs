@@ -74,10 +74,14 @@ export function createScout({ mcp, now = () => Date.now() }) {
     const inFloor = battles.filter(
       (b) => Date.parse(b.battle_time) >= floorFrom,
     );
-    // Elixir's own grouping (packages/contracts modes): pathOfLegend is
-    // ranked; riverRacePvP, riverRaceDuel(Colosseum) and boatBattle are war.
-    const isRanked = (b) => b.type === "pathOfLegend";
-    const isWar = (b) => /^(riverRace|boatBattle)/.test(b.type ?? "");
+    // Elixir's own grouping rides every row as mode_group since 3.15.0
+    // (packages/contracts modes); the type fold stays for an older door.
+    const isRanked = (b) =>
+      b.mode_group ? b.mode_group === "ranked" : b.type === "pathOfLegend";
+    const isWar = (b) =>
+      b.mode_group
+        ? b.mode_group === "war"
+        : /^(riverRace|boatBattle)/.test(b.type ?? "");
     const rankedInFloor = inFloor.filter(isRanked).length;
     const warDays = new Set(
       inFloor.filter(isWar).map((b) => b.battle_time.slice(0, 10)),
