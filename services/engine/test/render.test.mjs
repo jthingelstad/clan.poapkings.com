@@ -67,6 +67,21 @@ test("held and unknown judgments explain the missing evidence without changing t
     now: NOW,
   });
   assert.deepEqual(judgmentReasons(ready.members[0], ready.boundaries), []);
+
+  const unrecorded = evaluate({
+    participation: participation([
+      { ...member("#UNRECORDED"), log_recorded: false },
+    ]),
+    policy,
+    now: NOW,
+  });
+  assert.deepEqual(
+    judgmentReasons(unrecorded.members[0], unrecorded.boundaries),
+    [
+      "Promotion held: battle log is not recorded, so standing cannot be judged.",
+      "Removal held: battle log is not recorded, so inactivity cannot be measured.",
+    ],
+  );
 });
 
 test("the member phrase carries no score, percentile, rank or slot count", () => {

@@ -734,3 +734,54 @@ test("the floor reads Elixir 3.16.0's war_days_battled and log_recorded when pre
     "an unrecorded log never passes the ranked floor",
   );
 });
+
+test("an unrecorded battle log holds every judgment that could card its constructed zeros", () => {
+  const peers = Array.from({ length: 8 }, (_, i) =>
+    member(`#F${i}`, {
+      war: [8, 8, 8, 8, 8, 0],
+      donations: [200, 200, 200, 200, 200, 0],
+    }),
+  );
+  const unknownMember = {
+    ...member("#UNKNOWN-MEMBER", {
+      lastBattleDaysAgo: null,
+      tenureDays: 120,
+    }),
+    log_recorded: false,
+  };
+  const unknownElder = {
+    ...member("#UNKNOWN-ELDER", {
+      role: "elder",
+      war: [0, 0, 0, 0, 0, 0],
+      ranked: [9, 9, 9, 9, 9, 0],
+    }),
+    log_recorded: false,
+  };
+  const verdicts = evaluate({
+    participation: participation([...peers, unknownMember, unknownElder]),
+    policy,
+    now: NOW,
+  });
+  const m = verdicts.members.find(
+    (row) => row.player_tag === "#UNKNOWN-MEMBER",
+  );
+  const e = verdicts.members.find((row) => row.player_tag === "#UNKNOWN-ELDER");
+
+  assert.equal(m.removal.state, "recommended", "the clock may be computed");
+  assert.equal(m.judgment.promotion, "held");
+  assert.equal(m.judgment.removal, "held");
+  assert.deepEqual(m.actionable, {
+    promotion: false,
+    demotion: false,
+    removal: false,
+  });
+
+  assert.equal(e.demotion.state, "eligible", "the trail may be computed");
+  assert.equal(e.judgment.demotion, "held");
+  assert.equal(e.judgment.removal, "held");
+  assert.deepEqual(e.actionable, {
+    promotion: false,
+    demotion: false,
+    removal: false,
+  });
+});

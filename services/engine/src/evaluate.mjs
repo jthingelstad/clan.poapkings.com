@@ -210,7 +210,9 @@ export function evaluate({
         ? "off"
         : !f.tenure_known && f.role === "member"
           ? "unknown"
-          : reviews.length === 0 || latestFacts.war.fidelity === "unknown"
+          : latestFacts.floor.log_recorded === false ||
+              reviews.length === 0 ||
+              latestFacts.war.fidelity === "unknown"
             ? "held"
             : "ready";
     const demotionJudgment =
@@ -218,7 +220,9 @@ export function evaluate({
         ? "not_applicable"
         : !policy.elder_management_enabled
           ? "off"
-          : reviews.length === 0 || latestFacts.floor.war_fidelity === "unknown"
+          : latestFacts.floor.log_recorded === false ||
+              reviews.length === 0 ||
+              latestFacts.floor.war_fidelity === "unknown"
             ? "held"
             : "ready";
 
@@ -244,7 +248,11 @@ export function evaluate({
       if (shielded) rState = "at_risk";
     }
     const removalJudgment =
-      f.days_idle === null ? "held" : !policy.removal_enabled ? "off" : "ready";
+      f.floor.log_recorded === false || f.days_idle === null
+        ? "held"
+        : !policy.removal_enabled
+          ? "off"
+          : "ready";
 
     // ---- cooldowns from decisions ----
     const cooldown = {

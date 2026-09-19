@@ -29,11 +29,15 @@ export function judgmentReasons(v, boundaries) {
       );
     } else if (status === "held") {
       const reason =
-        dimension === "removal"
-          ? "no recorded battle or observed join anchors the clock"
-          : boundaries.length === 0
-            ? "no closed war review yet"
-            : "war record incomplete in the review window";
+        v.facts?.floor?.log_recorded === false
+          ? dimension === "removal"
+            ? "battle log is not recorded, so inactivity cannot be measured"
+            : "battle log is not recorded, so standing cannot be judged"
+          : dimension === "removal"
+            ? "no recorded battle or observed join anchors the clock"
+            : boundaries.length === 0
+              ? "no closed war review yet"
+              : "war record incomplete in the review window";
       reasons.push(`${label} held: ${reason}.`);
     }
   }
