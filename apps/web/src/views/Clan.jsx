@@ -231,7 +231,7 @@ export function Clan({ me, clan, navigate }) {
       ) : state.roster?.not_recorded ? (
         <div className="empty">
           <div className="empty__title">
-            Elixir is not recording {state.roster.clan_tag} yet
+            Elixir is not recording {clan.name ?? state.roster.clan_tag} yet
           </div>
           <p className="empty__body">
             Your player is verified and in this clan, but the clan itself is not

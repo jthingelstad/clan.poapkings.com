@@ -350,6 +350,9 @@ export function evaluate({
   return {
     evaluated_at: now.toISOString(),
     policy_version,
+    // The clan's name as clans_participation reported it, so a page with
+    // no session to ask (How Elder works here) can still say who.
+    clan_name: participation.name ?? null,
     as_of: participation.meta?.as_of ?? null,
     freshness_seconds: participation.meta?.freshness_seconds ?? null,
     recording_active_since: participation.recording_active_since ?? null,

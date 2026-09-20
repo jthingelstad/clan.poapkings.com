@@ -764,7 +764,14 @@ function History({ clan }) {
                     ) : null}
                   </td>
                   <td>
-                    {c.decided_by ?? <span className="nil">—</span>}
+                    {c.decided_by ? (
+                      <>
+                        {c.decided_by_name ?? ""}{" "}
+                        <span className="tag">{c.decided_by}</span>
+                      </>
+                    ) : (
+                      <span className="nil">—</span>
+                    )}
                     {c.decided_at ? ` · ${c.decided_at.slice(0, 10)}` : ""}
                   </td>
                   <td style={{ whiteSpace: "normal" }}>
@@ -788,10 +795,11 @@ function History({ clan }) {
           <ul style={{ margin: 0, paddingLeft: "18px" }}>
             {data.holds.map((h) => (
               <li key={h.player_tag}>
+                {h.player_name ?? ""}{" "}
                 <span className="tag">{h.player_tag}</span>{" "}
                 {h.kind === "away" ? "away " : ""}
                 {h.until ? `until ${h.until.slice(0, 10)}` : "open-ended"} · set
-                by {h.by} on {h.set_at.slice(0, 10)}
+                by {h.by_name ?? h.by} on {h.set_at.slice(0, 10)}
                 {h.note ? ` · ${h.note}` : ""}
               </li>
             ))}

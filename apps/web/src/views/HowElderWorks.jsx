@@ -18,7 +18,8 @@ export function HowElderWorks({ tag }) {
     <div className="wrap--prose" style={{ maxWidth: "72ch" }}>
       <p className="eyebrow">HOW ELDER WORKS HERE</p>
       <h1 className="page__title" style={{ marginBottom: "12px" }}>
-        {data.clan_tag}
+        {data.name ?? data.clan_tag}{" "}
+        <span className="tag">{data.clan_tag}</span>
       </h1>
       <p className="lede">
         Elder is participation, and every input is in the player's control: war

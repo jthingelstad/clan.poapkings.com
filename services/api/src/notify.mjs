@@ -16,8 +16,11 @@ export function createSnsNotifier({ topicArn, region, appUrl }) {
   if (!topicArn) return async () => {};
   const sns = new SNSClient({ region });
   return async (spec) => {
+    const where = spec.clan_tag
+      ? ` in ${spec.clan_name ? `${spec.clan_name} ${spec.clan_tag}` : spec.clan_tag}`
+      : "";
     const lines = [
-      `New feedback on Elixir Clan (${spec.category}) from ${spec.from}${spec.clan_tag ? ` in ${spec.clan_tag}` : ""}.`,
+      `New feedback on Elixir Clan (${spec.category}) from ${spec.from}${where}.`,
       "",
       spec.excerpt,
       "",

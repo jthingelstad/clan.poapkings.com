@@ -36,12 +36,14 @@ export function createAwardsService({
         version: current.version,
         saved_at: current.saved_at,
         saved_by: current.saved_by,
+        saved_by_name: current.saved_by_name ?? null,
       };
     return {
       values: defaultAwards(),
       version: 0,
       saved_at: null,
       saved_by: null,
+      saved_by_name: null,
     };
   }
 
@@ -94,6 +96,7 @@ export function createAwardsService({
     manual: g.manual === true,
     granted_at: g.granted_at,
     granted_by: g.granted_by ?? null,
+    granted_by_name: g.granted_by_name ?? null,
   });
 
   return {
@@ -108,7 +111,22 @@ export function createAwardsService({
         token,
         force: refresh,
       });
-      const grants = (await ledger.grants(clanTag)).map(shape);
+      // Who granted, by name: rows since 2026-09-20 carry it; older ones
+      // are named from the evaluation's members and the grants themselves.
+      const names = new Map();
+      for (const m of result.members ?? [])
+        if (m.name) names.set(m.player_tag, m.name);
+      for (const g of await ledger.grants(clanTag))
+        if (g.player_name && !names.has(g.player_tag))
+          names.set(g.player_tag, g.player_name);
+      const grants = (await ledger.grants(clanTag)).map((g) => {
+        const row = shape(g);
+        return {
+          ...row,
+          granted_by_name:
+            row.granted_by_name ?? names.get(row.granted_by) ?? null,
+        };
+      });
       const versions = await ledger.awardsVersions(clanTag);
       // Manual rows come from the ledger as it is now, not from the
       // snapshot: a pick granted a moment ago shows without a re-read.
@@ -130,6 +148,7 @@ export function createAwardsService({
                     note: g.note,
                     granted_at: g.granted_at,
                     granted_by: g.granted_by,
+                    granted_by_name: g.granted_by_name,
                   })),
               },
         ),
@@ -160,6 +179,7 @@ export function createAwardsService({
             version: v.version,
             saved_at: v.saved_at,
             saved_by: v.saved_by,
+            saved_by_name: v.saved_by_name ?? names.get(v.saved_by) ?? null,
             note: v.note,
           }))
           .reverse(),
@@ -176,6 +196,7 @@ export function createAwardsService({
       return ledger.saveAwards(clanTag, {
         values: checked.values,
         by: who.player_tag,
+        by_name: who.name ?? null,
         note,
       });
     },
@@ -214,6 +235,7 @@ export function createAwardsService({
           config_version: config.version,
           granted_at: new Date(now()).toISOString(),
           granted_by: who.player_tag,
+          granted_by_name: who.name ?? null,
         }),
       );
     },

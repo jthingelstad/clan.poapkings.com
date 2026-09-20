@@ -70,7 +70,16 @@ export function MaintainQueue({ navigate }) {
                     {f.person_name ?? "—"}{" "}
                     <span className="tag">{f.person_tag}</span>
                   </td>
-                  <td className="mono">{f.context?.clan_tag ?? "—"}</td>
+                  <td>
+                    {f.context?.clan_tag ? (
+                      <>
+                        {f.context.clan_name ?? ""}{" "}
+                        <span className="tag">{f.context.clan_tag}</span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td>{f.category.replaceAll("_", " ")}</td>
                   <td>
                     <a
@@ -169,7 +178,7 @@ export function MaintainItem({ id, navigate }) {
             {item.person_name ?? "?"}{" "}
             <span className="tag">{item.person_tag}</span>
             {item.context?.clan_tag
-              ? ` · ${item.context.clan_tag} (${item.context.role})`
+              ? ` · ${item.context.clan_name ?? item.context.clan_tag} (${item.context.role})`
               : ""}
             {item.context?.path ? ` · ${item.context.path}` : ""} ·{" "}
             {item.created_at.slice(0, 10)}

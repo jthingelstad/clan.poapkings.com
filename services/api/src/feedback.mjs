@@ -98,6 +98,7 @@ export function createFeedbackService({
           ? {
               path: String(context.path ?? "").slice(0, 200) || null,
               clan_tag: String(context.clan_tag ?? "").slice(0, 12) || null,
+              clan_name: String(context.clan_name ?? "").slice(0, 40) || null,
               role: String(context.role ?? "").slice(0, 12) || null,
             }
           : null,
@@ -115,6 +116,7 @@ export function createFeedbackService({
             category: cat,
             from: `${item.person_name ?? "a member"} (${item.person_tag})`,
             clan_tag: item.context?.clan_tag ?? null,
+            clan_name: item.context?.clan_name ?? null,
             excerpt: text.replace(/\s+/g, " ").slice(0, 300),
           });
         } catch (err) {

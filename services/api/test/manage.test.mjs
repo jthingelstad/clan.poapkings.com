@@ -201,6 +201,7 @@ test("cards: decide freezes; a second decision is refused; declined blocks re-no
   );
   assert.equal(declined.status, 200);
   assert.equal(declined.body.decided_by, "#20JJJ2CCRU");
+  assert.equal(declined.body.decided_by_name, "King Thing");
   const twice = await api(
     h,
     cookies,
@@ -318,6 +319,8 @@ test("holds pause the clock and show on the member; a member cannot set one", as
     note: "away",
   });
   assert.equal(set.status, 200);
+  assert.equal(set.body.by, "#20JJJ2CCRU");
+  assert.equal(set.body.by_name, "King Thing");
   const view = await api(
     h,
     cookies,
@@ -326,6 +329,12 @@ test("holds pause the clock and show on the member; a member cannot set one", as
   );
   const row = view.body.board.find((m) => m.player_tag === "#8QCV");
   assert.equal(row.removal.shielded, "hold");
+  // History names the held member and the leader who set it, whether the
+  // row was stamped (by_name) or is named from the ledger (player_name).
+  const history = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  const hold = history.body.holds.find((x) => x.player_tag === "#8QCV");
+  assert.equal(hold.by_name, "King Thing");
+  assert.equal(hold.player_name, row.name);
   assert.equal(row.bucket, "held");
   assert.equal(
     view.body.inbox.filter((c) => c.player_tag === "#8QCV").length,
@@ -483,8 +492,17 @@ test("how-elder-works is public and renders from the current policy", async () =
   const r = await h.handler(req("GET", "/api/clans/J2RGCRVG/how-elder-works"));
   assert.equal(r.statusCode, 200);
   const body = JSON.parse(r.body);
+  assert.equal(body.clan_tag, "#J2RGCRVG");
+  // Named once an evaluation has stamped the participation read's name;
+  // null before, never a guess.
+  assert.equal(body.name, null);
   assert.equal(body.values.tenure_min_days, 28);
   assert.ok(body.groups.length >= 8);
+  await api(h, await leader(h), "GET", "/api/clans/J2RGCRVG/manage");
+  const named = JSON.parse(
+    (await h.handler(req("GET", "/api/clans/J2RGCRVG/how-elder-works"))).body,
+  );
+  assert.equal(named.name, "POAP KINGS");
 });
 
 test("scout: a pasted tag is read live, pending is passed through, and the policy answer is this app's", async () => {

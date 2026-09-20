@@ -15,7 +15,7 @@ afterEach(() => {
 const me = {
   signed_in: true,
   ok: true,
-  selected: { clan_tag: "#J2RGCRVG", role: "member" },
+  selected: { clan_tag: "#J2RGCRVG", name: "POAP KINGS", role: "member" },
   clans: [{ clan_tag: "#J2RGCRVG" }],
   primary: { name: "Amy" },
   feedback_unseen: 2,
@@ -65,6 +65,7 @@ describe("feedback", () => {
       context: {
         path: "/clan/J2RGCRVG/standing",
         clan_tag: "#J2RGCRVG",
+        clan_name: "POAP KINGS",
         role: "member",
       },
     });

@@ -66,7 +66,9 @@ export function Away({ me }) {
             <div>
               {hold.until ? `Until ${hold.until.slice(0, 10)}` : "Open-ended"}
               {hold.note ? ` · ${hold.note}` : ""}
-              {hold.kind !== "away" ? ` · set by ${hold.by}` : ""}
+              {hold.kind !== "away"
+                ? ` · set by ${hold.by_name ?? hold.by}`
+                : ""}
             </div>
             {hold.kind === "away" ? (
               <button

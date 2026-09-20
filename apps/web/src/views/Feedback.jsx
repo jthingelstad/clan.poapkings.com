@@ -40,6 +40,7 @@ export function contextFrom(me, path) {
   return {
     path,
     clan_tag: me?.selected?.clan_tag ?? null,
+    clan_name: me?.selected?.name ?? null,
     role: me?.selected?.role ?? null,
   };
 }
@@ -82,8 +83,9 @@ function Compose({ context, onSent, onClose }) {
             </select>
             {context?.clan_tag ? (
               <p className="page-head__note" style={{ margin: 0 }}>
-                Written from {context.path} in {context.clan_tag}; that rides
-                along, you need not describe the page.
+                Written from {context.path} in{" "}
+                {context.clan_name ?? context.clan_tag}; that rides along, you
+                need not describe the page.
               </p>
             ) : null}
             <textarea

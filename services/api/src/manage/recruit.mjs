@@ -144,6 +144,7 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
       return ledger.savePitch(clanTag, {
         values: checked.values,
         by: who.player_tag,
+        by_name: who.name ?? null,
         note,
       });
     },

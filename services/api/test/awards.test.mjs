@@ -168,6 +168,7 @@ test("awards: a leaders' pick is granted by hand with a note, shows in the seaso
   assert.equal(g.body.player_tag, "#U8RYG9Y2U");
   assert.equal(g.body.manual, true);
   assert.equal(g.body.granted_by, "#20JJJ2CCRU");
+  assert.equal(g.body.granted_by_name, "King Thing");
   const view = await api(h, cookies, "GET", `${BASE}/manage`);
   const fp = view.body.seasons
     .find((s) => s.season_id === 135)

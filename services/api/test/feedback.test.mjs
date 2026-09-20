@@ -74,6 +74,7 @@ test("feedback: a member files with the page attached, sees it on their list, an
     context: {
       path: "/clan/J2RGCRVG/standing",
       clan_tag: "#J2RGCRVG",
+      clan_name: "POAP KINGS",
       role: "member",
     },
   });
@@ -83,11 +84,13 @@ test("feedback: a member files with the page attached, sees it on their list, an
   assert.deepEqual(filed.body.context, {
     path: "/clan/J2RGCRVG/standing",
     clan_tag: "#J2RGCRVG",
+    clan_name: "POAP KINGS",
     role: "member",
   });
   assert.equal(member.notified.length, 1);
   assert.equal(member.notified[0].from, "Amy (#8QCV)");
   assert.equal(member.notified[0].clan_tag, "#J2RGCRVG");
+  assert.equal(member.notified[0].clan_name, "POAP KINGS");
   assert.match(member.notified[0].excerpt, /removal clock/);
 
   const list = await api(member, cookies, "GET", "/api/feedback");

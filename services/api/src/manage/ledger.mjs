@@ -154,7 +154,7 @@ function ledgerOver(io) {
     async policyVersions(clanTag) {
       return (await io.listByPrefix(clanTag, "policy#v")).map(stripKeys);
     },
-    async savePolicy(clanTag, { values, by, note = null }) {
+    async savePolicy(clanTag, { values, by, by_name = null, note = null }) {
       const versions = await io.listByPrefix(clanTag, "policy#v");
       const version = versions.length + 1;
       const saved_at = new Date().toISOString();
@@ -166,6 +166,7 @@ function ledgerOver(io) {
         version,
         values,
         saved_by: by,
+        saved_by_name: by_name,
         saved_at,
         note,
       };
@@ -245,7 +246,7 @@ function ledgerOver(io) {
     async awardsVersions(clanTag) {
       return (await io.listByPrefix(clanTag, "awards#v")).map(stripKeys);
     },
-    async saveAwards(clanTag, { values, by, note = null }) {
+    async saveAwards(clanTag, { values, by, by_name = null, note = null }) {
       const versions = await io.listByPrefix(clanTag, "awards#v");
       const version = versions.length + 1;
       const saved_at = new Date().toISOString();
@@ -257,6 +258,7 @@ function ledgerOver(io) {
         version,
         values,
         saved_by: by,
+        saved_by_name: by_name,
         saved_at,
         note,
       };
@@ -301,7 +303,7 @@ function ledgerOver(io) {
     async pitchVersions(clanTag) {
       return (await io.listByPrefix(clanTag, "recruit#v")).map(stripKeys);
     },
-    async savePitch(clanTag, { values, by, note = null }) {
+    async savePitch(clanTag, { values, by, by_name = null, note = null }) {
       const versions = await io.listByPrefix(clanTag, "recruit#v");
       const version = versions.length + 1;
       const saved_at = new Date().toISOString();
@@ -313,6 +315,7 @@ function ledgerOver(io) {
         version,
         values,
         saved_by: by,
+        saved_by_name: by_name,
         saved_at,
         note,
       };

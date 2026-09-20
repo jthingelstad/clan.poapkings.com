@@ -107,8 +107,37 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         version: current.version,
         saved_at: current.saved_at,
         saved_by: current.saved_by,
+        saved_by_name: current.saved_by_name ?? null,
       };
-    return { values: defaults(), version: 0, saved_at: null, saved_by: null };
+    return {
+      values: defaults(),
+      version: 0,
+      saved_at: null,
+      saved_by: null,
+      saved_by_name: null,
+    };
+  }
+
+  /** Tag -> name from what the ledger already holds: the latest verdict
+   *  snapshot (everyone evaluated), every card that named its member or
+   *  its decider, every note's author. No Elixir read. This names the
+   *  actor tags written before 2026-09-20, when a decision, a hold, a
+   *  policy version and a grant carried only `who.player_tag`; rows
+   *  written since carry the name beside the tag. */
+  async function knownNames(clanTag) {
+    const names = new Map();
+    const add = (tag, name) => {
+      if (tag && name && !names.has(tag)) names.set(tag, name);
+    };
+    const snapshot = await ledger.latestVerdicts(clanTag);
+    for (const m of snapshot?.members ?? []) add(m.player_tag, m.name);
+    for (const c of await ledger.cards(clanTag)) {
+      add(c.player_tag, c.player_name);
+      add(c.decided_by, c.decided_by_name);
+    }
+    for (const n of await ledger.notes(clanTag))
+      add(n.author_tag, n.author_name);
+    return names;
   }
 
   /** Evaluate (or reuse a fresh snapshot), reconcile cards, verify outcomes. */
@@ -316,9 +345,14 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     async policyView(clanTag, who) {
       const policy = await policyFor(clanTag);
       const versions = await ledger.policyVersions(clanTag);
+      const names = await knownNames(clanTag);
       return {
         can_edit: isLeader(who),
-        current: policy,
+        current: {
+          ...policy,
+          saved_by_name:
+            policy.saved_by_name ?? names.get(policy.saved_by) ?? null,
+        },
         groups: GROUPS,
         fields: FIELDS,
         versions: versions
@@ -326,6 +360,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
             version: v.version,
             saved_at: v.saved_at,
             saved_by: v.saved_by,
+            saved_by_name: v.saved_by_name ?? names.get(v.saved_by) ?? null,
             note: v.note,
             changes: null,
           }))
@@ -344,6 +379,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       const saved = await ledger.savePolicy(clanTag, {
         values: checked.values,
         by: who.player_tag,
+        by_name: who.name ?? null,
         note,
       });
       return { ...saved, changes: policyDiff(before, checked.values) };
@@ -473,7 +509,6 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       const cards = allCards
         .filter((c) => c.status !== "proposed")
         .sort((a, b) => (a.raised_at < b.raised_at ? 1 : -1));
-      const holds = await ledger.holds(clanTag);
       // The membership timeline: Elixir's recent join / leave / role
       // events, each leave carrying what this ledger says about it, and
       // a welcome line a leader can paste for a join.
@@ -481,11 +516,18 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       const byTag = (tag) =>
         cards.filter((c) => c.player_tag === tag && c.type === "departure");
       // Who a tag is, when the event itself does not say: the roster for
-      // anyone still here, else any card (open ones included) that named them.
-      const knownName = new Map(
-        [...allCards.filter((c) => c.player_name), ...(roster?.members ?? [])]
-          .map((x) => [x.player_tag, x.player_name ?? x.name])
-          .filter(([, n]) => n),
+      // anyone still here, else what the ledger has named (cards, the
+      // verdict snapshot, note authors).
+      const knownName = await knownNames(clanTag);
+      // The roster is the freshest name for anyone still here.
+      for (const m of roster?.members ?? [])
+        if (m.name) knownName.set(m.player_tag, m.name);
+      const named = (row, tagKey, nameKey) => ({
+        ...row,
+        [nameKey]: row[nameKey] ?? knownName.get(row[tagKey]) ?? null,
+      });
+      const holds = (await ledger.holds(clanTag)).map((h) =>
+        named(named(h, "player_tag", "player_name"), "by", "by_name"),
       );
       const timeline = (roster?.recent_events ?? [])
         .filter((e) => e.detail?.player_tag)
@@ -536,7 +578,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         })
         .sort((a, b) => (a.at < b.at ? 1 : -1));
       return {
-        cards,
+        cards: cards.map((c) => named(c, "decided_by", "decided_by_name")),
         holds,
         timeline,
         timeline_since: roster?.events_recorded_since ?? null,
@@ -569,6 +611,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         status,
         decided_at,
         decided_by: who.player_tag,
+        decided_by_name: who.name ?? null,
         decline_reason: status === "declined" ? reason : null,
         // The leader's word, in their own words, bounded like a note.
         decision_note:
@@ -604,6 +647,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         until,
         note,
         by: who.player_tag,
+        by_name: who.name ?? null,
         set_at: new Date(now()).toISOString(),
       });
     },
@@ -622,7 +666,15 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       return {
         allowed: policy.values.away_max_days > 0,
         max_days: policy.values.away_max_days,
-        hold: mine,
+        hold: mine
+          ? {
+              ...mine,
+              by_name:
+                mine.by_name ??
+                (await knownNames(clanTag)).get(mine.by) ??
+                null,
+            }
+          : null,
       };
     },
     async setAway(clanTag, who, { until, note = null }) {
@@ -646,6 +698,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         until: new Date(untilMs).toISOString(),
         note: note ? String(note).slice(0, 200) : null,
         by: who.player_tag,
+        by_name: who.name ?? null,
         set_at: new Date(t).toISOString(),
       });
     },
@@ -732,8 +785,12 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     /** The public "How Elder works here" page, from the current policy. */
     async howElderWorks(clanTag) {
       const policy = await policyFor(clanTag);
+      // The page is public and has no session to name the clan from; the
+      // latest evaluation stamped the name clans_participation reported.
+      const snapshot = await ledger.latestVerdicts(clanTag);
       return {
         clan_tag: clanTag,
+        name: snapshot?.clan_name ?? null,
         values: policy.values,
         version: policy.version,
         groups: GROUPS,

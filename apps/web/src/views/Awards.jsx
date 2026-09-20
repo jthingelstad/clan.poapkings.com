@@ -229,7 +229,8 @@ function AwardPanel({
                     <span className="tag">{r.player_tag}</span>
                     {r.note ? ` — ${r.note}` : ""}{" "}
                     <span className="page-head__note">
-                      · granted {r.granted_at?.slice(0, 10)} by {r.granted_by}
+                      · granted {r.granted_at?.slice(0, 10)} by{" "}
+                      {r.granted_by_name ?? r.granted_by}
                     </span>
                     {canRevoke ? (
                       <>
