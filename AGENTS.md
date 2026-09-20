@@ -105,6 +105,13 @@ by a person or an agent. A second cookie `__Host-elixir_clan_login` binds the
 OAuth `state` to the browser that started it. `POST /auth/logout` deletes the
 session.
 
+The same table holds the durable product records described below. It has
+35-day point-in-time recovery, DynamoDB deletion protection, and CloudFormation
+retain policies for deletion and replacement. Recovery always creates a
+separately named table; a rehearsal compares table/index metadata, item counts,
+size, and encryption without reading rows or connecting the restored table to
+the application, then removes only that isolated rehearsal table.
+
 **Session caches are bounded:** gate 2 min, roster 3 min per clan, bounded
 to the verified clan set. No independent player profile or game-history
 database is kept here. The remembered clan choice, management ledger,
@@ -304,7 +311,8 @@ the way Elixir does (`Fresh`).
 
 - `--profile jamie`, `us-east-1`, hobby-account rules from `~/Projects/AGENTS.md`.
   No em dashes in resource names.
-- One stack `elixir-clan` (`infra/template.yaml`): table, function, HTTP API
+- One stack `elixir-clan` (`infra/template.yaml`): 35-day PITR and deletion
+  protection on the retained table, function, HTTP API
   (spelled out: integration, `$default` route and stage with an access log),
   private bucket + CloudFront, SNS `elixir-clan-alarms`, four alarms (Lambda
   errors, API 5xx, slow requests p90 > 8 s, estimated charges), 30-day logs.

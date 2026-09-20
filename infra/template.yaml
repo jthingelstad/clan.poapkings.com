@@ -67,15 +67,19 @@ Conditions:
   HasFeedbackEmail: !Not [!Equals [!Ref FeedbackNotifyEmail, ""]]
 
 Resources:
-  # ------------------------------------------------------------ sessions
-  # The only durable store: pending logins and sessions, both TTL'd. A
-  # session item carries Elixir's refresh token, so the table is encrypted
-  # with the AWS-managed DynamoDB KMS key (no key of our own to manage).
+  # ------------------------------------------------------------ durable state
+  # Pending logins and sessions expire through TTL, while policy versions,
+  # cards, holds, notes, awards and feedback remain durable. The table is
+  # encrypted with the AWS-managed DynamoDB KMS key, retained by the stack,
+  # protected from deletion, and recoverable to any second in the last 35 days.
   SessionTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: elixir-clan
       BillingMode: PAY_PER_REQUEST
+      DeletionProtectionEnabled: true
       AttributeDefinitions:
         - AttributeName: pk
           AttributeType: S
@@ -106,7 +110,8 @@ Resources:
         SSEEnabled: true
         SSEType: KMS
       PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: false
+        PointInTimeRecoveryEnabled: true
+        RecoveryPeriodInDays: 35
       Tags:
         - Key: application
           Value: elixir-clan

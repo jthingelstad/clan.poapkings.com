@@ -523,3 +523,22 @@ published, and its pinned UI/client kit is independent of that server
 contract version. The later live-walk entry above supersedes the older
 participation-latency diagnosis; do not present the earlier 12.8-second
 average as current performance.
+
+## 2026-09-20: the durable table recovery baseline
+
+The table is no longer session-only: policy versions, action cards and their
+dispositions, holds, notes, awards and feedback are product records that cannot
+be reconstructed from Elixir's game facts. The minimum recovery baseline is
+therefore 35-day DynamoDB point-in-time recovery, deletion protection, and
+CloudFormation retain policies for both deletion and replacement. PITR covers
+accidental item writes and deletes; the other controls keep a stack operation
+from silently deleting or replacing the table. A second stack, scheduled
+on-demand backups and cross-Region replication add no justified recovery value
+for this hobby-sized single-Region product.
+
+At adoption the table was 227,129 bytes with 34 items. At the current
+us-east-1 rates that is approximately $0.000042 per month for PITR and
+$0.000032 for one restore. Acceptance requires a real restore to a separately
+named table, metadata-only comparison of its keys, index, item count, size and
+encryption, and deletion of only the isolated rehearsal table. No record,
+credential-bearing session item, private note or feedback body is read.
