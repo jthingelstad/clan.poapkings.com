@@ -21,7 +21,7 @@ export function parseEnv(text) {
 
 /** Load repo-root .env into process.env for keys not already set. The CI
  *  key pair in .env is for `gh secret set`, never for a local deploy, which
- *  runs as AWS_PROFILE=jamie; so AWS_* names are never lifted from it. */
+ *  runs as AWS_PROFILE=cloud-engineer; so AWS_* names are never lifted from it. */
 export async function loadEnvInto(path) {
   let text = "";
   try {

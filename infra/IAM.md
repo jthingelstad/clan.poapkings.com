@@ -18,10 +18,10 @@ Use the explicitly authorized `jamie` administrator. Do not run the general
 bootstrap for an IAM repair: bootstrap also handles secrets and CI keys.
 
 ```sh
-node infra/scripts/secure-iam.mjs validate --profile jamie
-node infra/scripts/secure-iam.mjs apply --profile jamie \
+node infra/scripts/secure-iam.mjs validate --profile cloud-engineer
+node infra/scripts/secure-iam.mjs apply --profile cloud-engineer \
   --snapshot-dir /absolute/private/directory/outside/the/checkout
-node infra/scripts/secure-iam.mjs verify --profile jamie
+node infra/scripts/secure-iam.mjs verify --profile cloud-engineer
 ```
 
 `apply` verifies the account, trusts, policy inventories, existing CI policy,

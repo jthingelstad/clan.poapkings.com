@@ -7,7 +7,7 @@
  * writes to elixir-bot's database.
  *
  *   node scripts/import-elixir-bot.mjs            dry run: prints what would land
- *   AWS_PROFILE=jamie node scripts/import-elixir-bot.mjs --write
+ *   AWS_PROFILE=cloud-engineer node scripts/import-elixir-bot.mjs --write
  */
 
 import { DatabaseSync } from "node:sqlite";

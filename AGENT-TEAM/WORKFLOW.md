@@ -16,7 +16,7 @@ the product docs it points at.
    publish a pre-existing commit.
 2. Measure current state: the live site and API (`/api/health`, the smoke
    script's reads, the public awards document), CI (`gh run list`), the
-   stack and its alarms (`--profile jamie`, read-only), the ledger through
+   stack and its alarms (`--profile cloud-engineer`, read-only), the ledger through
    the host scripts, `docs/NOTES.md` since the last reviewed revision, and
    Elixir's contract version against the pinned dependency.
 3. Decide whether a real objective gap exists. Healthy is a complete result.
@@ -32,7 +32,7 @@ the product docs it points at.
    push. Stop if the state changed.
 7. `npm run verify` before every commit. Commit and push only this run's
    work, directly to `main`. CI validates and deploys `main`; the smoke
-   script runs after every deploy. `AWS_PROFILE=jamie node
+   script runs after every deploy. `AWS_PROFILE=cloud-engineer node
    infra/scripts/deploy.mjs` is for a deploy CI cannot make (a parameter
    change) and is said so in the run's report.
 8. Verify the deploy (`gh run list`, the smoke output, one live read of the

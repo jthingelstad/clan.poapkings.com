@@ -3,7 +3,7 @@
  * Route the stack's alarm topic to the sysadmin projects-ops-alerts queue
  * the way elixir-mcp-alarms and elixir-drop-alarms are: add the topic ARN
  * to the queue policy's allowed sources, and subscribe with raw message
- * delivery. Idempotent; AWS_PROFILE=jamie; after the first deploy.
+ * delivery. Idempotent; AWS_PROFILE=cloud-engineer; after the first deploy.
  */
 
 import {

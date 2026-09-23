@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Deploy. Locally: AWS_PROFILE=jamie in the environment. In CI: the
+ * Deploy. Locally: AWS_PROFILE=cloud-engineer in the environment. In CI: the
  * elixir-clan-deploy user's keys and ELIXIR_CLAN_CFN_ROLE_ARN. Order is
  * build -> upload -> stack create/update -> web -> smoke.
  *

@@ -8,7 +8,7 @@ know. Silence is the one answer never allowed.
 
 ## Every run
 
-- **The queue.** `AWS_PROFILE=jamie node scripts/feedback.mjs list`. Count
+- **The queue.** `AWS_PROFILE=cloud-engineer node scripts/feedback.mjs list`. Count
   the backlog and the oldest unanswered age before choosing work. Triage
   the oldest first; keep the response target under one day; report the
   remaining count, the oldest age and any missed target with the next

@@ -19,7 +19,7 @@ follow, or a client registration that quietly expired.
   smoke output, not just the status.
 - **Alarms.** `elixir-clan-api-errors`, `elixir-clan-api-5xx`,
   `elixir-clan-estimated-charges` state and history (`aws cloudwatch describe-alarms
-  --profile jamie`). An alarm the Operator saw is one this objective
+  --profile cloud-engineer`). An alarm the Operator saw is one this objective
   explains: read the Lambda log group for the window, name the cause.
 - **Cost.** The stack's estimated charges stay near zero; the reserved
   concurrency of 10 and the 30-day log retention are the ceilings. Every

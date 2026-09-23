@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * One-time account bootstrap (AWS_PROFILE=jamie, before the first deploy).
+ * One-time account bootstrap (AWS_PROFILE=cloud-engineer, before the first deploy).
  * Idempotent: existing resources are left alone and reported.
  *
  *  1. code bucket elixir-clan-code-<account> (versioned, private)

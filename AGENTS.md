@@ -309,7 +309,7 @@ the way Elixir does (`Fresh`).
 
 ## AWS and deploying
 
-- `--profile jamie`, `us-east-1`, hobby-account rules from `~/Projects/AGENTS.md`.
+- `--profile cloud-engineer`, `us-east-1`, hobby-account rules from `~/Projects/AGENTS.md`.
   No em dashes in resource names.
 - One stack `elixir-clan` (`infra/template.yaml`): 35-day PITR and deletion
   protection on the retained table, function, HTTP API
@@ -321,7 +321,7 @@ the way Elixir does (`Fresh`).
   `AppSecretName`, `SiteCertificateArn`, `MonthlyCostAlarmUsd`) rides
   `UsePreviousValue`. Set one with `--param=Key=Value`; omitting is never a
   reset. A test pins the template's parameter list to that set.
-- Local: `AWS_PROFILE=jamie node infra/scripts/deploy.mjs` (build → upload →
+- Local: `AWS_PROFILE=cloud-engineer node infra/scripts/deploy.mjs` (build → upload →
   stack → web → smoke). `--create` for a first deploy, `--skip-web` for code
   only.
 - CI: `validate` on every push/PR (no network, no spend); `deploy` on main
