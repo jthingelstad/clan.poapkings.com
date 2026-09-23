@@ -549,5 +549,5 @@ Jamie's decision: Clan is a program, not an agent. The eight-week `clans_partici
 - **The client:** `services/api/src/elixir-api.mjs` replaces `mcp.mjs` and keeps its `initialize`/`callTool` interface, so the gate, manage, scout and recruit are unchanged. Each tool name maps to one `/api/v1` operation, and each operation answers with that tool's structured result. A problem+json refusal is unwrapped to the same `{ code, hint, body.error.retry_after_s }`.
 - **OAuth:** the resource is `ElixirUrl/api/v1`. Existing sessions hold `/mcp` grants, which `/api/v1` refuses (401). Refreshing a grant keeps its original audience, so **everyone signs in once more**.
 - **Quota:** Clan is a first-party client (every redirect URI on a family origin), so its reads, live reads included, spend no one's quota.
-- **Waiting on Jamie:** a live sign-in to confirm the gate, the roster and one evaluation end to end.
+- **Confirmed live (21:53Z):** Jamie signed in again. The old grant was refused once, then the gate, the roster (509 ms), standing (a full evaluation, 3.4 s) and manage all answered 200. Jamie: "notably faster".
 
