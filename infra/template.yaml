@@ -25,7 +25,7 @@ Parameters:
   ElixirUrl:
     Type: String
     Default: https://elixir.poapkings.com
-    Description: Elixir's issuer and site; the MCP door is ElixirUrl/mcp. PRESERVED.
+    Description: Elixir's issuer and site; Clan reads its JSON API at ElixirUrl/api/v1. PRESERVED.
   OAuthClientId:
     Type: String
     Default: ""

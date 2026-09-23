@@ -1,7 +1,7 @@
 /** Lambda entrypoint: real seams from the environment, nothing else. */
 
 import { createHandler } from "./handler.mjs";
-import { createMcpClient } from "./mcp.mjs";
+import { createElixirApiClient } from "./elixir-api.mjs";
 import { createOAuthClient } from "./oauth.mjs";
 import { createDynamoStore } from "./store.mjs";
 import { createDynamoLedger } from "./manage/ledger.mjs";
@@ -26,7 +26,9 @@ const elixirUrl = env("ELIXIR_URL", "https://elixir.poapkings.com").replace(
   "",
 );
 
-const mcp = createMcpClient({ url: `${elixirUrl}/mcp` });
+// Clan reads Elixir through the JSON API (/api/v1), not MCP (2026-09-23).
+// The client keeps the MCP client's interface, so every caller is as it was.
+const mcp = createElixirApiClient({ url: elixirUrl });
 const ledger = createDynamoLedger({
   tableName: env("TABLE_NAME"),
   region: process.env.AWS_REGION,
@@ -57,7 +59,8 @@ export const handler = createHandler({
     .map((t) => (t.startsWith("#") ? t : `#${t}`)),
   oauth: createOAuthClient({
     issuer: elixirUrl,
-    resource: `${elixirUrl}/mcp`,
+    // The grant is for the JSON API; an MCP grant is refused there.
+    resource: `${elixirUrl}/api/v1`,
     clientId: process.env.OAUTH_CLIENT_ID ?? "",
   }),
   store: createDynamoStore({

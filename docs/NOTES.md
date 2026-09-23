@@ -542,3 +542,12 @@ $0.000032 for one restore. Acceptance requires a real restore to a separately
 named table, metadata-only comparison of its keys, index, item count, size and
 encryption, and deletion of only the isolated rehearsal table. No record,
 credential-bearing session item, private note or feedback body is read.
+
+## 2026-09-23 — Clan reads Elixir through the JSON API, not MCP
+
+Jamie's decision: Clan is a program, not an agent. The eight-week `clans_participation` read had outgrown MCP's agent-sized result cap (48,680 characters at 48 members), so evaluations were refused. Clan now reads Elixir's public JSON API at `/api/v1` with the person's grant for that audience (plan: `../elixir-family/plans/clan-app-api.md`).
+- **The client:** `services/api/src/elixir-api.mjs` replaces `mcp.mjs` and keeps its `initialize`/`callTool` interface, so the gate, manage, scout and recruit are unchanged. Each tool name maps to one `/api/v1` operation, and each operation answers with that tool's structured result. A problem+json refusal is unwrapped to the same `{ code, hint, body.error.retry_after_s }`.
+- **OAuth:** the resource is `ElixirUrl/api/v1`. Existing sessions hold `/mcp` grants, which `/api/v1` refuses (401). Refreshing a grant keeps its original audience, so **everyone signs in once more**.
+- **Quota:** Clan is a first-party client (every redirect URI on a family origin), so its reads, live reads included, spend no one's quota.
+- **Waiting on Jamie:** a live sign-in to confirm the gate, the roster and one evaluation end to end.
+

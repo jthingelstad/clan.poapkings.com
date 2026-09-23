@@ -16,9 +16,11 @@ removal clock, action cards leaders decide, notes, holds, and scouting.
    No invitations, no workspaces, no roles of our own.
 2. **Elixir is the account system.** No passwords, no email login, no
    accounts. A person exists here only as an Elixir session.
-3. **Every seam to Elixir is a public door.** OAuth 2.1 at `/oauth/*`, tools
-   at `/mcp` with the person's own bearer token, nothing privileged. We never
-   touch Elixir's database and never ask for more than `cr:read`.
+3. **Every seam to Elixir is a public door.** OAuth 2.1 at `/oauth/*`, and
+   Elixir's JSON API at `/api/v1` with the person's own bearer token for that
+   audience, nothing privileged. Clan is a program, not an agent: it does not
+   use MCP (Jamie, 2026-09-23). We never touch Elixir's database and never ask
+   for more than `cr:read`.
 4. **Judgment lives here, never in Elixir.** Elixir records facts and has no
    opinions; this vertical owns the clan-management engine and leader
    action cards. Facts in, judgment in our code.
@@ -54,16 +56,17 @@ docs/NOTES.md      decisions, newest last; what is waiting on Jamie
 |---|---|---|
 | Discovery | `GET {ElixirUrl}/.well-known/oauth-authorization-server` | endpoints, cached 300 s (`services/api/src/oauth.mjs`) |
 | Client registration | `POST /oauth/register` | once, by `infra/scripts/register-client.mjs`; the `client_id` is the stack parameter `OAuthClientId`. Public client, PKCE, no secret. Lives 365 days from last use. |
-| Authorize | `/oauth/authorize` | `scope=cr:read`, `resource=https://elixir.poapkings.com/mcp` (required, RFC 8707), S256 |
+| Authorize | `/oauth/authorize` | `scope=cr:read`, `resource=https://elixir.poapkings.com/api/v1` (required, RFC 8707), S256. An `/mcp` grant is refused at `/api/v1`. |
 | Tokens | `/oauth/token` | access 1 h, refresh 30 d rotating, family 90 d. Refreshed server-side; a rotated refresh token is STORED before any reuse (presenting it twice revokes the grant). |
-| The door | `POST /mcp` | JSON-RPC over fetch, JSON only, no sessions (`services/api/src/mcp.mjs`, the pattern is `../elixir-mcp-discord/src/mcp.js`) |
+| The door | `/api/v1/*` | Elixir's JSON API (`services/api/src/elixir-api.mjs`). It keeps the old MCP client's `initialize`/`callTool` interface: each tool name maps to one operation, answered with that tool's structured result, and a refusal comes back as problem+json carrying the tool's code. Plan: `../elixir-family/plans/clan-app-api.md` |
 
 Elixir's contract is documented at <https://elixir.poapkings.com/docs>
 (`protocol`, `connections`, `agents`, `verify`). Do not restate it here.
 
 ## The gate, in order (`services/api/src/gate.mjs`)
 
-Two reads, `initialize` then `elixir_my_players`; the first refusal wins
+One read, `GET /api/v1/me` (the principal block and the players; the client
+serves it as `initialize` then `elixir_my_players`); the first refusal wins
 and each has its own page (`apps/web/src/views/Refused.jsx`):
 
 1. `_meta["elixir.poapkings.com/principal"].kind === "person"` (the docs say
@@ -288,21 +291,26 @@ it when a clan's last verified leader disconnects. Evaluation is on demand
 with the signed-in leader's token, cached five minutes per clan; no
 background job and no stored credential.
 
-## Elixir tools this app depends on
+## Elixir JSON API operations this app depends on
 
-| Tool | Since contract | Used for |
+Each answers with the named Elixir tool's structured result (JSON API
+contract 1.2.0).
+
+| Operation | Tool result | Used for |
 |---|---|---|
-| `initialize`, `elixir_my_players` | 1.0.0 | the gate |
-| `clans_roster` | 1.0.0 | the clan page |
-| `clans_participation` | 1.9.0 | every evaluation: one call, eight weeks |
-| `players_names` | 0.39.0 | name legacy departure cards whose roster event carried only a tag; one bulk corpus read, never the live lane |
-| `players_profile({ live: true })`, `battles_query({ live: true, verbosity: "compact" })` | 1.7.0 | scouting an applicant; `live_pending` is passed through with `retry_after_s` |
+| `GET /api/v1/me` | principal + `elixir_my_players` | the gate |
+| `GET /api/v1/clans/{tag}/roster` | `clans_roster` | the clan page, departures, history |
+| `GET /api/v1/clans/{tag}/participation?weeks=8` | `clans_participation` | every evaluation: one call, eight weeks, no agent-sized cap |
+| `POST /api/v1/players/names` | `players_names` | name legacy departure cards whose roster event carried only a tag |
+| `GET /api/v1/players/{tag}/profile?fresh=1`, `GET /api/v1/players/{tag}/battles?limit=25&fresh=1` | `players_profile`, `battles_query` | scouting an applicant; `live_pending` is passed through with `retry_after_s` |
+| `GET /api/v1/clans/{tag}/live` | `live_fetch /clans/{tag}` | recruit facts |
 
 Elixir returns facts; every threshold, score and verdict is here.
 
 ## Quota discipline
 
-Every page view spends the signed-in person's Elixir daily budget. The gate
+Clan is a first-party client (every redirect URI on a family origin), so its
+reads spend no one's Elixir quota (Jamie, 2026-09-23). We are still frugal: the gate
 answer and roster are cached per session; "check again" is floored at 30 s
 server-side; nothing polls. The page shows `meta.freshness_seconds`/`as_of`
 the way Elixir does (`Fresh`).
