@@ -274,10 +274,29 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           (cached?.members ?? []).map((m) => [m.player_tag, m]),
         );
         const allCards = await ledger.cards(clanTag);
+        const currentTags = new Set(
+          (roster.members ?? []).map((m) => m.player_tag),
+        );
+        // An open departure card whose member is back is withdrawn: its
+        // question no longer has an answer that is true.
+        for (const c of allCards.filter(
+          (c) =>
+            c.type === "departure" &&
+            c.status === "proposed" &&
+            currentTags.has(c.player_tag),
+        )) {
+          await ledger.putCard(clanTag, {
+            ...c,
+            status: "withdrawn",
+            withdrawn_at: new Date(t).toISOString(),
+            withdraw_reason: "The member rejoined the clan.",
+          });
+        }
         for (const d of departuresFrom(
           roster.recent_events,
           allCards,
           lastKnown,
+          currentTags,
         )) {
           await ledger.putCard(clanTag, {
             card_id: newId(),
