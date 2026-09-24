@@ -405,7 +405,9 @@ function Card({ card, clan, reasons, onDecided, who }) {
         <span style={{ marginLeft: "auto" }}>
           <Fresh
             label="evidence as of"
-            seconds={ev.freshness_seconds}
+            // Age from the evidence instant, now: freshness_seconds was its
+            // age when the card was raised, so it never grew.
+            seconds={ev.as_of ? undefined : ev.freshness_seconds}
             ts={ev.as_of}
           />
         </span>
@@ -751,7 +753,9 @@ function History({ clan }) {
                         className="chip chip--ok"
                         style={{ marginLeft: "6px" }}
                       >
-                        verified {c.outcome.delay_hours} h after Done
+                        {c.outcome.delay_hours != null
+                          ? `verified ${Math.round(c.outcome.delay_hours)} h after Done`
+                          : "verified"}
                       </span>
                     ) : null}
                     {c.outcome?.flagged_at ? (

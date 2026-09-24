@@ -1,3 +1,4 @@
+import { ago } from "elixir-mcp/packages/ui/src/index.ts";
 import { RoleChip } from "../components/RoleChip.jsx";
 import { ELIXIR_LINKS } from "../lib/links.js";
 
@@ -32,7 +33,12 @@ export function You({ me }) {
                     {i.is_primary ? <span className="yours">★ </span> : null}
                     {i.name ?? i.player_tag}{" "}
                     <span className="tag">{i.player_tag}</span>{" "}
-                    {i.claim_status === "verified" ? (
+                    {/* A friend or a watched player is followed, never
+                        claimed: "unverified" read as a problem to fix. */}
+                    {i.relationship === "friend" ||
+                    i.relationship === "watching" ? (
+                      <span className="chip">{i.relationship}</span>
+                    ) : i.claim_status === "verified" ? (
                       <span className="chip chip--ok">verified</span>
                     ) : (
                       <span className="chip chip--warn">
@@ -74,7 +80,13 @@ export function You({ me }) {
           <Row label="Capabilities">
             <code>{me.scope || "cr:read"}</code>
           </Row>
-          <Row label="Checked">{me.checked_at ?? "—"}</Row>
+          <Row label="Checked">
+            {me.checked_at ? (
+              <span title={me.checked_at}>{ago(me.checked_at)}</span>
+            ) : (
+              "—"
+            )}
+          </Row>
         </div>
         <div className="panel__foot">
           Change any of this in Elixir:{" "}

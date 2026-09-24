@@ -11,8 +11,12 @@ export function Scout({ clan }) {
   const [tag, setTag] = useState("");
   const [state, setState] = useState({});
   const timer = useRef(null);
+  // A read that stays pending is asked again a few times, not forever:
+  // a clan tag pasted here queued a player read that never arrived and
+  // the page polled all night (overnight walk 2026-09-24).
+  const MAX_TRIES = 6;
 
-  const read = async (t) => {
+  const read = async (t, tries = 1) => {
     setState((s) => ({ ...s, loading: true, error: "" }));
     const r = await manageApi.scout(clan.clan_tag, t);
     if (!r.ok)
@@ -25,8 +29,13 @@ export function Scout({ clan }) {
     setState({ result: r.data });
     trackEvent("clan.scout", r.data.pending ? "pending" : "answered");
     if (r.data.pending?.retry_after_s) {
+      if (tries >= MAX_TRIES)
+        return setState({
+          error:
+            "Elixir has not been able to read that player yet. Check it is a player tag (from the player's profile, not the clan's) and try again in a few minutes.",
+        });
       timer.current = window.setTimeout(
-        () => read(t),
+        () => read(t, tries + 1),
         Math.min(60, r.data.pending.retry_after_s) * 1000,
       );
     }

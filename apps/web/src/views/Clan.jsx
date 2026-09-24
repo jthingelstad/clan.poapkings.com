@@ -260,7 +260,7 @@ export function Clan({ me, clan, navigate }) {
             <span>
               {state.roster.member_count} members
               {state.roster.meta?.as_of
-                ? ` · Elixir as of ${state.roster.meta.as_of}`
+                ? ` · Elixir recorded ${ago(state.roster.meta.as_of)}`
                 : ""}
               {state.roster.cached_at
                 ? ` · read ${ago(state.roster.cached_at)}`
@@ -276,20 +276,6 @@ export function Clan({ me, clan, navigate }) {
               {state.loading ? "Reading…" : "Check again"}
             </button>
           </div>
-          {state.roster.notes?.length ? (
-            <ul
-              style={{
-                margin: "14px 0 0",
-                paddingLeft: "18px",
-                color: "var(--ink-faint)",
-                fontSize: "12.5px",
-              }}
-            >
-              {state.roster.notes.map((n) => (
-                <li key={n}>{n}</li>
-              ))}
-            </ul>
-          ) : null}
         </>
       ) : null}
     </>
