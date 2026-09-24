@@ -8,8 +8,8 @@
  * made on its behalf is timed into it (AsyncLocalStorage, so nothing is
  * threaded through arguments); the handler closes it with ONE JSON line
  * (the route, the status, the total, each upstream call with its
- * duration and Elixir's own request_id for correlation), one EMF line
- * (metrics without a PutMetricData call), and a Server-Timing header so
+ * duration and Elixir's own request_id for correlation) and a
+ * Server-Timing header so
  * the browser's own timing can be read against the server's. Time spent
  * in front of the edge is the difference.
  *
@@ -20,7 +20,6 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 const storage = new AsyncLocalStorage();
 
-export const METRICS_NAMESPACE = "ElixirClan";
 /** A single upstream call slower than this gets its own warning line. */
 export const SLOW_CALL_MS = 5_000;
 /** A request slower than this is logged at warn level, not info. */
@@ -127,34 +126,4 @@ export function serverTiming(summary) {
     `own;dur=${own}`,
     ...(summary.cold ? ["cold"] : []),
   ].join(", ");
-}
-
-/** One EMF line: request metrics by route, and undimensioned. */
-export function emf(summary, now = Date.now()) {
-  return JSON.stringify({
-    _aws: {
-      Timestamp: now,
-      CloudWatchMetrics: [
-        {
-          Namespace: METRICS_NAMESPACE,
-          Dimensions: [["Route"], []],
-          Metrics: [
-            { Name: "DurationMs", Unit: "Milliseconds" },
-            { Name: "ElixirMs", Unit: "Milliseconds" },
-            { Name: "StoreMs", Unit: "Milliseconds" },
-            { Name: "ElixirCalls", Unit: "Count" },
-            { Name: "Errors5xx", Unit: "Count" },
-            { Name: "ColdStarts", Unit: "Count" },
-          ],
-        },
-      ],
-    },
-    Route: summary.http ?? "unknown",
-    DurationMs: summary.ms,
-    ElixirMs: summary.elixir_ms,
-    StoreMs: summary.store_ms,
-    ElixirCalls: summary.elixir_calls,
-    Errors5xx: summary.status >= 500 ? 1 : 0,
-    ColdStarts: summary.cold ? 1 : 0,
-  });
 }

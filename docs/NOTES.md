@@ -581,3 +581,8 @@ after six pending reads and explains what to check instead of polling all night
 - War rate = decks played / decks asked (4 x war days up to the finish; Colosseum 4 days), capped at 1; post-finish decks count as played and are never asked for. The floor is `floor_war_decks`; Perfect attendance asks `decks_per_day` x days up to the finish per week, `allowed_misses` is days' worth of decks. `full_day_bonus` is retired.
 - Saved policy versions read through `fromLegacy`: `floor_war_days` N becomes `floor_war_decks` N (never stricter); `full_day_bonus` is dropped.
 - Also today: war days after an early finish are optional; departures skip rejoiners; a clan policy is Elixir Clan's own (no POAP KINGS provenance anywhere; other clans' starting pitch and awards are neutral).
+
+## 2026-09-24 — The slow-request alarm reads Lambda Duration; no custom metrics
+
+- The `ElixirClan` EMF line never reached CloudWatch from production: the handler called `log.metric?.(emf(summary))`, and the production logger (`console`) has no `metric`, so the namespace held no datapoints for the week before (414 invocations) and `elixir-clan-slow-requests` watched nothing. Found in the Elixir hosting and cost review.
+- Fixed the Elixir family's way (Jamie, 2026-09-24: no one reads CloudWatch by hand, so a custom metric exists only to back an alarm, and no dashboard): the alarm now reads the API Lambda's own `Duration` p90 (free, the request's time) and the EMF line is gone. The request-story JSON line and `Server-Timing` are unchanged; Logs Insights reads the per-route numbers from the story line.

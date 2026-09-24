@@ -22,7 +22,7 @@ import {
   cookieHeader,
 } from "./fakes.mjs";
 import { member, participation, NOW } from "../../engine/test/fixture.mjs";
-import { emf, serverTiming, summarize, timedElixir } from "../src/trace.mjs";
+import { serverTiming, summarize, timedElixir } from "../src/trace.mjs";
 import { routeKey } from "../src/handler.mjs";
 
 /** The logger the handler is given: the story and the metric, captured. */
@@ -34,7 +34,6 @@ function capturing() {
       info: (l) => lines.push(["log", l]),
       warn: (l) => lines.push(["warn", l]),
       error() {},
-      metric: (l) => lines.push(["out", l]),
     },
   };
 }
@@ -111,13 +110,6 @@ test("every request ends with one JSON line naming the route, the status, the ti
     "Elixir's own request id rides on the call",
   );
   assert.ok(!JSON.stringify(line).includes("eat_"), "never a token");
-  const metrics = lines
-    .filter(([k]) => k === "out")
-    .map(([, l]) => JSON.parse(l));
-  assert.equal(metrics.length, 1);
-  assert.equal(metrics[0].Route, "GET /api/clans/*/manage");
-  assert.equal(metrics[0]._aws.CloudWatchMetrics[0].Namespace, "ElixirClan");
-  assert.equal(metrics[0].Errors5xx, 0);
 });
 
 test("route keys hide ids and tags; a slow or failed request logs at warn", async () => {
@@ -172,7 +164,6 @@ test("route keys hide ids and tags; a slow or failed request logs at warn", asyn
   assert.equal(slow.level, "warn");
   assert.equal(slow.cold, true);
   assert.match(serverTiming(slow), /cold$/);
-  assert.equal(JSON.parse(emf(slow)).ColdStarts, 1);
   const failed = summarize(
     {
       started: Date.now(),
@@ -185,5 +176,5 @@ test("route keys hide ids and tags; a slow or failed request logs at warn", asyn
     502,
   );
   assert.equal(failed.level, "warn");
-  assert.equal(JSON.parse(emf(failed)).Errors5xx, 1);
+  assert.equal(failed.status, 502);
 });

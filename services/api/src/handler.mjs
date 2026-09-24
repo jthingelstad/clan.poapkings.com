@@ -31,7 +31,6 @@ import {
   annotate,
   summarize,
   serverTiming,
-  emf,
 } from "./trace.mjs";
 import { pkcePair, randomState } from "./oauth.mjs";
 import { roleLabel, roleRank } from "./roles.mjs";
@@ -781,9 +780,6 @@ export function createHandler({
         (summary.level === "warn" ? log.warn : log.info)?.(
           JSON.stringify(summary),
         );
-        // The EMF line is its own event: a raw write in production
-        // (index.mjs), never console.log's prefix (Elixir's lesson).
-        log.metric?.(emf(summary));
         return {
           ...res,
           headers: {

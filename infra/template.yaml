@@ -479,16 +479,19 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions: [!Ref AlarmTopic]
 
-  # The request story's own metric (services/api/src/trace.mjs): a p90
-  # over 8 s for ten minutes is a product that feels broken, whether the
-  # time is Elixir's or ours; the log lines say which.
+  # A p90 over 8 s for ten minutes is a product that feels broken, whether
+  # the time is Elixir's or ours; the request story's log lines say which
+  # (services/api/src/trace.mjs). Lambda's own Duration is free and is the
+  # request's time, so no custom metric backs this (2026-09-24: the EMF
+  # line it used to read had never reached CloudWatch from production).
   SlowRequestsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: elixir-clan-slow-requests
       AlarmDescription: Elixir Clan API requests are slow (p90 over 8 s)
-      Namespace: ElixirClan
-      MetricName: DurationMs
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions: [{ Name: FunctionName, Value: !Ref ApiFunction }]
       ExtendedStatistic: p90
       Period: 300
       EvaluationPeriods: 2

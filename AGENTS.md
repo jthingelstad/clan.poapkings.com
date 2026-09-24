@@ -376,9 +376,10 @@ Elixir call (`mcp.mjs`, `oauth.mjs`) and every table operation (`store.mjs`,
   its call log. Level `warn` when the request took over 8 s or answered
   5xx; a single Elixir call over 5 s gets its own `slow_elixir_call` line.
   Never a token, a cookie or a body.
-- **one EMF line** (namespace `ElixirClan`, dimension `Route` and none):
-  `DurationMs`, `ElixirMs`, `StoreMs`, `ElixirCalls`, `Errors5xx`,
-  `ColdStarts`. The `elixir-clan-slow-requests` alarm watches p90.
+- no custom metrics: the `elixir-clan-slow-requests` alarm watches the
+  Lambda's own `Duration` p90 (free), and a metric exists only to back an
+  alarm (2026-09-24, the Elixir family's rule; no one reads CloudWatch by
+  hand, so there is no dashboard).
 - a **`Server-Timing`** header (`total`, `elixir`, `store`, `own`, `cold`) so
   the browser's wall clock can be read against the server's: the
   difference is time in front of the edge.
