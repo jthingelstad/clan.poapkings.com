@@ -97,6 +97,13 @@ export function factsAt(participation, policy, at) {
       ? Date.parse(w.finished_observed_at)
       : null,
     started: w.started_observed_at ? Date.parse(w.started_observed_at) : null,
+    // War days a member is asked to play (Jamie 2026-09-24): after the
+    // boat crosses the line the rest of the week is optional, so a week
+    // that finished on day 3 asks for 3. Colosseum has no line: 4.
+    required:
+      !w.is_colosseum && Number.isInteger(w.finish_war_day)
+        ? Math.min(4, Math.max(1, w.finish_war_day))
+        : 4,
   }));
   // War weeks that FINISHED before `at` (a week still being fought is not
   // evidence of a rate yet).
@@ -133,6 +140,14 @@ export function factsAt(participation, policy, at) {
       // Elixir 3.16.0 counts the days battled itself (polls and recorded
       // war battles, null without coverage); the spread below is the
       // fallback for an older door or an uncovered week.
+      // A day after the finish the member skipped is excused: it counts
+      // toward the floor as if played, so skipping it never harms them.
+      const dayPlayed = (d) =>
+        (m.war_decks_by_day?.[w.i]?.[d] ?? 0) > 0 ||
+        (m.war_battles_by_day?.[w.i]?.[d] ?? 0) > 0;
+      let excused = 0;
+      for (let d = w.required; d < 4; d += 1) if (!dayPlayed(d)) excused += 1;
+      warDaysInFloor += excused;
       const counted = m.war_days_battled?.[w.i];
       if (Number.isInteger(counted)) {
         warDaysInFloor += counted;
@@ -160,6 +175,7 @@ export function factsAt(participation, policy, at) {
     // over every war day in the window.
     const rateWars = lastWars(policy.war_rate_window_weeks);
     const credits = [];
+    let bonus = 0;
     let rateFidelity = rateWars.length ? "daily" : "unknown";
     const warDaysDetail = [];
     for (const w of rateWars) {
@@ -174,9 +190,15 @@ export function factsAt(participation, policy, at) {
       }
       if (ww.fidelity === "weekly" && rateFidelity !== "unknown")
         rateFidelity = "weekly";
-      for (const d of ww.days)
-        credits.push(warDayCredit(d, 4, policy.full_day_bonus));
+      // Days up to the finish are asked for; a day after it adds its
+      // credit when played and is never counted as missed.
+      ww.days.forEach((d, di) => {
+        const credit = warDayCredit(d, 4, policy.full_day_bonus);
+        if (di < w.required) credits.push(credit);
+        else bonus += credit;
+      });
       warDaysDetail.push({
+        required: w.required,
         season_id: w.season_id,
         section_index: w.section_index,
         decks: ww.days,
@@ -184,7 +206,10 @@ export function factsAt(participation, policy, at) {
       });
     }
     const warRate = credits.length
-      ? credits.reduce((a, b) => a + b, 0) / credits.length
+      ? Math.min(
+          1,
+          (credits.reduce((a, b) => a + b, 0) + bonus) / credits.length,
+        )
       : 0;
     const warDecksPlayed = warDaysDetail.reduce(
       (s, w) => s + w.decks.reduce((a, b) => a + b, 0),
@@ -194,7 +219,7 @@ export function factsAt(participation, policy, at) {
       (s, w) => s + w.decks.filter((d) => d > 0).length,
       0,
     );
-    const warDaysAvailable = warDaysDetail.length * 4;
+    const warDaysAvailable = warDaysDetail.reduce((s, w) => s + w.required, 0);
 
     const rankedWeeks = lastN(policy.ranked_window_weeks);
     const rankedBattles = rankedWeeks.reduce(

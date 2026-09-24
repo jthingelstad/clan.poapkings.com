@@ -299,6 +299,12 @@ export function seasonsFrom(participation, now) {
       finished: w.finished_observed_at
         ? Date.parse(w.finished_observed_at)
         : null,
+      // Days asked for: after an early finish the rest is optional
+      // (Jamie 2026-09-24); Colosseum has no finish line.
+      required:
+        !w.is_colosseum && Number.isInteger(w.finish_war_day)
+          ? Math.min(4, Math.max(1, w.finish_war_day))
+          : 4,
     });
     byId.set(w.season_id, s);
   });
@@ -318,7 +324,7 @@ export function seasonsFrom(participation, now) {
     s.started_at = s.weeks[0].started
       ? new Date(s.weeks[0].started).toISOString()
       : null;
-    s.war_days = s.weeks.length * 4;
+    s.war_days = s.weeks.reduce((n, w) => n + w.required, 0);
   });
   return seasons;
 }
@@ -440,7 +446,9 @@ function attendance(m, season, params) {
       continue;
     }
     if (ww.fidelity === "weekly") fidelity = "weekly";
-    short += ww.days.filter((d) => d < params.decks_per_day).length;
+    short += ww.days.filter(
+      (d, di) => di < w.required && d < params.decks_per_day,
+    ).length;
     weeks.push({
       section_index: w.section_index,
       days: ww.days,
