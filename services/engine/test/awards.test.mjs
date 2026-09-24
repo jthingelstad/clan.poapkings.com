@@ -38,7 +38,6 @@ test("the record's war weeks group into seasons: 135 closed and complete, 136 li
     ],
   );
   assert.equal(seasons[0].closed_at, "2026-09-07T09:34:00.000Z");
-  assert.equal(seasons[0].war_days, 20);
 });
 
 test("a season whose first section is not in the record is held, never judged", () => {
@@ -127,7 +126,7 @@ test("a granted (season, award) is never due again; other awards still are", () 
 
 // ---- perfect attendance -----------------------------------------------------
 
-test("Iron King is pass/fail: every deck every day; one day short fails at zero misses and passes at one", () => {
+test("Iron King is pass/fail on decks: every deck asked for; one day's worth short fails at zero misses and passes at one", () => {
   const r = run([
     member("#AAA", { war: [16, 16, 16, 16, 16, 8] }),
     member("#BBB", { war: [16, 16, 16, 16, 15, 8] }),
@@ -135,13 +134,13 @@ test("Iron King is pass/fail: every deck every day; one day short fails at zero 
   ]);
   const iron = award(r, 135, "iron_king");
   assert.deepEqual(
-    iron.rows.map((x) => [x.player_tag, x.days_short, x.days]),
-    [["#AAA", 0, 20]],
+    iron.rows.map((x) => [x.player_tag, x.decks_short, x.decks_asked]),
+    [["#AAA", 0, 80]],
   );
   const due = r.grants_due.filter((g) => g.award_id === "iron_king");
   assert.deepEqual(
     due.map((g) => [g.player_tag, g.rank, g.metric_unit]),
-    [["#AAA", 1, "war_days"]],
+    [["#AAA", 1, "war_decks"]],
   );
 
   const cfg = defaultAwards("#J2RGCRVG");
@@ -161,7 +160,9 @@ test("Iron King is pass/fail: every deck every day; one day short fails at zero 
   );
 });
 
-test("Iron King with per-day polls judges each day, not the weekly total", () => {
+test("Iron King reads the week's own deck count, however the days fell (decks, not days)", () => {
+  // 14 of 16 in one week: short two decks at four a day; at two a day the
+  // week asks eight and 14 clears it. The per-day split never matters.
   const days = [
     [4, 4, 4, 4],
     [4, 4, 4, 4],
@@ -177,7 +178,10 @@ test("Iron King with per-day polls judges each day, not the weekly total", () =>
   const r2 = run([member("#AAA", { war: [16, 16, 16, 16, 14, 0], days })], {
     config: cfg,
   });
-  assert.equal(award(r2, 135, "iron_king").rows.length, 1);
+  assert.deepEqual(
+    award(r2, 135, "iron_king").rows.map((x) => x.player_tag),
+    ["#AAA"],
+  );
 });
 
 test("a season with no war days recorded for anyone holds the award rather than crowning nobody", () => {
@@ -297,7 +301,7 @@ test("every award describes its rule in one sentence under its parameters", () =
       kind: "perfect_attendance",
       params: { decks_per_day: 3, allowed_misses: 1 },
     }),
-    /At least 3 decks .* up to 1 day short/,
+    /At least 3 decks a war day .* up to 1 day's worth of decks short/,
   );
 });
 

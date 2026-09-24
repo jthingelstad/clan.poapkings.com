@@ -20,8 +20,6 @@
  * out. The ledger and the clock are the caller's.
  */
 
-import { warWeekDays } from "./facts.mjs";
-
 export const AWARDS_SCHEMA_VERSION = 1;
 export const MAX_AWARDS = 12;
 export const PODIUM_MAX = 3;
@@ -52,7 +50,7 @@ export const AWARD_KINDS = {
   },
   perfect_attendance: {
     title: "Perfect attendance",
-    rule: "Pass or fail, never a ranking: every member who played the required decks on every war day of every week of the season earns it. Any number can.",
+    rule: "Pass or fail, never a ranking: every member who played the decks asked for in every week of the season earns it (four a war day up to the boat's finish, so 16, or 12 when it finished on day 3). Any number can.",
     computed: true,
     params: {
       decks_per_day: {
@@ -64,12 +62,12 @@ export const AWARD_KINDS = {
         why: "Four is every deck the game offers. Three forgives one deck a day.",
       },
       allowed_misses: {
-        label: "War days allowed short",
+        label: "War days' worth of decks allowed short",
         type: "integer",
         min: 0,
         max: 4,
         default: 0,
-        why: "Days in the season a member may fall short and still earn it. Zero is perfect.",
+        why: "How many war days' worth of decks a member may fall short over the season and still earn it. Zero is perfect.",
       },
     },
   },
@@ -264,7 +262,7 @@ export function describeAward(award) {
     case "season_points_podium":
       return `${p.podium === 1 ? "The member" : `The ${p.podium} members`} with the most war points over the season${p.tiebreak === "donations" ? "; equal points break on cards donated" : "; equal points share the place"}.`;
     case "perfect_attendance":
-      return `${p.decks_per_day === 4 ? "Every deck" : `At least ${p.decks_per_day} decks`} on every war day of the season${p.allowed_misses ? `, with up to ${p.allowed_misses} day${p.allowed_misses === 1 ? "" : "s"} short forgiven` : ""}. Anyone who does it earns it.`;
+      return `${p.decks_per_day === 4 ? "Every deck" : `At least ${p.decks_per_day} decks a war day`} in every war week of the season, up to the boat's finish${p.allowed_misses ? `, with up to ${p.allowed_misses} day${p.allowed_misses === 1 ? "'s" : "s'"} worth of decks short forgiven` : ""}. Anyone who does it earns it.`;
     case "donations_podium":
       return `${p.podium === 1 ? "The member" : `The ${p.podium} members`} who donated the most cards over the season.`;
     case "rookie_podium":
@@ -324,7 +322,6 @@ export function seasonsFrom(participation, now) {
     s.started_at = s.weeks[0].started
       ? new Date(s.weeks[0].started).toISOString()
       : null;
-    s.war_days = s.weeks.reduce((n, w) => n + w.required, 0);
   });
   return seasons;
 }
@@ -426,43 +423,40 @@ function pointsPodium(participation, members, season, params, filter) {
 }
 
 function attendance(m, season, params) {
+  // Decks, not days (Jamie 2026-09-24): each week asks decks_per_day for
+  // every war day up to the boat's finish; the race's own weekly count
+  // says whether it was met, with no day attributed. Decks after the
+  // finish count toward what was played and are never asked for.
   let short = 0;
+  let asked = 0;
   let unknownWeeks = 0;
-  let fidelity = "daily";
   const weeks = [];
   for (const w of season.weeks) {
-    const ww = warWeekDays(
-      m.war_decks?.[w.i],
-      m.war_decks_by_day?.[w.i],
-      m.war_battles_by_day?.[w.i],
-    );
-    if (ww.fidelity === "unknown") {
+    const d = m.war_decks?.[w.i];
+    const want = params.decks_per_day * w.required;
+    if (!Number.isInteger(d)) {
       unknownWeeks += 1;
       weeks.push({
         section_index: w.section_index,
-        days: null,
-        fidelity: "unknown",
+        decks: null,
+        decks_asked: want,
       });
       continue;
     }
-    if (ww.fidelity === "weekly") fidelity = "weekly";
-    short += ww.days.filter(
-      (d, di) => di < w.required && d < params.decks_per_day,
-    ).length;
-    weeks.push({
-      section_index: w.section_index,
-      days: ww.days,
-      fidelity: ww.fidelity,
-    });
+    asked += want;
+    short += Math.max(0, want - d);
+    weeks.push({ section_index: w.section_index, decks: d, decks_asked: want });
   }
   return {
     player_tag: m.player_tag,
     name: m.name,
-    days_short: short,
-    days: season.war_days,
+    decks_short: short,
+    decks_asked: asked,
     unknown_weeks: unknownWeeks,
-    fidelity: unknownWeeks ? "unknown" : fidelity,
-    on_track: unknownWeeks === 0 && short <= params.allowed_misses,
+    fidelity: unknownWeeks ? "unknown" : "weekly",
+    on_track:
+      unknownWeeks === 0 &&
+      short <= params.allowed_misses * params.decks_per_day,
     weeks,
   };
 }
@@ -625,8 +619,8 @@ export function evaluateAwards({
         rows = onTrack.map((r) => ({
           player_tag: r.player_tag,
           name: r.name,
-          days_short: r.days_short,
-          days: r.days,
+          decks_short: r.decks_short,
+          decks_asked: r.decks_asked,
           fidelity: r.fidelity,
         }));
         // Fail closed: a week the record cannot see for anyone holds the
@@ -642,9 +636,9 @@ export function evaluateAwards({
           player_tag: r.player_tag,
           player_name: r.name,
           rank: 1,
-          metric_value: r.days,
-          metric_unit: "war_days",
-          metadata: { days_short: r.days_short, fidelity: r.fidelity },
+          metric_value: r.decks_asked,
+          metric_unit: "war_decks",
+          metadata: { decks_short: r.decks_short, fidelity: r.fidelity },
         }));
       }
       if (season.closed && !granted.has(`${season.season_id}|${award.id}`))

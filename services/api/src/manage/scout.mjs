@@ -83,9 +83,15 @@ export function createScout({ mcp, now = () => Date.now() }) {
         ? b.mode_group === "war"
         : /^(riverRace|boatBattle)/.test(b.type ?? "");
     const rankedInFloor = inFloor.filter(isRanked).length;
-    const warDays = new Set(
-      inFloor.filter(isWar).map((b) => b.battle_time.slice(0, 10)),
-    );
+    // Decks, not days (Jamie 2026-09-24): a 1v1 or boat battle is one
+    // deck, a duel one per round played.
+    const deckCount = (b) =>
+      /Duel/.test(b.type ?? "")
+        ? (b.rounds_played ?? b.rounds?.length ?? 2)
+        : 1;
+    const warDecks = inFloor
+      .filter(isWar)
+      .reduce((n, b) => n + deckCount(b), 0);
     const last =
       battles.map((b) => Date.parse(b.battle_time)).sort((a, b) => b - a)[0] ??
       null;
@@ -93,7 +99,7 @@ export function createScout({ mcp, now = () => Date.now() }) {
     const wins = battles.filter((b) => b.me?.outcome === "win").length;
     const losses = battles.filter((b) => b.me?.outcome === "loss").length;
     const passesWar =
-      policy.floor_war_days > 0 && warDays.size >= policy.floor_war_days;
+      policy.floor_war_decks > 0 && warDecks >= policy.floor_war_decks;
     const passesRanked =
       policy.floor_ranked_battles > 0 &&
       rankedInFloor >= policy.floor_ranked_battles;
@@ -139,7 +145,7 @@ export function createScout({ mcp, now = () => Date.now() }) {
         win_rate:
           wins + losses ? Number((wins / (wins + losses)).toFixed(3)) : null,
         ranked_in_window: rankedInFloor,
-        war_days_in_window: warDays.size,
+        war_decks_in_window: warDecks,
         covers_window: logCoversFloor,
         as_of: log.ok ? (log.body?.meta?.as_of ?? null) : null,
       },
@@ -147,8 +153,8 @@ export function createScout({ mcp, now = () => Date.now() }) {
         floor: {
           passes: passesWar || passesRanked,
           war: {
-            days: warDays.size,
-            needed: policy.floor_war_days,
+            decks: warDecks,
+            needed: policy.floor_war_decks,
             passes: passesWar,
           },
           ranked: {

@@ -11,6 +11,7 @@ import {
   cardFacts,
   cardRationale,
   defaults,
+  fromLegacy,
   departuresFrom,
   inGameCopy,
   judgmentReasons,
@@ -103,7 +104,9 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     const current = await ledger.currentPolicy(clanTag);
     if (current)
       return {
-        values: current.values,
+        // A version saved before decks replaced days reads through the
+        // legacy mapping; a field added since takes its default.
+        values: { ...defaults(), ...fromLegacy(current.values) },
         version: current.version,
         saved_at: current.saved_at,
         saved_by: current.saved_by,

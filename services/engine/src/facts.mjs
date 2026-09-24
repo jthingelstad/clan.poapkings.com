@@ -24,56 +24,6 @@ export function isoWeekStartUtc(date) {
 }
 
 /**
- * Credit for ONE war day, elixir-bot's `_war_day_credit`: finishing is
- * worth more than the decks say.
- *   credit = (1 - bonus) * used/available + bonus * (complete ? 1 : 0)
- */
-export function warDayCredit(used, available, fullDayBonus) {
-  if (!available) return 0;
-  const u = Math.max(0, Math.min(used ?? 0, available));
-  const fraction = u / available;
-  const complete = u >= available ? 1 : 0;
-  return (1 - fullDayBonus) * fraction + fullDayBonus * complete;
-}
-
-/**
- * A war week's per-day decks as the record knows them. Polled days are
- * exact; a week with no polled day at all falls back to its weekly total
- * spread over the days the member's recorded war battles fell on (or, with
- * no battle record either, evenly over four days). The fidelity rides along.
- */
-export function warWeekDays(decks, decksByDay, battlesByDay) {
-  const polled = (decksByDay ?? []).some((d) => d !== null && d !== undefined);
-  if (polled)
-    return {
-      fidelity: "daily",
-      days: [0, 1, 2, 3].map((i) => decksByDay[i] ?? 0),
-    };
-  if (decks === null || decks === undefined)
-    return { fidelity: "unknown", days: null };
-  const battled = (battlesByDay ?? []).map((b) => (b > 0 ? 1 : 0));
-  const battledDays = battled.reduce((a, b) => a + b, 0);
-  if (decks === 0) return { fidelity: "weekly", days: [0, 0, 0, 0] };
-  if (battledDays > 0) {
-    // Spread the weekly total over the days that saw a battle, capped at 4.
-    let left = decks;
-    let remaining = battledDays;
-    const days = battled.map((b) => {
-      if (!b) return 0;
-      const share = Math.min(4, Math.ceil(left / remaining));
-      left -= share;
-      remaining -= 1;
-      return share;
-    });
-    return { fidelity: "weekly", days };
-  }
-  const full = Math.floor(decks / 4);
-  const rest = decks % 4;
-  const days = [0, 1, 2, 3].map((i) => (i < full ? 4 : i === full ? rest : 0));
-  return { fidelity: "weekly", days };
-}
-
-/**
  * Per-member facts as of `at`.
  * @param {object} participation the clans_participation answer
  * @param {object} policy the validated policy values
@@ -133,37 +83,21 @@ export function factsAt(participation, policy, at) {
       (s, w) => s + (m.ranked_battles[w.i] ?? 0),
       0,
     );
+    // Decks, not days (Jamie 2026-09-24): the race's own weekly decksUsed
+    // never depends on where a day boundary falls, and a day holds at most
+    // four decks, so 16 decks is every war day played in full and 12 by a
+    // day-3 finish is every day asked for. No day is attributed anywhere.
+    const weekDecks = (w) => {
+      const d = m.war_decks?.[w.i];
+      return Number.isInteger(d) ? d : null;
+    };
     const floorWars = lastWars(policy.floor_window_weeks);
-    let warDaysInFloor = 0;
-    let floorWarFidelity = floorWars.length ? "daily" : "unknown";
+    let warDecksInFloor = 0;
+    let floorWarFidelity = floorWars.length ? "weekly" : "unknown";
     for (const w of floorWars) {
-      // Elixir 3.16.0 counts the days battled itself (polls and recorded
-      // war battles, null without coverage); the spread below is the
-      // fallback for an older door or an uncovered week.
-      // A day after the finish the member skipped is excused: it counts
-      // toward the floor as if played, so skipping it never harms them.
-      const dayPlayed = (d) =>
-        (m.war_decks_by_day?.[w.i]?.[d] ?? 0) > 0 ||
-        (m.war_battles_by_day?.[w.i]?.[d] ?? 0) > 0;
-      let excused = 0;
-      for (let d = w.required; d < 4; d += 1) if (!dayPlayed(d)) excused += 1;
-      warDaysInFloor += excused;
-      const counted = m.war_days_battled?.[w.i];
-      if (Number.isInteger(counted)) {
-        warDaysInFloor += counted;
-        continue;
-      }
-      const ww = warWeekDays(
-        m.war_decks[w.i],
-        m.war_decks_by_day?.[w.i],
-        m.war_battles_by_day?.[w.i],
-      );
-      if (ww.fidelity === "unknown") floorWarFidelity = "unknown";
-      else {
-        if (ww.fidelity === "weekly" && floorWarFidelity !== "unknown")
-          floorWarFidelity = "weekly";
-        warDaysInFloor += ww.days.filter((d) => d > 0).length;
-      }
+      const d = weekDecks(w);
+      if (d === null) floorWarFidelity = "unknown";
+      else warDecksInFloor += d;
     }
     // Whether the member's battle log is recorded at all (Elixir 3.16.0):
     // an unrecorded log makes every battle count a zero by construction,
@@ -171,55 +105,31 @@ export function factsAt(participation, policy, at) {
     const logRecorded =
       typeof m.log_recorded === "boolean" ? m.log_recorded : true;
 
-    // War rate over the last N closed war weeks: per-day credit averaged
-    // over every war day in the window.
+    // War rate over the last N closed war weeks: decks played over decks
+    // asked for (four a day up to the finish, so 16, or 12 or 8 on an early
+    // finish). Decks after the finish add to what was played and are never
+    // asked for, so they help and skipping them cannot hurt; capped at 1.
     const rateWars = lastWars(policy.war_rate_window_weeks);
-    const credits = [];
-    let bonus = 0;
-    let rateFidelity = rateWars.length ? "daily" : "unknown";
+    let rateFidelity = rateWars.length ? "weekly" : "unknown";
     const warDaysDetail = [];
     for (const w of rateWars) {
-      const ww = warWeekDays(
-        m.war_decks[w.i],
-        m.war_decks_by_day?.[w.i],
-        m.war_battles_by_day?.[w.i],
-      );
-      if (ww.fidelity === "unknown") {
+      const d = weekDecks(w);
+      if (d === null) {
         rateFidelity = "unknown";
         continue;
       }
-      if (ww.fidelity === "weekly" && rateFidelity !== "unknown")
-        rateFidelity = "weekly";
-      // Days up to the finish are asked for; a day after it adds its
-      // credit when played and is never counted as missed.
-      ww.days.forEach((d, di) => {
-        const credit = warDayCredit(d, 4, policy.full_day_bonus);
-        if (di < w.required) credits.push(credit);
-        else bonus += credit;
-      });
       warDaysDetail.push({
-        required: w.required,
         season_id: w.season_id,
         section_index: w.section_index,
-        decks: ww.days,
-        fidelity: ww.fidelity,
+        decks: d,
+        decks_asked: 4 * w.required,
       });
     }
-    const warRate = credits.length
-      ? Math.min(
-          1,
-          (credits.reduce((a, b) => a + b, 0) + bonus) / credits.length,
-        )
+    const warDecksPlayed = warDaysDetail.reduce((s, w) => s + w.decks, 0);
+    const warDecksAsked = warDaysDetail.reduce((s, w) => s + w.decks_asked, 0);
+    const warRate = warDecksAsked
+      ? Math.min(1, warDecksPlayed / warDecksAsked)
       : 0;
-    const warDecksPlayed = warDaysDetail.reduce(
-      (s, w) => s + w.decks.reduce((a, b) => a + b, 0),
-      0,
-    );
-    const warDaysPlayed = warDaysDetail.reduce(
-      (s, w) => s + w.decks.filter((d) => d > 0).length,
-      0,
-    );
-    const warDaysAvailable = warDaysDetail.reduce((s, w) => s + w.required, 0);
 
     const rankedWeeks = lastN(policy.ranked_window_weeks);
     const rankedBattles = rankedWeeks.reduce(
@@ -260,14 +170,14 @@ export function factsAt(participation, policy, at) {
         : null,
       floor: {
         weeks: policy.floor_window_weeks,
-        war_days: warDaysInFloor,
+        war_decks: warDecksInFloor,
         war_fidelity: floorWarFidelity,
         ranked_battles: rankedInFloor,
         log_recorded: logRecorded,
         passes_war:
           floorWarFidelity !== "unknown" &&
-          warDaysInFloor >= policy.floor_war_days &&
-          policy.floor_war_days > 0,
+          warDecksInFloor >= policy.floor_war_decks &&
+          policy.floor_war_decks > 0,
         passes_ranked:
           logRecorded &&
           policy.floor_ranked_battles > 0 &&
@@ -278,8 +188,7 @@ export function factsAt(participation, policy, at) {
         rate: warRate,
         fidelity: rateFidelity,
         decks_played: warDecksPlayed,
-        days_played: warDaysPlayed,
-        days_available: warDaysAvailable,
+        decks_asked: warDecksAsked,
         detail: warDaysDetail,
       },
       ranked: { weeks: rankedWeeks.length, battles: rankedBattles },

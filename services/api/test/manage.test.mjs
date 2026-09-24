@@ -556,7 +556,8 @@ test("scout: a pasted tag is read live, pending is passed through, and the polic
   assert.equal(r.body.profile.trophies, 7000);
   assert.equal(r.body.profile.clan_war_wins, 12);
   assert.equal(r.body.log.win_rate, 0.8);
-  assert.equal(r.body.policy_answer.floor.war.days, 2);
+  // A 1v1 is one deck; a duel without its rounds counts two.
+  assert.equal(r.body.policy_answer.floor.war.decks, 3);
   assert.equal(r.body.policy_answer.floor.ranked.battles, 2);
   assert.equal(r.body.policy_answer.floor.passes, true);
   assert.equal(r.body.policy_answer.floor.bounded_by_log, false);

@@ -33,8 +33,8 @@ export function HowElderWorks({ tag }) {
           <h2 className="panel-title">Who is considered</h2>
           <p>
             At least {v.tenure_min_days} days in the clan, and the competitive
-            floor: at least {v.floor_war_days} war day
-            {v.floor_war_days === 1 ? "" : "s"} with a deck played, or at least{" "}
+            floor: at least {v.floor_war_decks} war deck
+            {v.floor_war_decks === 1 ? "" : "s"} played, or at least{" "}
             {v.floor_ranked_battles} ranked battles, in the last{" "}
             {v.floor_window_weeks} weeks. War and ranked count equally. An Elder
             who fails both halves has abandoned the duty.

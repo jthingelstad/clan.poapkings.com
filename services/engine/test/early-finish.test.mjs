@@ -1,7 +1,8 @@
 /**
  * Jamie 2026-09-24: after the boat crosses the line, the rest of the
- * week's war days are optional. Playing them adds credit; skipping them
- * never counts against anyone (the Elder band, the removal clock).
+ * week's war days are optional, and participation is decks, not days:
+ * a week asks four decks a war day up to the finish (12 on a day-3
+ * finish). Decks after the finish count; skipping them never hurts.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -22,30 +23,20 @@ function finishedOnDay3(members) {
   return p;
 }
 
-const byDay = (week) => [week, week, week, week, week, [4, 0, 0, 0]];
-
-test("skipping the day after an early finish costs nothing", () => {
-  const skipped = member("#2PP0V9PP", {
-    war: [12, 12, 12, 12, 16, 4],
-    days: byDay([4, 4, 4, 0]).map((d, i) => (i === 4 ? [4, 4, 4, 4] : d)),
-  });
-  const played = member("#2PP0V9UU", {
-    war: [16, 16, 16, 16, 16, 4],
-    days: byDay([4, 4, 4, 4]),
-  });
-  const facts = factsAt(finishedOnDay3([skipped, played]), policy, NOW);
-  const [s, p] = facts;
-  assert.equal(s.war.rate, 1, "every asked-for day played in full");
-  assert.equal(p.war.rate, 1, "the extra day is credit, capped at full");
-  assert.equal(s.floor.war_days, p.floor.war_days, "an excused day is no miss");
-  assert.ok(s.war.days_available < p.war.days_played + 1);
+test("12 decks on a day-3 finish is a full week; the day after is optional", () => {
+  const skipped = member("#2PP0V9PP", { war: [12, 12, 12, 12, 16, 4] });
+  const played = member("#2PP0V9UU", { war: [16, 16, 16, 16, 16, 4] });
+  const [s, p] = factsAt(finishedOnDay3([skipped, played]), policy, NOW);
+  assert.equal(s.war.rate, 1, "every deck asked for");
+  assert.equal(p.war.rate, 1, "the extra decks help, capped at full");
+  assert.ok(p.war.decks_played > s.war.decks_played);
 });
 
-test("a day before the finish is still asked for", () => {
-  const missedDay2 = member("#2PP0V9PP", {
-    war: [8, 8, 8, 8, 16, 4],
-    days: byDay([4, 0, 4, 0]).map((d, i) => (i === 4 ? [4, 4, 4, 4] : d)),
-  });
-  const [f] = factsAt(finishedOnDay3([missedDay2]), policy, NOW);
-  assert.ok(f.war.rate < 1, "day 2 was before the finish");
+test("fewer decks than asked is still short, finish or not", () => {
+  const [f] = factsAt(
+    finishedOnDay3([member("#2PP0V9PP", { war: [8, 8, 8, 8, 16, 4] })]),
+    policy,
+    NOW,
+  );
+  assert.ok(f.war.rate < 1);
 });

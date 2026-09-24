@@ -28,10 +28,10 @@ test("the POAP KINGS defaults are elixir-bot's ratified constants", () => {
   const d = defaults();
   assert.equal(d.tenure_min_days, 28);
   assert.equal(d.floor_window_weeks, 2);
-  assert.equal(d.floor_war_days, 1);
+  assert.equal(d.floor_war_decks, 1);
   assert.equal(d.floor_ranked_battles, 5);
   assert.equal(d.war_rate_window_weeks, 4);
-  assert.equal(d.full_day_bonus, 0.25);
+  assert.equal(d.full_day_bonus, undefined, "decks, not days: no day bonus");
   assert.equal(d.war_weight, 0.65);
   assert.equal(d.donation_weight, 0.35);
   assert.equal(d.ranked_weight, 0.4);
@@ -62,8 +62,8 @@ test("validation speaks to a leader, not a schema", () => {
   );
   const w = validate({ war_weight: 0.7 });
   assert.match(w.errors.donation_weight, /add up to 1/);
-  const z = validate({ floor_war_days: 0, floor_ranked_battles: 0 });
-  assert.match(z.errors.floor_war_days, /everyone clears the floor/);
+  const z = validate({ floor_war_decks: 0, floor_ranked_battles: 0 });
+  assert.match(z.errors.floor_war_decks, /everyone clears the floor/);
   const t = validate({ tenure_min_days: "abc" });
   assert.match(t.errors.tenure_min_days, /needs a number/);
   const i = validate({ watch_days: 2.5 });
@@ -86,4 +86,15 @@ test("diff names what changed with labels", () => {
   assert.deepEqual(diff(before, after), [
     { key: "at_risk_days", label: "At risk", before: 5, after: 6 },
   ]);
+});
+
+test("a version saved before decks reads through the legacy mapping", () => {
+  const v = validate({ floor_war_days: 3, full_day_bonus: 0.4 });
+  assert.equal(v.ok, true, JSON.stringify(v.errors));
+  assert.equal(
+    v.values.floor_war_decks,
+    3,
+    "N days with a deck is at least N decks",
+  );
+  assert.equal(v.values.full_day_bonus, undefined);
 });

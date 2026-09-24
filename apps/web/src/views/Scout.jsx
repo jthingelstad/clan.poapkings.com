@@ -148,7 +148,7 @@ export function Scout({ clan }) {
                   : "does not clear the floor"}
               </span>{" "}
               <span className="page-head__note">
-                {a.floor.war.days} war days (needs {a.floor.war.needed}) or{" "}
+                {a.floor.war.decks} war decks (needs {a.floor.war.needed}) or{" "}
                 {a.floor.ranked.battles} ranked battles (needs{" "}
                 {a.floor.ranked.needed}) in the last {a.floor.window_weeks}{" "}
                 weeks

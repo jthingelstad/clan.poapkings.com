@@ -183,7 +183,12 @@ function describeFrom(d, a) {
   return live?.rule ?? "";
 }
 
-const UNIT = { points: "pts", donations: "cards", war_days: "war days" };
+const UNIT = {
+  points: "pts",
+  donations: "cards",
+  war_decks: "war decks",
+  war_days: "war days",
+};
 
 function AwardPanel({
   award,
@@ -400,9 +405,9 @@ const STATE_LABEL = {
 
 function metric(award, r) {
   if (award.kind === "perfect_attendance")
-    return r.days_short === 0
-      ? `all ${r.days} war days${r.fidelity === "weekly" ? " (weekly totals)" : ""}`
-      : `${r.days_short} day${r.days_short === 1 ? "" : "s"} short of ${r.days}`;
+    return r.decks_short === 0
+      ? `all ${r.decks_asked} war decks`
+      : `${r.decks_short} deck${r.decks_short === 1 ? "" : "s"} short of ${r.decks_asked}`;
   if (award.kind === "donations_podium")
     return `${r.total.toLocaleString()} ${UNIT.donations}${r.known_weeks < r.weeks ? ` (${r.known_weeks}/${r.weeks} weeks seen)` : ""}`;
   return `${r.points.toLocaleString()} ${UNIT.points}${r.tied ? ` · ${r.donations.toLocaleString()} donated` : ""}`;

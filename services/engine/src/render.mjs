@@ -68,7 +68,7 @@ export function cardFacts(v, policy) {
       value:
         f.war.fidelity === "unknown"
           ? "no war record in the window"
-          : `${f.war.days_played} of ${f.war.days_available} war days, ${f.war.decks_played} decks (${pct(f.war.rate)} credit)`,
+          : `${f.war.decks_played} of ${f.war.decks_asked} war decks (${pct(f.war.rate)})`,
       window: `last ${policy.war_rate_window_weeks} war weeks`,
       fidelity: f.war.fidelity,
     },
@@ -146,7 +146,7 @@ export function cardRationale(type, v, policy, band) {
         : `Outranked past the ceiling on ${v.demotion.weeks} weekly reviews (needs ${policy.demote_outranked_weeks}); a higher-ranked member takes the seat.`,
     clauses:
       reason === "abandoned"
-        ? ["demote_abandoned_weeks", "floor_war_days", "floor_ranked_battles"]
+        ? ["demote_abandoned_weeks", "floor_war_decks", "floor_ranked_battles"]
         : ["demote_outranked_weeks", "band_ceiling_share", "swap_margin"],
   };
 }
@@ -206,10 +206,12 @@ export function nextSteps(v, policy) {
     );
   if (!f.floor.passes_war && !f.floor.passes_ranked)
     steps.push(
-      `Clear the floor: ${policy.floor_war_days} war day${policy.floor_war_days === 1 ? "" : "s"} with a deck played, or ${policy.floor_ranked_battles} ranked battles, in ${policy.floor_window_weeks} weeks.`,
+      `Clear the floor: ${policy.floor_war_decks} war deck${policy.floor_war_decks === 1 ? "" : "s"} played, or ${policy.floor_ranked_battles} ranked battles, in ${policy.floor_window_weeks} weeks.`,
     );
   if (f.war.fidelity !== "unknown" && f.war.rate < 1)
-    steps.push("Finish every war day: four decks scores far more than two.");
+    steps.push(
+      "Play every war deck: four a war day, sixteen a week (twelve when the boat finishes on day 3).",
+    );
   steps.push(
     "Once our boat crosses the finish line, the rest of that week's war days are optional: playing them still counts for you, and skipping them never counts against you.",
   );

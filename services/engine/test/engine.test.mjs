@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { defaults } from "../src/policy.mjs";
-import { factsAt, warDayCredit, warWeekDays } from "../src/facts.mjs";
+import { factsAt } from "../src/facts.mjs";
 import { band, participationPercentile, scores } from "../src/standing.mjs";
 import {
   evaluate,
@@ -27,20 +27,17 @@ function bandNow(members, opts = {}) {
   return { facts: byTag, rows, band: band(rows, byTag, members.length, pol) };
 }
 
-// ---- war day credit (test_elder_math_2026_08) ------------------------------
+// ---- war decks (Jamie 2026-09-24: decks, not days) --------------------------
 
-test("all four decks is worth more than twice two; monotonic and bounded", () => {
-  const c = (u) => warDayCredit(u, 4, 0.25);
-  assert.equal(c(4), 1);
-  assert.ok(Math.abs(c(3) - 0.5625) < 1e-9);
-  assert.ok(Math.abs(c(2) - 0.375) < 1e-9);
-  assert.ok(c(4) > 2 * c(2));
-  assert.equal(c(0), 0);
-  assert.equal(warDayCredit(5, 4, 0.25), 1, "overuse cannot exceed a full day");
+test("the war rate is decks played over decks asked for, capped at full", () => {
+  const full = member("#FULL", { war: [16, 16, 16, 16, 16, 0] });
+  const half = member("#HALF", { war: [8, 8, 8, 8, 8, 0] });
+  const { facts } = bandNow([full, half]);
+  assert.equal(facts.get("#FULL").war.rate, 1);
+  assert.equal(facts.get("#HALF").war.rate, 0.5);
   assert.equal(
-    warDayCredit(2, 0, 0.25),
-    0,
-    "no decks available is not counted",
+    facts.get("#FULL").war.decks_asked,
+    16 * policy.war_rate_window_weeks,
   );
 });
 
@@ -56,30 +53,7 @@ test("non-participation scores zero, participants are ranked against each other"
   );
 });
 
-test("a war week without polled days falls back to its weekly total, and says so", () => {
-  assert.deepEqual(warWeekDays(16, [4, 4, 4, 4], [3, 3, 3, 3]), {
-    fidelity: "daily",
-    days: [4, 4, 4, 4],
-  });
-  assert.deepEqual(warWeekDays(6, [null, null, null, null], [2, 0, 3, 0]), {
-    fidelity: "weekly",
-    days: [3, 0, 3, 0],
-  });
-  assert.deepEqual(warWeekDays(10, [null, null, null, null], [0, 0, 0, 0]), {
-    fidelity: "weekly",
-    days: [4, 4, 2, 0],
-  });
-  assert.deepEqual(warWeekDays(null, [null, null, null, null], [0, 0, 0, 0]), {
-    fidelity: "unknown",
-    days: null,
-  });
-  assert.deepEqual(warWeekDays(8, [4, 4, null, null], [3, 3, 0, 0]), {
-    fidelity: "daily",
-    days: [4, 4, 0, 0],
-  });
-});
-
-test("four half-days do not equal two full days", () => {
+test("eight decks is eight decks however the days fell", () => {
   const halves = member("#H", {
     war: [8, 8, 8, 8, 8, 0],
     days: Array(6).fill([2, 2, 2, 2]),
@@ -89,7 +63,7 @@ test("four half-days do not equal two full days", () => {
     days: Array(6).fill([4, 4, 0, 0]),
   });
   const { facts } = bandNow([halves, fulls]);
-  assert.ok(facts.get("#F").war.rate > facts.get("#H").war.rate);
+  assert.equal(facts.get("#F").war.rate, facts.get("#H").war.rate);
 });
 
 // ---- floors and scores -----------------------------------------------------
@@ -709,30 +683,23 @@ test("review boundaries are the observed war-week finishes before now, newest la
   assert.deepEqual(b, ["2026-08-24", "2026-08-31", "2026-09-07"]);
 });
 
-test("the floor reads Elixir 3.16.0's war_days_battled and log_recorded when present; the spread and the ranked floor stay for an older door", () => {
-  // Two decks a week spread over one day: the old spread counts one war
-  // day a week; the door's own count says the member fought all four.
-  const spread = member("#SPREAD", { war: [2, 2, 2, 2, 2, 2] });
-  const counted = {
-    ...member("#COUNTED", {
+test("the war floor counts decks in the window; an unrecorded log never passes the ranked floor", () => {
+  const two = member("#TWO", { war: [2, 2, 2, 2, 2, 2] });
+  const unrecorded = {
+    ...member("#UNREC", {
       war: [2, 2, 2, 2, 2, 2],
       ranked: [9, 9, 9, 9, 9, 9],
     }),
-    war_days_battled: [4, 4, 4, 4, 4, 4],
     log_recorded: false,
   };
-  const facts = factsAt(participation([spread, counted]), policy, NOW);
-  const a = facts.find((f) => f.player_tag === "#SPREAD");
-  const b = facts.find((f) => f.player_tag === "#COUNTED");
-  assert.equal(a.floor.war_days, policy.floor_window_weeks);
-  assert.equal(b.floor.war_days, policy.floor_window_weeks * 4);
+  const facts = factsAt(participation([two, unrecorded]), policy, NOW);
+  const a = facts.find((f) => f.player_tag === "#TWO");
+  const b = facts.find((f) => f.player_tag === "#UNREC");
+  assert.equal(a.floor.war_decks, policy.floor_window_weeks * 2);
+  assert.equal(a.floor.passes_war, true);
   assert.equal(a.floor.log_recorded, true, "absent = recorded (an older door)");
   assert.equal(b.floor.log_recorded, false);
-  assert.equal(
-    b.floor.passes_ranked,
-    false,
-    "an unrecorded log never passes the ranked floor",
-  );
+  assert.equal(b.floor.passes_ranked, false);
 });
 
 test("an unrecorded battle log holds every judgment that could card its constructed zeros", () => {

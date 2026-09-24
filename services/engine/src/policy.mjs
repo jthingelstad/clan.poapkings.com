@@ -85,15 +85,15 @@ export const FIELDS = {
     default: 2,
     why: "The window the floor looks back over (default 14 days). War and ranked count equally here.",
   },
-  floor_war_days: {
+  floor_war_decks: {
     group: "consideration",
-    label: "War days with a deck played",
-    unit: "days in the window",
+    label: "War decks played",
+    unit: "decks in the window",
     type: "integer",
     min: 0,
-    max: 8,
+    max: 64,
     default: 1,
-    why: "At least this many finalized war days with a deck actually played clears the floor on its own.",
+    why: "At least this many war decks played in finished war weeks clears the floor on its own.",
   },
   floor_ranked_battles: {
     group: "consideration",
@@ -113,17 +113,7 @@ export const FIELDS = {
     min: 1,
     max: 8,
     default: 4,
-    why: "Per-day war credit averaged over these war weeks (default 28 days).",
-  },
-  full_day_bonus: {
-    group: "standing",
-    label: "Full-day bonus",
-    unit: "share of a day's credit",
-    type: "number",
-    min: 0,
-    max: 1,
-    default: 0.25,
-    why: "Finishing a war day is worth more than the deck count suggests: 4 of 4 decks scores 1.00, 3 of 4 scores 0.56, 2 of 4 scores 0.38. Four decks is worth about 2.7x two decks, not 2x.",
+    why: "War decks played over war decks asked for, across these war weeks (default 28 days): four a war day up to the boat's finish, so 16 a week, or 12 when the boat finished on day 3. Decks played after the finish count too and are never asked for.",
   },
   ranked_window_weeks: {
     group: "standing",
@@ -365,6 +355,17 @@ export const FIELDS = {
 
 export const FIELD_KEYS = Object.keys(FIELDS);
 
+/** A version saved before decks replaced days (Jamie 2026-09-24): N war
+ *  days with a deck is at least N decks, so floor_war_days N reads as
+ *  floor_war_decks N (never stricter); full_day_bonus no longer exists. */
+export function fromLegacy(values = {}) {
+  const { floor_war_days, full_day_bonus, ...rest } = values ?? {};
+  void full_day_bonus;
+  return floor_war_days !== undefined && rest.floor_war_decks === undefined
+    ? { ...rest, floor_war_decks: floor_war_days }
+    : rest;
+}
+
 export function defaults() {
   return Object.fromEntries(FIELD_KEYS.map((k) => [k, FIELDS[k].default]));
 }
@@ -377,6 +378,7 @@ export function defaults() {
 export function validate(input = {}) {
   const errors = {};
   const values = defaults();
+  input = fromLegacy(input);
   for (const key of Object.keys(input)) {
     if (!FIELDS[key]) {
       errors[key] = "This is not a policy field.";
@@ -413,8 +415,8 @@ export function validate(input = {}) {
   if (Math.abs(values.war_weight + values.donation_weight - 1) > 1e-9)
     errors.donation_weight =
       "War weight and donation weight must add up to 1 (for example 0.65 and 0.35).";
-  if (values.floor_war_days === 0 && values.floor_ranked_battles === 0)
-    errors.floor_war_days =
+  if (values.floor_war_decks === 0 && values.floor_ranked_battles === 0)
+    errors.floor_war_decks =
       "With both floors at zero everyone clears the floor; set at least one.";
   if (values.at_risk_days < values.watch_days)
     errors.at_risk_days = "At risk cannot come before Watch.";
