@@ -18,7 +18,7 @@ follow, or a client registration that quietly expired.
   smoke failed after the AppUrl flip was the first day's lesson: read the
   smoke output, not just the status.
 - **Alarms.** `elixir-clan-api-errors`, `elixir-clan-api-5xx`,
-  `elixir-clan-estimated-charges` state and history (`aws cloudwatch describe-alarms
+  `elixir-clan-slow-requests` state and history (`aws cloudwatch describe-alarms
   --profile cloud-engineer`). An alarm the Operator saw is one this objective
   explains: read the Lambda log group for the window, name the cause.
 - **Cost.** The stack's estimated charges stay near zero; the reserved

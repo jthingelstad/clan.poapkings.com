@@ -43,10 +43,6 @@ Parameters:
     Description: >-
       ACM certificate in us-east-1 covering clan.poapkings.com (the account's
       *.poapkings.com wildcard). Empty deploys without the alias. PRESERVED.
-  MonthlyCostAlarmUsd:
-    Type: Number
-    Default: 10
-    Description: Account-wide estimated-charges guard. PRESERVED.
   MaintainerTags:
     Type: String
     Default: ""
@@ -513,22 +509,6 @@ Resources:
       EvaluationPeriods: 2
       Threshold: 3
       ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions: [!Ref AlarmTopic]
-
-  EstimatedChargesAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: elixir-clan-estimated-charges
-      AlarmDescription: Account-wide estimated charges guard for the hobby account
-      Namespace: AWS/Billing
-      MetricName: EstimatedCharges
-      Dimensions: [{ Name: Currency, Value: USD }]
-      Statistic: Maximum
-      Period: 21600
-      EvaluationPeriods: 1
-      Threshold: !Ref MonthlyCostAlarmUsd
-      ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
       AlarmActions: [!Ref AlarmTopic]
 

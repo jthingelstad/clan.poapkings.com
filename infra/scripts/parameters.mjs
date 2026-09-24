@@ -26,7 +26,6 @@ export const PRESERVED_PARAMETERS = [
   "OAuthClientId",
   "AppSecretName",
   "SiteCertificateArn",
-  "MonthlyCostAlarmUsd",
   "MaintainerTags",
   "FeedbackNotifyEmail",
 ];

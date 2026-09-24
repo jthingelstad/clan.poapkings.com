@@ -332,11 +332,13 @@ Elixir's requested interval (Scout stops after six attempts). The page shows
 - One stack `elixir-clan` (`infra/template.yaml`): 35-day PITR and deletion
   protection on the retained table, function, HTTP API
   (spelled out: integration, `$default` route and stage with an access log),
-  private bucket + CloudFront, SNS `elixir-clan-alarms`, four alarms (Lambda
-  errors, API 5xx, slow requests p90 > 8 s, estimated charges), 30-day logs.
+  private bucket + CloudFront, SNS `elixir-clan-alarms`, three alarms (Lambda
+  errors, API 5xx, slow requests p90 > 8 s on Lambda Duration), 30-day logs.
+  No billing alarm: an account-wide guard is not one product's to carry
+  (removed 2026-09-24, Jamie).
 - `infra/scripts/parameters.mjs` carries Drop's discipline: REQUIRED (code
   key) is always sent; PRESERVED (`AppUrl`, `ElixirUrl`, `OAuthClientId`,
-  `AppSecretName`, `SiteCertificateArn`, `MonthlyCostAlarmUsd`) rides
+  `AppSecretName`, `SiteCertificateArn`) rides
   `UsePreviousValue`. Set one with `--param=Key=Value`; omitting is never a
   reset. A test pins the template's parameter list to that set.
 - Local: `AWS_PROFILE=cloud-engineer node infra/scripts/deploy.mjs` (build → upload →
