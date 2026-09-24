@@ -167,9 +167,10 @@ member; no policy version was saved.
 
 - **poapkings.com**: point the Members / FAQ Elder prose at
   `https://clan.poapkings.com/clan/J2RGCRVG/how-elder-works`.
-- The public page shows the clan tag, not its name (no session, no roster
-  read); a name on the policy item would fix it.
 
+- The public Elder page now names POAP KINGS from the latest verdict snapshot
+  without a session or roster read, shipped in `b4a47bd` and confirmed live on
+  2026-09-23. It no longer needs a Jamie decision.
 - GitHub deploy credentials and the production hostname were verified
   working on 2026-09-13; see the Close the Loop receipt below. They no
   longer need Jamie's setup action.
@@ -550,4 +551,3 @@ Jamie's decision: Clan is a program, not an agent. The eight-week `clans_partici
 - **OAuth:** the resource is `ElixirUrl/api/v1`. Existing sessions hold `/mcp` grants, which `/api/v1` refuses (401). Refreshing a grant keeps its original audience, so **everyone signs in once more**.
 - **Quota:** Clan is a first-party client (every redirect URI on a family origin), so its reads, live reads included, spend no one's quota.
 - **Confirmed live (21:53Z):** Jamie signed in again. The old grant was refused once, then the gate, the roster (509 ms), standing (a full evaluation, 3.4 s) and manage all answered 200. Jamie: "notably faster".
-
