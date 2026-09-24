@@ -210,6 +210,9 @@ export function nextSteps(v, policy) {
     );
   if (f.war.fidelity !== "unknown" && f.war.rate < 1)
     steps.push("Finish every war day: four decks scores far more than two.");
+  steps.push(
+    "Once our boat crosses the finish line, the rest of that week's war days are optional: playing them still counts for you, and skipping them never counts against you.",
+  );
   if (f.donations.average !== null && f.donations.average < 100)
     steps.push(
       "Donate weekly; the average over four weeks counts, not one big week.",
