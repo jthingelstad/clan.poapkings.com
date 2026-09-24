@@ -58,7 +58,7 @@ export function Awards({ clan }) {
     <div style={{ display: "grid", gap: "22px" }}>
       <p className="page-head__note" style={{ margin: 0 }}>
         {d.config_version === 0
-          ? "This clan runs POAP KINGS' awards until a leader saves a version."
+          ? "No leader has saved a version yet: these are the starting awards."
           : `Awards v${d.config_version}.`}{" "}
         Judged {ago(d.evaluated_at)}
         {d.as_of ? (

@@ -35,7 +35,7 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
         saved_by: current.saved_by,
       };
     return {
-      values: defaultPitch(),
+      values: defaultPitch(clanTag),
       version: 0,
       saved_at: null,
       saved_by: null,

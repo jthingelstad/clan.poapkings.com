@@ -59,8 +59,25 @@ export const PITCH_FIELDS = {
   },
 };
 
-/** POAP KINGS' pitch, from prompts/lanes/recruiting.md. */
-export function defaultPitch() {
+/** The starting pitch: POAP KINGS' own words for that clan (from
+ *  prompts/lanes/recruiting.md), and for every other clan a plain start
+ *  that names nobody else, links nowhere and promises nothing that clan
+ *  has not said (Jamie 2026-09-24). */
+export function defaultPitch(clanTag = null) {
+  if (clanTag !== "#J2RGCRVG")
+    return {
+      schema: RECRUIT_SCHEMA_VERSION,
+      tagline: "Play your war days, climb together",
+      about:
+        "A Clash Royale clan that shows up for Clan Wars. Real life comes first; playing your war days is what we ask.",
+      points: [
+        "Active in River Race every week",
+        "Elixir tracks wars, milestones and awards so nobody's effort goes unseen",
+      ],
+      looking_for: "Active players who play their war days.",
+      website_url: "",
+      contact: "Request to join in game.",
+    };
   return {
     schema: RECRUIT_SCHEMA_VERSION,
     tagline: "Compete, belong, be remembered",

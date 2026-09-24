@@ -201,7 +201,8 @@ describe("how elder works", () => {
     );
     expect(screen.getByText(/Between 20% and 30% of the roster/)).toBeTruthy();
     expect(screen.getByText(/8 days proposes a removal/)).toBeTruthy();
-    expect(screen.getByText(/Policy version 2/)).toBeTruthy();
+    // A policy is Elixir Clan's own: the public page never names one.
+    expect(screen.queryByText(/policy/i)).toBeNull();
     expect(document.body.textContent).not.toMatch(
       /percentile|median|swap margin/i,
     );

@@ -90,9 +90,6 @@ export function HowElderWorks({ tag }) {
         someone participated more than you this week. Internal scores are never
         quoted.
       </p>
-      <p className="page-head__note">
-        Policy version {data.version === 0 ? "defaults" : data.version}.
-      </p>
     </div>
   );
 }

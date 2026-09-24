@@ -39,7 +39,7 @@ export function createAwardsService({
         saved_by_name: current.saved_by_name ?? null,
       };
     return {
-      values: defaultAwards(),
+      values: defaultAwards(clanTag),
       version: 0,
       saved_at: null,
       saved_by: null,

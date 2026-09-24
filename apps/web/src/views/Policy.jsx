@@ -73,7 +73,7 @@ export function Policy({ clan }) {
     <div style={{ display: "grid", gap: "20px" }}>
       <p className="page-head__note" style={{ margin: 0 }}>
         {view.current.version === 0
-          ? "This clan runs on the POAP KINGS defaults until a leader saves a version."
+          ? "No leader has saved a version yet: these are the starting rules."
           : `Version ${view.current.version}, saved ${view.current.saved_at?.slice(0, 10)} by ${view.current.saved_by_name ?? view.current.saved_by}.`}{" "}
         Every save is a new version; nothing is edited in place. Cards say which
         version judged them.

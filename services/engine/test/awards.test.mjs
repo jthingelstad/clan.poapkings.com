@@ -13,7 +13,7 @@ import {
 } from "../src/awards.mjs";
 import { member, participation, NOW } from "./fixture.mjs";
 
-const config = defaultAwards();
+const config = defaultAwards("#J2RGCRVG");
 const run = (members, opts = {}) =>
   evaluateAwards({
     participation: participation(members),
@@ -103,7 +103,7 @@ test("War Champ: points order, donations tiebreak, ties named, podium of three",
 });
 
 test("with no tiebreak a tie at the podium's edge keeps everyone tied", () => {
-  const cfg = defaultAwards();
+  const cfg = defaultAwards("#J2RGCRVG");
   cfg.awards[0].params = { podium: 1, tiebreak: "none" };
   const r = run(
     [
@@ -144,7 +144,7 @@ test("Iron King is pass/fail: every deck every day; one day short fails at zero 
     [["#AAA", 1, "war_days"]],
   );
 
-  const cfg = defaultAwards();
+  const cfg = defaultAwards("#J2RGCRVG");
   cfg.awards[1].params = { decks_per_day: 4, allowed_misses: 1 };
   const r2 = run(
     [
@@ -172,7 +172,7 @@ test("Iron King with per-day polls judges each day, not the weekly total", () =>
   ];
   const r = run([member("#AAA", { war: [16, 16, 16, 16, 14, 0], days })]);
   assert.deepEqual(award(r, 135, "iron_king").rows, []);
-  const cfg = defaultAwards();
+  const cfg = defaultAwards("#J2RGCRVG");
   cfg.awards[1].params = { decks_per_day: 2, allowed_misses: 0 };
   const r2 = run([member("#AAA", { war: [16, 16, 16, 16, 14, 0], days })], {
     config: cfg,
@@ -256,7 +256,7 @@ test("a leaders' pick computes nothing and shows what was granted by hand", () =
 // ---- the document -----------------------------------------------------------
 
 test("the defaults validate; bad ids, kinds, parameters and duplicates are refused in a leader's words", () => {
-  assert.equal(validateAwards(defaultAwards()).ok, true);
+  assert.equal(validateAwards(defaultAwards("#J2RGCRVG")).ok, true);
   const bad = validateAwards({
     awards: [
       { id: "War Champ", kind: "season_points_podium", name: "x" },
@@ -290,7 +290,7 @@ test("the defaults validate; bad ids, kinds, parameters and duplicates are refus
 });
 
 test("every award describes its rule in one sentence under its parameters", () => {
-  for (const a of defaultAwards().awards)
+  for (const a of defaultAwards("#J2RGCRVG").awards)
     assert.ok(describeAward(a).length > 20);
   assert.match(
     describeAward({
@@ -298,5 +298,14 @@ test("every award describes its rule in one sentence under its parameters", () =
       params: { decks_per_day: 3, allowed_misses: 1 },
     }),
     /At least 3 decks .* up to 1 day short/,
+  );
+});
+
+test("only POAP KINGS starts with Free Pass; no starting text names another clan", () => {
+  const other = defaultAwards("#9Q9QRCPP");
+  assert.ok(!other.awards.some((a) => a.id === "free_pass"));
+  assert.doesNotMatch(JSON.stringify(other), /POAP/);
+  assert.ok(
+    defaultAwards("#J2RGCRVG").awards.some((a) => a.id === "free_pass"),
   );
 });

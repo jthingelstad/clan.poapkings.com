@@ -52,7 +52,7 @@ test("facts come from the game's numbers only; the roster gives fewer", () => {
 });
 
 test("the default pitch and every channel pass the bot's validator", () => {
-  const pitch = validatePitch(defaultPitch());
+  const pitch = validatePitch(defaultPitch("#J2RGCRVG"));
   assert.equal(pitch.ok, true, JSON.stringify(pitch.errors));
   const copy = recruitCopy(pitch.values, factsFromClan(clan));
   assert.deepEqual(validateCopy(copy, 5000), []);
@@ -74,7 +74,7 @@ test("the default pitch and every channel pass the bot's validator", () => {
 });
 
 test("copy without a live floor carries no bracket and still passes", () => {
-  const pitch = validatePitch(defaultPitch()).values;
+  const pitch = validatePitch(defaultPitch("#J2RGCRVG")).values;
   const copy = recruitCopy(
     pitch,
     factsFromRoster({
@@ -134,4 +134,11 @@ test("the validator catches what the bot's caught", () => {
   assert.ok(problems.includes("reddit body must not carry an invite link"));
   assert.ok(problems.includes("message must be plain text"));
   assert.ok(problems.includes("message over 40 words"));
+});
+
+test("another clan's starting pitch names nobody and links nowhere", () => {
+  const pitch = defaultPitch("#9Q9QRCPP");
+  assert.doesNotMatch(JSON.stringify(pitch), /POAP|poapkings|Free Pass/i);
+  assert.equal(pitch.website_url, "");
+  assert.equal(validatePitch(pitch).ok, true);
 });

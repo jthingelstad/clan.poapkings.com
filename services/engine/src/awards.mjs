@@ -5,9 +5,10 @@
  * A catalog of KINDS, not a rules engine (Jamie, 2026-09-12): each kind is
  * one small function with a few tunable parameters, and every award a
  * clan runs is an instance of a kind with the clan's own name and
- * description. POAP KINGS' defaults are the kinds' examples. Free Pass is
- * not an award here: it is what POAP KINGS does to recognise its War
- * Champ, so it is a leaders_pick, granted by hand with the podium in view.
+ * description. The starting set is the kinds' examples; a clan's policy is
+ * Elixir Clan's own and is never described by another clan's name (Jamie
+ * 2026-09-24). Free Pass is POAP KINGS' own recognition of its War Champ
+ * (a leaders_pick, granted by hand), so only that clan starts with it.
  *
  * Periods are war seasons as the record saw them (war_weeks grouped by
  * season_id). A season is judged only once it is CLOSED (every week
@@ -45,7 +46,7 @@ export const AWARD_KINDS = {
         type: "enum",
         options: ["donations", "none"],
         default: "donations",
-        why: "Equal points: the higher donor takes the higher place (POAP KINGS), or the tie stands and both hold the place.",
+        why: "Equal points: the higher donor takes the higher place, or the tie stands and both hold the place.",
       },
     },
   },
@@ -60,7 +61,7 @@ export const AWARD_KINDS = {
         min: 1,
         max: 4,
         default: 4,
-        why: "Four is every deck the game offers (POAP KINGS' Iron King). Three forgives one deck a day.",
+        why: "Four is every deck the game offers. Three forgives one deck a day.",
       },
       allowed_misses: {
         label: "War days allowed short",
@@ -118,8 +119,9 @@ export const AWARD_KINDS = {
   },
 };
 
-/** POAP KINGS' awards, as elixir-bot ran them, plus Free Pass by hand. */
-export function defaultAwards() {
+/** The starting awards, as elixir-bot ran them. Free Pass is POAP KINGS'
+ *  own and starts only there. */
+export function defaultAwards(clanTag = null) {
   return {
     schema: AWARDS_SCHEMA_VERSION,
     publish: false,
@@ -159,18 +161,21 @@ export function defaultAwards() {
         enabled: true,
         params: { podium: 3 },
       },
-      {
-        id: "free_pass",
-        kind: "leaders_pick",
-        name: "Free Pass",
-        description:
-          "POAP KINGS' recognition of the War Champ: the highest finisher who did not hold it last season, chosen by the leaders with the podium in view.",
-        enabled: true,
-        params: { granted_by: "leaders" },
-      },
+      ...(clanTag === POAP_KINGS ? [FREE_PASS] : []),
     ],
   };
 }
+
+const POAP_KINGS = "#J2RGCRVG";
+const FREE_PASS = {
+  id: "free_pass",
+  kind: "leaders_pick",
+  name: "Free Pass",
+  description:
+    "The War Champ's reward: the highest finisher who did not hold it last season, chosen by the leaders with the podium in view.",
+  enabled: true,
+  params: { granted_by: "leaders" },
+};
 
 const ID_RE = /^[a-z][a-z0-9_]{1,31}$/;
 

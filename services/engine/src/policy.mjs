@@ -83,7 +83,7 @@ export const FIELDS = {
     min: 1,
     max: 8,
     default: 2,
-    why: "The window the floor looks back over (POAP KINGS: 14 days). War and ranked count equally here.",
+    why: "The window the floor looks back over (default 14 days). War and ranked count equally here.",
   },
   floor_war_days: {
     group: "consideration",
@@ -113,7 +113,7 @@ export const FIELDS = {
     min: 1,
     max: 8,
     default: 4,
-    why: "Per-day war credit averaged over these war weeks (POAP KINGS: 28 days).",
+    why: "Per-day war credit averaged over these war weeks (default 28 days).",
   },
   full_day_bonus: {
     group: "standing",
@@ -281,7 +281,7 @@ export const FIELDS = {
     min: 0,
     max: 90,
     default: 3,
-    why: "At risk plus this many days proposes a removal card (POAP KINGS: day 8).",
+    why: "At risk plus this many days proposes a removal card (default day 8).",
   },
   contribution_grace_max_days: {
     group: "removal",

@@ -159,7 +159,7 @@ export function Recruit({ clan }) {
           <span>The pitch</span>
           <span className="page-head__note">
             {d.pitch_version === 0
-              ? "POAP KINGS' words until a leader saves a version"
+              ? "the starting words until a leader saves a version"
               : `v${d.pitch_version}`}
           </span>
           {d.can_edit ? (
