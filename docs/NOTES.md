@@ -551,3 +551,26 @@ Jamie's decision: Clan is a program, not an agent. The eight-week `clans_partici
 - **OAuth:** the resource is `ElixirUrl/api/v1`. Existing sessions hold `/mcp` grants, which `/api/v1` refuses (401). Refreshing a grant keeps its original audience, so **everyone signs in once more**.
 - **Quota:** Clan is a first-party client (every redirect URI on a family origin), so its reads, live reads included, spend no one's quota.
 - **Confirmed live (21:53Z):** Jamie signed in again. The old grant was refused once, then the gate, the roster (509 ms), standing (a full evaluation, 3.4 s) and manage all answered 200. Jamie: "notably faster".
+
+## 2026-09-24 — Clan-owned starts and optional post-finish war days
+
+Jamie decided that a clan's policy exists only in Elixir Clan and is never
+described as running on POAP KINGS' anything. Version 0 is therefore the
+starting rules, not "POAP KINGS defaults". Another clan starts with a plain
+recruiting pitch that names nobody else and with no Free Pass; POAP KINGS keeps
+its own pitch and Free Pass. The policy, awards and recruiting editors, their
+engine help text and the public Elder page use that vocabulary (`93ea2b3`).
+
+Jamie also decided that once the clan boat crosses the finish line, the rest of
+that non-Colosseum week's war days are optional. A later day still adds credit
+when played and never becomes a missed day when skipped; the floor, standing and
+Perfect Attendance all use the number of days the clan was actually asked to
+play. Colosseum still asks for four days. The engine and award regression are in
+`29c4f01`; the member-facing next step is in `6305c93`. The public How Elder
+works page now states the same rule and its web test pins the wording.
+
+The overnight live walk also corrected two misleading actions without changing
+a clan's policy: a leave raises a departure card only while the member remains
+gone, and an open card is withdrawn if they return (`cb3a11c`); Scout now stops
+after six pending reads and explains what to check instead of polling all night
+(`8fa7f0c`).

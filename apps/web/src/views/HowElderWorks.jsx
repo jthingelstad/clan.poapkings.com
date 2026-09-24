@@ -48,6 +48,12 @@ export function HowElderWorks({ tag }) {
             -week donation average. War is the primary path; ranked fills part
             of the gap war leaves; donations are the lighter half.
           </p>
+          <p>
+            When this clan&rsquo;s boat crosses the finish line early, later war
+            days that week are optional. Playing them still adds credit;
+            skipping them never counts against a player. Colosseum has no finish
+            line, so all four days count.
+          </p>
           <h2 className="panel-title">How many Elders</h2>
           <p>
             Between {pct(v.band_floor_share)} and {pct(v.band_ceiling_share)} of

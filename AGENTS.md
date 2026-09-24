@@ -138,6 +138,10 @@ remembered between runs.
   (ranked) and N closed war weeks (war days); the war rate over the last N
   closed war weeks; ranked and donations over N closed ISO weeks. At a
   boundary, that is exactly the policy's days.
+- **An early finish makes later war days optional**: outside Colosseum,
+  `finish_war_day` is the number of days the clan asked members to play.
+  Playing a later day still adds credit; skipping it never lowers the floor,
+  war rate or perfect-attendance result. Colosseum always asks for all four.
 - **War fidelity**: a war week with polled days is exact; one without is
   `weekly` (its total spread over the days that saw a battle); a null week
   is `unknown`. Every fact says which.
@@ -166,12 +170,13 @@ remembered between runs.
 ## Policy is versioned configuration
 
 `services/engine/src/policy.mjs` owns the fields: label, unit, range,
-default (POAP KINGS), and `why` from elixir-bot's POLICY.md, grouped as the
-policy reads. There is no policy markdown in this repo; the editor's help
-text is the documentation. Every save is a new immutable version
+starting value, and `why` from elixir-bot's POLICY.md, grouped as the policy
+reads. Those values began with POAP KINGS, but every clan's policy is Elixir
+Clan's own and is never described as another clan's policy. There is no policy
+markdown in this repo; the editor's help text is the documentation. Every save is a new immutable version
 (`policy#<clan>#v<n>`), the pointer moves, cards stamp the version that
 judged them. `validate()` refuses nonsense in a leader's words. Version 0
-means "the defaults, unsaved".
+means "the starting rules, unsaved".
 
 ## Awards (third push, 2026-09-12)
 
@@ -186,7 +191,8 @@ this season, or during the previous one without a war day in it; a join
 that predates the record is never a rookie), and `leaders_pick` (by hand,
 with a note; who may grant). **Free Pass is not an award**: it is what
 POAP KINGS does to recognise its War Champ, so it is a `leaders_pick`
-granted with the podium in view (Jamie, 2026-09-12).
+granted with the podium in view; POAP KINGS alone starts with it (Jamie,
+2026-09-12 and 2026-09-24).
 
 Periods are war seasons as the record saw them (`war_weeks` grouped by
 `season_id`); a season is judged only when CLOSED (every week finished
@@ -214,8 +220,9 @@ by a model from live clan stats, posted to #recruiting for members to
 reuse) as a page every member can use, without a model:
 `services/engine/src/recruit.mjs`. Two inputs: the clan's **pitch** (a
 leader's words, versioned like policy: `recruit#<clan>#v<n>`; tagline,
-about, up to six points, who we want, website, how to get in; POAP KINGS'
-defaults from `prompts/lanes/recruiting.md`) and **facts** from one live
+about, up to six points, who we want, website, how to get in; POAP KINGS
+starts with its own words from `prompts/lanes/recruiting.md`, while another
+clan starts with plain copy that names and promises nothing for it) and **facts** from one live
 read of `/clans/{tag}` through Elixir's `live_fetch` (required trophies,
 members and open slots, clan score, war trophies, donations a week, top
 trophies and donors), cached six hours in `recruit_facts#<clan>` so a
@@ -228,7 +235,8 @@ carries `[N]` for r/RoyaleRecruit, no invite link in the Reddit body, plain
 channels plain, no backticks) and the page shows a break rather than
 hiding it. Every piece is editable before copying and resets to the clan's
 words. `GET /api/clans/<TAG>/recruit` for every member; `POST` for leaders.
-Live reads are the person's Elixir quota: one per clan per six hours.
+Live reads are first-party and spend no person's Elixir quota; the cache still
+caps them at one per clan per six hours.
 
 ## Feedback (2026-09-12)
 
@@ -254,10 +262,11 @@ alarm topic.
 ## Fourth push (2026-09-12): what was carried from elixir-bot, and what was not
 
 Reviewed elixir-bot's whole management surface against this product. Carried:
-**departure cards** (every `member_left` in Elixir's roster events that no
-Done removal card explains raises a card; a leader answers Kicked / Left /
-Ignore, never declines; the classification is the ledger's leave-vs-kick
-record and the timeline shows it); **away** (a member marks themselves away
+**departure cards** (a `member_left` in Elixir's roster events that no Done
+removal card explains raises a card only while the member remains gone; a
+later rejoin raises nothing and withdraws an open card; a leader answers
+Kicked / Left / Ignore, never declines; the classification is the ledger's
+leave-vs-kick record and the timeline shows it); **away** (a member marks themselves away
 on `/you/away` for up to `away_max_days`; it is a hold of kind `away`, the
 clock pauses, leaders see it on the board and can clear it, a leader's own
 hold is not the member's to move); the **membership timeline** in History
@@ -310,10 +319,11 @@ Elixir returns facts; every threshold, score and verdict is here.
 ## Quota discipline
 
 Clan is a first-party client (every redirect URI on a family origin), so its
-reads spend no one's Elixir quota (Jamie, 2026-09-23). We are still frugal: the gate
-answer and roster are cached per session; "check again" is floored at 30 s
-server-side; nothing polls. The page shows `meta.freshness_seconds`/`as_of`
-the way Elixir does (`Fresh`).
+reads spend no one's Elixir quota (Jamie, 2026-09-23). We are still frugal: the
+gate answer and roster are cached per session; "check again" is floored at 30 s
+server-side; ordinary record data never polls. A pending live read may retry at
+Elixir's requested interval (Scout stops after six attempts). The page shows
+`meta.freshness_seconds`/`as_of` the way Elixir does (`Fresh`).
 
 ## AWS and deploying
 
