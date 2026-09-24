@@ -54,12 +54,13 @@ import {
   REGION,
   SECRET_NAME,
   codeBucketFor,
+  tagsFor,
 } from "./stack.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
 const envPath = path.join(repoRoot, ".env");
-const TAGS = [{ Key: "application", Value: "elixir-clan" }];
+const TAGS = tagsFor("repository");
 
 const sts = new STSClient({ region: REGION });
 const { Account: accountId } = await sts.send(new GetCallerIdentityCommand({}));

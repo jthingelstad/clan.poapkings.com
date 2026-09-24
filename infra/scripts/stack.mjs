@@ -7,3 +7,13 @@ export const CFN_ROLE = "elixir-clan-cloudformation-execution";
 export const OPS_QUEUE = "projects-ops-alerts";
 export const codeBucketFor = (accountId) => `elixir-clan-code-${accountId}`;
 export const webBucketFor = (accountId) => `elixir-clan-web-${accountId}`;
+/** The account tag standard (projects-sysadmin docs/AWS-TAGS.md). The stack
+ *  carries these and CloudFormation propagates them to every resource it
+ *  owns; what bootstrap creates outside it says ManagedBy=repository. */
+export const tagsFor = (managedBy) => [
+  { Key: "Application", Value: "Elixir" },
+  { Key: "Project", Value: "elixir-clan" },
+  { Key: "Environment", Value: "production" },
+  { Key: "Repository", Value: "jthingelstad/clan.poapkings.com" },
+  { Key: "ManagedBy", Value: managedBy },
+];

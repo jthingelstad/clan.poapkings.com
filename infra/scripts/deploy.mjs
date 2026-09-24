@@ -32,7 +32,7 @@ import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { buildApi } from "./build.mjs";
 import { loadEnvInto } from "./env.mjs";
 import { buildParameters, parseOverrides } from "./parameters.mjs";
-import { REGION, STACK, codeBucketFor } from "./stack.mjs";
+import { REGION, STACK, codeBucketFor, tagsFor } from "./stack.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
@@ -75,7 +75,7 @@ const common = {
   TemplateBody: templateBody,
   Capabilities: ["CAPABILITY_NAMED_IAM"],
   ...(roleArn ? { RoleARN: roleArn } : {}),
-  Tags: [{ Key: "application", Value: "elixir-clan" }],
+  Tags: tagsFor("cloudformation"),
 };
 
 async function describe() {

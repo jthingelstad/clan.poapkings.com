@@ -108,9 +108,6 @@ Resources:
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
         RecoveryPeriodInDays: 35
-      Tags:
-        - Key: application
-          Value: elixir-clan
 
   # ------------------------------------------------------------ the function
   ApiRole:
@@ -179,9 +176,6 @@ Resources:
           SESSION_SECRET: !Sub "{{resolve:secretsmanager:${AppSecretName}:SecretString:session_secret}}"
           MAINTAINER_TAGS: !Ref MaintainerTags
           FEEDBACK_TOPIC_ARN: !Ref FeedbackTopic
-      Tags:
-        - Key: application
-          Value: elixir-clan
 
   # The HTTP API, spelled out (2026-09-12): the quick-create form
   # (`Target`) owns its own $default stage, and a stage owned that way
@@ -253,9 +247,6 @@ Resources:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
-      Tags:
-        - Key: application
-          Value: elixir-clan
 
   WebBucketPolicy:
     Type: AWS::S3::BucketPolicy

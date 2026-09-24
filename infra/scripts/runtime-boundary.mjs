@@ -11,7 +11,7 @@ import {
   AccessAnalyzerClient,
   ValidatePolicyCommand,
 } from "@aws-sdk/client-accessanalyzer";
-import { REGION } from "./stack.mjs";
+import { REGION, tagsFor } from "./stack.mjs";
 import {
   BOUNDARY_NAME,
   RUNTIME_ROLE,
@@ -104,7 +104,7 @@ export async function ensureRuntimeBoundary(
         Description:
           "Administrator-owned cap for the Elixir Clan application role",
         PolicyDocument: JSON.stringify(runtimeBoundaryFor(accountId)),
-        Tags: [{ Key: "application", Value: "elixir-clan" }],
+        Tags: tagsFor("repository"),
       }),
     );
   }
