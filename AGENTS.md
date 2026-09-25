@@ -419,6 +419,18 @@ read, judged on the spot with `evaluate`: opening it never raises an
 action. Only the viewer's own lines: no one else's, no notes, no removal
 action about them.
 
+## Spreading the word (2026-09-25)
+
+Clans arrive member-first, so the clan page carries one card for where the
+clan is (`apps/web/src/components/SpreadWord.jsx`): below 10 members, a
+pointer to Recruit; with 10 and no policy, **Invite your leaders** for a
+member or elder (what setting up turns on, a clan chat line from
+`inviteCopy("leaders")` and the link to copy for Discord or a message) or
+**Set up how the clan runs** for a leader or co-leader; with an active
+policy, **Bring your clanmates** (`inviteCopy("clanmates")`) for anyone.
+The chat lines carry no link: the game's filter is wary of links, so the
+link is its own copy.
+
 ## Roles in Manage
 
 From the roster, as the gate resolves them. Leader and co-leader: Manage
@@ -562,6 +574,7 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.away_set`, `clan.away_cleared` | (none) |
 | `clan.feedback_sent`, `clan.feedback_answered` | the category; the status |
 | `clan.copy_in_game` | (none), or `leader_message` for a Leader Message field |
+| `clan.invite_copied` | `leaders` \| `clanmates` \| `link` |
 | `clan.recruit_copied`, `clan.recruit_saved` | `personal` \| `post`; `v<n>` |
 | `web.api_timeout`, `web.api_network`, `web.api_bad_response`, `web.api_slow` (over 3 s) | the route key, ids as `*` |
 

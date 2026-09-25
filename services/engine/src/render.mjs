@@ -514,3 +514,20 @@ export function leaderMessage(kind, data = {}) {
     body: clip(filterSafe(body), LEADER_MESSAGE.body),
   };
 }
+
+/**
+ * Lines that bring people in (round 5, 2026-09-25), for clan chat: a member
+ * inviting their leaders to set the clan up, and anyone inviting clanmates
+ * once it is. Plain, filter-safe, within clan chat's 200 characters, and
+ * without a link (the chat's filter is wary of links; the page offers the
+ * link to copy separately for Discord or a message).
+ */
+export function inviteCopy(kind, { clanName = null } = {}) {
+  const clan = clanName ? filterSafe(clanName) : "our clan";
+  const text = {
+    leaders: `Leaders: I use Elixir Clan to see our clan's numbers. Set up how ${clan} runs there and we all see how Elder works and where we stand. Sign in with Elixir.`,
+    clanmates: `I check where I stand in ${clan} on Elixir Clan. Sign in with Elixir to see yours and how the clan runs.`,
+  }[kind];
+  if (!text) return null;
+  return clip(filterSafe(text), 200);
+}

@@ -260,3 +260,15 @@ test("a Clan Leader Message fits the game: a title of 24 and a message of 180, f
   );
   assert.equal(leaderMessage("nonsense", {}), null);
 });
+
+test("invite lines fit clan chat, carry no link and name the clan", async () => {
+  const { inviteCopy } = await import("../src/render.mjs");
+  for (const kind of ["leaders", "clanmates"]) {
+    const line = inviteCopy(kind, { clanName: "Kings & Queens +1" });
+    assert.ok(line.length <= 200);
+    assert.doesNotMatch(line, /https?:|&|\+\d/);
+    assert.match(line, /Kings and Queens/);
+  }
+  assert.match(inviteCopy("clanmates"), /our clan/);
+  assert.equal(inviteCopy("nonsense"), null);
+});

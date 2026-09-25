@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRoster } from "../lib/queries.js";
 import { RoleChip } from "../components/RoleChip.jsx";
 import { ELIXIR_LINKS } from "../lib/links.js";
+import { SpreadWord } from "../components/SpreadWord.jsx";
 
 const ROLE_ORDER = ["leader", "coLeader", "elder", "member"];
 const GROUP = {
@@ -245,6 +246,12 @@ export function Clan({ me, clan, navigate }) {
         </div>
       ) : state.roster ? (
         <>
+          <SpreadWord
+            me={me}
+            clan={clan}
+            roster={state.roster}
+            navigate={navigate}
+          />
           {state.roster.members.length === 0 ? (
             <div className="empty">
               <div className="empty__title">No members on the record</div>

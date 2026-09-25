@@ -141,7 +141,8 @@ game ready (a clan chat line, or a Clan Leader Message for leaders), each
 with its own log
 of what raised it, who took it and anyone's comments, and outcomes verified
 from the record; holds, Away, tiered notes; Standing with "How it works here"; awards as a catalog
-of kinds and a members' trophy case; recruiting copy in two formats;
+of kinds and a members' trophy case; recruiting copy in two formats; lines for members to invite their leaders and
+clanmates;
 scouting an applicant; feedback to the maintainer. See `AGENTS.md` for how.
 
 ## Themes ahead (not yet ordered)

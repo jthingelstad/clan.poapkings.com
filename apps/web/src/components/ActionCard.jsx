@@ -51,8 +51,9 @@ export function NoteInput({
   );
 }
 
-/** Paste-ready in-game copy for clan chat. */
-export function CopyLine({ text }) {
+/** Paste-ready in-game copy for clan chat; `event` and `value` name the
+ *  copy for the analytics taxonomy. */
+export function CopyLine({ text, event = "clan.copy_in_game", value }) {
   const [done, setDone] = useState(false);
   return (
     <div className="flex items-start gap-2 rounded-lg border border-[var(--line-soft)] bg-[var(--ground-sunken)] px-2.5 py-2 text-[13px]">
@@ -65,7 +66,7 @@ export function CopyLine({ text }) {
         onClick={async () => {
           try {
             await navigator.clipboard.writeText(text);
-            trackEvent("clan.copy_in_game");
+            trackEvent(event, value);
             setDone(true);
             setTimeout(() => setDone(false), 1500);
           } catch {

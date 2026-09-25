@@ -779,3 +779,15 @@ days toward Elder, their clock), their actions waiting, their hold or away,
 and their trophies. It reads the record once and judges on the spot, so
 opening it never raises an action, and it holds only the viewer's own lines.
 
+## 2026-09-25 — Round 5: spread the word (Jamie)
+
+The clan page carries one card for where the clan is: below 10 members, a
+pointer to Recruit; with 10 and no policy, "Invite your leaders" for a
+member or elder (what setting it up turns on, a chat line, the link) or "Set
+up how the clan runs" for a leader; with an active policy, "Bring your
+clanmates" for anyone. Chat lines carry no link (the game's filter is wary
+of links); the link is copied separately for Discord or a message. Leaders
+already get "How our clan runs" as a Leader Message on the first save.
+Jamie: Elixir's current effort is wrapping up, so the doors can start
+soon, as their own work in elixir-mcp.
+
