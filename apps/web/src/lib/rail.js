@@ -1,7 +1,10 @@
 /**
- * What the rail offers depends on who is looking: Manage for leaders and
- * co-leaders, Awards and Scout also for elders, Maintain for the product's
- * maintainer. Two items the reader can see at once never share a label.
+ * What the rail offers depends on who is looking and on the clan's policy:
+ * until a leader saves one, only the roster, Recruit, Scout and the policy
+ * editor exist (nothing in clan management runs). Manage for leaders and
+ * co-leaders, Awards and Scout also for elders, Away when the policy lets
+ * members mark it, Maintain for the product's maintainer. Two items the
+ * reader can see at once never share a label.
  * The rail itself is Elixir's (the kit's Rail); this is only what goes
  * on it and which item a path is on.
  */
@@ -14,14 +17,17 @@ export function railItems(me) {
   const items = [];
   if (me?.ok && me.clans?.length > 1)
     items.push({ key: "clans", label: "Clans", icon: "layers", to: "/clans" });
+  const policy = me?.policy ?? null;
+  const set = policy?.set === true;
   if (clan) {
     items.push({ key: "clan", label: "Clan", icon: "users", to: base });
-    items.push({
-      key: "standing",
-      label: "Standing",
-      icon: "chart-column",
-      to: `${base}/standing`,
-    });
+    if (set)
+      items.push({
+        key: "standing",
+        label: "Standing",
+        icon: "chart-column",
+        to: `${base}/standing`,
+      });
     items.push({
       key: "recruit",
       label: "Recruit",
@@ -31,27 +37,30 @@ export function railItems(me) {
     const leader = LEADERS.has(clan.role);
     const elder = ELDER_PLUS.has(clan.role);
     if (leader) {
+      if (set) {
+        items.push({
+          group: "Manage",
+          key: "inbox",
+          label: "Inbox",
+          icon: "inbox",
+          to: `${base}/manage/inbox`,
+          meta: me.open_cards ? String(me.open_cards) : undefined,
+        });
+        items.push({
+          key: "board",
+          label: "Board",
+          icon: "layout-dashboard",
+          to: `${base}/manage/board`,
+        });
+        items.push({
+          key: "history",
+          label: "History",
+          icon: "history",
+          to: `${base}/manage/history`,
+        });
+      }
       items.push({
-        group: "Manage",
-        key: "inbox",
-        label: "Inbox",
-        icon: "inbox",
-        to: `${base}/manage/inbox`,
-        meta: me.open_cards ? String(me.open_cards) : undefined,
-      });
-      items.push({
-        key: "board",
-        label: "Board",
-        icon: "layout-dashboard",
-        to: `${base}/manage/board`,
-      });
-      items.push({
-        key: "history",
-        label: "History",
-        icon: "history",
-        to: `${base}/manage/history`,
-      });
-      items.push({
+        ...(set ? {} : { group: "Manage" }),
         key: "policy",
         label: "Policy",
         icon: "file-text",
@@ -59,14 +68,16 @@ export function railItems(me) {
       });
     }
     if (elder) {
+      if (set)
+        items.push({
+          ...(leader ? {} : { group: "Manage" }),
+          key: "awards",
+          label: "Awards",
+          icon: "award",
+          to: `${base}/manage/awards`,
+        });
       items.push({
-        ...(leader ? {} : { group: "Manage" }),
-        key: "awards",
-        label: "Awards",
-        icon: "award",
-        to: `${base}/manage/awards`,
-      });
-      items.push({
+        ...(leader || set ? {} : { group: "Manage" }),
         key: "scout",
         label: "Scout",
         icon: "search",
@@ -81,7 +92,7 @@ export function railItems(me) {
     icon: "user-round",
     to: "/you",
   });
-  if (clan)
+  if (clan && policy?.away)
     items.push({ key: "away", label: "Away", icon: "plane", to: "/you/away" });
   items.push({
     key: "feedback",

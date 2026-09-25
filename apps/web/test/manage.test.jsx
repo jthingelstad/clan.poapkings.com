@@ -100,7 +100,15 @@ describe("standing", () => {
       ok: true,
       status: 200,
       data: {
-        enabled: true,
+        policy_version: 1,
+        ranks_elder: true,
+        how: [
+          {
+            key: "elder",
+            title: "Elder",
+            lines: ["Elder is earned by participation: Clan Wars 100%."],
+          },
+        ],
         as_of: "2026-09-12T18:00:00Z",
         freshness_seconds: 60,
         rows: [
@@ -122,7 +130,7 @@ describe("standing", () => {
         you: {
           status: "rising",
           evidence: "100% war decks over 4 war weeks",
-          next: ["Finish every war day: four decks scores far more than two."],
+          next: ["Play the war decks you are asked for."],
           inactivity: null,
           days_idle: 0.5,
           hold: null,
@@ -138,24 +146,49 @@ describe("standing", () => {
     await waitFor(() => expect(screen.getByText("Amy")).toBeTruthy());
     expect(screen.getByText(/Holding Elder · 1/)).toBeTruthy();
     expect(screen.getByText(/Rising · 1/)).toBeTruthy();
-    expect(screen.getByText(/Finish every war day/)).toBeTruthy();
+    expect(
+      screen.getByText(/Play the war decks you are asked for/),
+    ).toBeTruthy();
+    expect(screen.getByText("How it works here")).toBeTruthy();
+    expect(screen.getByText(/Clan Wars 100%/)).toBeTruthy();
     expect(document.querySelector("tr[data-you='true']")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(
       /\b(score|percentile|rank)\b/i,
     );
   });
 
-  test("a private standing says so", async () => {
+  test("a clan with no policy yet says so", async () => {
     vi.spyOn(manageApi, "standing").mockResolvedValue({
       ok: false,
-      status: 403,
-      data: { error: "standing_private" },
+      status: 409,
+      data: { error: "no_policy" },
+    });
+    renderWithProviders(
+      <Standing clan={poap} who={{ player_tag: "#X", role: "member" }} />,
+    );
+    await waitFor(() => expect(screen.getByText("No policy yet")).toBeTruthy());
+  });
+
+  test("a policy that keeps standing to leaders still shows how the clan runs", async () => {
+    vi.spyOn(manageApi, "standing").mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        policy_version: 2,
+        ranks_elder: false,
+        how: [
+          { key: "elder", title: "Elder", lines: ["Leaders choose Elders."] },
+        ],
+        rows: null,
+        you: null,
+      },
     });
     renderWithProviders(
       <Standing clan={poap} who={{ player_tag: "#X", role: "member" }} />,
     );
     await waitFor(() =>
-      expect(screen.getByText(/keep standing private/)).toBeTruthy(),
+      expect(screen.getByText("Leaders choose Elders.")).toBeTruthy(),
     );
+    expect(document.body.textContent).not.toMatch(/Holding Elder/);
   });
 });

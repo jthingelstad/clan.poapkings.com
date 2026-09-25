@@ -3,10 +3,19 @@ import { manageApi } from "../api.js";
 import { keys, useInvalidate, usePolicy } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
+/** Whether a group or field applies under the draft (engine `applies`). */
+const applies = (when, values) =>
+  !when ||
+  when.some((clause) =>
+    Object.entries(clause).every(([k, v]) => values?.[k] === v),
+  );
+
 /**
  * The policy editor: every field with its help text (the documentation of
- * the rules IS this page), a preview of the last reviews under the draft
- * beside the current policy, and the versions.
+ * the rules IS this page), shown only where it applies under the draft, a
+ * preview of the last reviews under the draft beside the current policy,
+ * and the versions. Until a leader saves the first version nothing in clan
+ * management runs; everything starts off.
  */
 export function Policy({ clan }) {
   const [draft, setDraft] = useState(null);
@@ -31,6 +40,8 @@ export function Policy({ clan }) {
   const changed = Object.keys(draft).filter(
     (k) => draft[k] !== view.current.values[k],
   );
+  // The first save is a policy even with nothing changed.
+  const canSave = !view.set || changed.length > 0;
   const set = (key, value) => setDraft((d) => ({ ...d, [key]: value }));
 
   const doPreview = async () => {
@@ -71,17 +82,28 @@ export function Policy({ clan }) {
 
   return (
     <div style={{ display: "grid", gap: "20px" }}>
-      <p className="page-head__note" style={{ margin: 0 }}>
-        {view.current.version === 0
-          ? "No leader has saved a version yet: these are the starting rules."
-          : `Version ${view.current.version}, saved ${view.current.saved_at?.slice(0, 10)} by ${view.current.saved_by_name ?? view.current.saved_by}.`}{" "}
-        Every save is a new version; nothing is edited in place. Cards say which
-        version judged them.
-      </p>
+      {view.set ? (
+        <p className="page-head__note m-0">
+          {`Version ${view.current.version}, saved ${view.current.saved_at?.slice(0, 10)} by ${view.current.saved_by_name ?? view.current.saved_by}.`}{" "}
+          Every save is a new version; nothing is edited in place. Cards say
+          which version judged them.
+        </p>
+      ) : (
+        <div className="callout" role="note">
+          <span>
+            This clan has no policy yet, so nothing in clan management runs: no
+            cards, no standing, no inactivity clock, no awards. Everything below
+            starts off. Turn on what your clan does and save; members then see
+            how the clan runs on their Standing page.
+          </span>
+        </div>
+      )}
       {view.groups.map((g) => {
+        if (!applies(g.when, draft)) return null;
         const fields = Object.entries(view.fields).filter(
-          ([, f]) => f.group === g.key,
+          ([, f]) => f.group === g.key && applies(f.when, draft),
         );
+        if (!fields.length) return null;
         return (
           <section key={g.key} className="panel">
             <div className="panel__head">{g.title}</div>
@@ -100,13 +122,28 @@ export function Policy({ clan }) {
                     style={{ fontWeight: 600 }}
                   >
                     {f.label}{" "}
-                    <span className="page-head__note">
-                      ({f.unit}
-                      {f.type !== "boolean" ? `, ${f.min}–${f.max}` : ""};
-                      default {String(f.default)})
-                    </span>
+                    {f.type === "integer" || f.type === "number" ? (
+                      <span className="page-head__note">
+                        ({f.unit}, {f.min}–{f.max})
+                      </span>
+                    ) : null}
                   </label>
-                  {f.type === "boolean" ? (
+                  {f.type === "enum" ? (
+                    <select
+                      id={`f-${key}`}
+                      className="input max-w-[420px]"
+                      value={draft[key]}
+                      disabled={!view.can_edit}
+                      onChange={(e) => set(key, e.target.value)}
+                      aria-invalid={Boolean(errors[key])}
+                    >
+                      {f.options.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : f.type === "boolean" ? (
                     <label
                       style={{
                         display: "inline-flex",
@@ -168,9 +205,11 @@ export function Policy({ clan }) {
         <div className="panel">
           <div className="panel__body" style={{ display: "grid", gap: "10px" }}>
             <div className="page-head__note">
-              {changed.length
-                ? `${changed.length} field${changed.length === 1 ? "" : "s"} changed: ${changed.join(", ")}`
-                : "No changes."}
+              {!view.set
+                ? "Saving creates version 1: clan management starts from it."
+                : changed.length
+                  ? `${changed.length} field${changed.length === 1 ? "" : "s"} changed: ${changed.join(", ")}`
+                  : "No changes."}
             </div>
             <div
               style={{
@@ -183,7 +222,7 @@ export function Policy({ clan }) {
               <button
                 type="button"
                 className="btn"
-                disabled={busy || !changed.length}
+                disabled={busy || !canSave}
                 onClick={doPreview}
               >
                 Preview the last reviews
@@ -198,10 +237,10 @@ export function Policy({ clan }) {
               <button
                 type="button"
                 className="btn btn--primary"
-                disabled={busy || !changed.length}
+                disabled={busy || !canSave}
                 onClick={save}
               >
-                Save as new version
+                {view.set ? "Save as new version" : "Save this clan's policy"}
               </button>
             </div>
             {message ? <div className="notice">{message}</div> : null}
@@ -242,25 +281,34 @@ function Preview({ preview }) {
     if (m.removal !== "none") return `removal ${m.removal.replace("_", " ")}`;
     return "—";
   };
-  const byTag = new Map(preview.current.members.map((m) => [m.player_tag, m]));
+  const none = {
+    actionable: {},
+    promotion: "none",
+    demotion: "none",
+    removal: "none",
+  };
+  const byTag = new Map(
+    (preview.current?.members ?? []).map((m) => [m.player_tag, m]),
+  );
   const rows = preview.draft.members.map((m) => ({
     tag: m.player_tag,
     name: m.name,
-    current: label(byTag.get(m.player_tag) ?? m),
+    current: label(byTag.get(m.player_tag) ?? none),
     draft: label(m),
   }));
   const moved = rows.filter((r) => r.current !== r.draft);
+  const bandText = (b) =>
+    b ? `${b.floor}–${b.ceil} (target ${b.target})` : "none (Elders by hand)";
   return (
     <div>
       <div className="label" style={{ margin: "8px 0" }}>
-        Preview · {preview.current.boundaries.length} reviews · {moved.length}{" "}
+        Preview · {preview.draft.boundaries.length} reviews · {moved.length}{" "}
         member{moved.length === 1 ? "" : "s"} would read differently
       </div>
       <div className="page-head__note" style={{ marginBottom: "8px" }}>
-        Band now {preview.current.band.floor}–{preview.current.band.ceil}{" "}
-        (target {preview.current.band.target}); under the draft{" "}
-        {preview.draft.band.floor}–{preview.draft.band.ceil} (target{" "}
-        {preview.draft.band.target}).
+        {preview.current
+          ? `Elder band now ${bandText(preview.current.band)}; under the draft ${bandText(preview.draft.band)}.`
+          : `No policy yet. Under the draft, the Elder band is ${bandText(preview.draft.band)}.`}
       </div>
       {moved.length ? (
         <div className="table__scroll">
@@ -268,7 +316,7 @@ function Preview({ preview }) {
             <thead>
               <tr>
                 <th>Member</th>
-                <th>Current policy</th>
+                <th>{preview.current ? "Current policy" : "Today"}</th>
                 <th>Draft</th>
               </tr>
             </thead>

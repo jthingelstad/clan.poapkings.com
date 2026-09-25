@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defaults } from "../src/policy.mjs";
 import { evaluate } from "../src/evaluate.mjs";
 import {
   cardFacts,
@@ -9,10 +8,13 @@ import {
   standingForMembers,
   nextSteps,
   judgmentReasons,
+  describePolicy,
+  inGameCopy,
 } from "../src/render.mjs";
-import { member, participation, NOW } from "./fixture.mjs";
+import { defaults } from "../src/policy.mjs";
+import { member, participation, NOW, EXAMPLE_POLICY } from "./fixture.mjs";
 
-const policy = defaults();
+const policy = EXAMPLE_POLICY;
 
 test("held and unknown judgments explain the missing evidence without changing the verdict", () => {
   const p = participation([
@@ -32,6 +34,7 @@ test("held and unknown judgments explain the missing evidence without changing t
     judgmentReasons(
       v.members.find((m) => m.player_tag === tag),
       v.boundaries,
+      policy,
     );
   assert.deepEqual(reasons("#UNKNOWN"), [
     "Promotion: tenure unknown because the join predates the record.",
@@ -52,8 +55,8 @@ test("held and unknown judgments explain the missing evidence without changing t
     now: NOW,
   });
   assert.deepEqual(
-    judgmentReasons(noReviews.members[0], noReviews.boundaries),
-    ["Promotion held: no closed war review yet."],
+    judgmentReasons(noReviews.members[0], noReviews.boundaries, policy),
+    ["Promotion held: no closed weekly review yet."],
   );
   for (const m of v.members) {
     for (const [dimension, status] of Object.entries(m.judgment)) {
@@ -66,7 +69,10 @@ test("held and unknown judgments explain the missing evidence without changing t
     policy,
     now: NOW,
   });
-  assert.deepEqual(judgmentReasons(ready.members[0], ready.boundaries), []);
+  assert.deepEqual(
+    judgmentReasons(ready.members[0], ready.boundaries, policy),
+    [],
+  );
 
   const unrecorded = evaluate({
     participation: participation([
@@ -76,7 +82,7 @@ test("held and unknown judgments explain the missing evidence without changing t
     now: NOW,
   });
   assert.deepEqual(
-    judgmentReasons(unrecorded.members[0], unrecorded.boundaries),
+    judgmentReasons(unrecorded.members[0], unrecorded.boundaries, policy),
     [
       "Promotion held: battle log is not recorded, so standing cannot be judged.",
       "Removal held: battle log is not recorded, so inactivity cannot be measured.",
@@ -93,14 +99,24 @@ test("the member phrase carries no score, percentile, rank or slot count", () =>
     policy,
     now: NOW,
   });
-  const phrase = participationPhrase(v.members[0]);
+  const phrase = participationPhrase(v.members[0], policy);
   assert.match(phrase, /war decks over 4 war weeks/);
   assert.match(phrase, /12 ranked battles/);
   assert.match(phrase, /~200 donations a week/);
   const banned = /\b(score|percentile|rank|slots?|median|competitive)\b/i;
   assert.ok(!banned.test(phrase), phrase);
-  const rows = standingForMembers(v);
+  const rows = standingForMembers(v, policy);
   assert.ok(!banned.test(JSON.stringify(rows)));
+  // A category the clan does not count is never mentioned.
+  const donationsOnly = {
+    ...policy,
+    war_enabled: false,
+    ranked_enabled: false,
+  };
+  assert.equal(
+    participationPhrase(v.members[0], donationsOnly),
+    "~200 donations a week",
+  );
 });
 
 test("card facts state windows and fidelity; an unknown is said, never zeroed", () => {
@@ -124,7 +140,7 @@ test("rationales name the policy clauses that fired", () => {
     now: NOW,
   });
   const m = v.members.find((x) => x.player_tag === "#X");
-  const r = cardRationale("removal", m, policy, v.band);
+  const r = cardRationale("removal", m, policy, v);
   assert.match(r.headline, /20 battle-free days/);
   assert.deepEqual(r.clauses, ["at_risk_days", "confirm_days"]);
 });
@@ -141,5 +157,70 @@ test("next steps tell a member the one or two things that would move them", () =
   const steps = nextSteps(v.members[0], policy);
   assert.equal(steps.length, 2);
   assert.match(steps[0], /18 more days/);
-  assert.match(steps[1], /Clear the floor/);
+  assert.equal(
+    steps[1],
+    "Meet the minimums: 1 war deck or 5 ranked battles in 2 weeks.",
+  );
+  // Advice follows what the clan counts: a donations clan hears nothing
+  // about war.
+  const donationsClan = {
+    ...defaults(),
+    donations_enabled: true,
+    elder_mode: "categories",
+    elder_weight_donations: 1,
+    tenure_min_days: 0,
+  };
+  const d = evaluate({
+    participation: participation([
+      member("#LOW", { donations: [5, 5, 5, 5, 5, 0] }),
+      member("#HIGH", { donations: [500, 500, 500, 500, 500, 0] }),
+    ]),
+    policy: donationsClan,
+    now: NOW,
+  });
+  const low = nextSteps(
+    d.members.find((m) => m.player_tag === "#LOW"),
+    donationsClan,
+  );
+  assert.deepEqual(low, [
+    "Donate every week: the average over 4 weeks counts, not one big week.",
+  ]);
+  assert.deepEqual(
+    nextSteps(d.members[0], { ...donationsClan, elder_mode: "manual" }),
+    [],
+  );
+});
+
+test("how it works here is written from the policy, and leaves out what the clan does not do", () => {
+  const all = describePolicy(policy);
+  const text = JSON.stringify(all);
+  assert.deepEqual(
+    all.map((s) => s.key),
+    ["counts", "minimums", "elder", "removal"],
+  );
+  assert.match(text, /Clan Wars 55%/);
+  assert.match(text, /Donations 30%/);
+  assert.match(
+    text,
+    /Any one of: 1 war deck or 5 ranked battles, over 2 weeks/,
+  );
+  assert.match(text, /no battle for 5 days is at risk; after 8 days/);
+  assert.match(text, /Elders are not removed for inactivity/);
+  assert.doesNotMatch(text, /percentile|median|margin|score|slot/i);
+  // A clan that only lets leaders choose Elders, counts nothing and does
+  // not track inactivity is described in one line.
+  assert.deepEqual(describePolicy(defaults()), [
+    { key: "elder", title: "Elder", lines: ["Leaders choose Elders."] },
+  ]);
+});
+
+test("in-game copy is plain, filter-safe, and names nobody's rules", () => {
+  const lines = ["promotion", "demotion", "removal", "welcome", "farewell"].map(
+    (k) => inGameCopy(k, { name: "A&B +5", days_idle: 9, phrase: "war +12" }),
+  );
+  for (const l of lines) {
+    assert.ok(l.length <= 200);
+    assert.doesNotMatch(l, /&|\+\d/);
+    assert.doesNotMatch(l, /war days|donate|how Elder works/i);
+  }
 });

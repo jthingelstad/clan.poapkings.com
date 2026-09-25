@@ -20,8 +20,14 @@ import {
   req,
   signIn,
   cookieHeader,
+  ledgerWithPolicy,
 } from "./fakes.mjs";
-import { member, participation, NOW } from "../../engine/test/fixture.mjs";
+import {
+  member,
+  participation,
+  NOW,
+  EXAMPLE_POLICY,
+} from "../../engine/test/fixture.mjs";
 import { serverTiming, summarize, timedElixir } from "../src/trace.mjs";
 import { routeKey } from "../src/handler.mjs";
 
@@ -59,7 +65,11 @@ test("every request ends with one JSON line naming the route, the status, the ti
       if (name === "clans_participation") return { ok: true, body: part };
       return inner(token, name, args);
     });
-  const ledger = createMemoryLedger();
+  const ledger = ledgerWithPolicy(
+    createMemoryLedger(),
+    "#J2RGCRVG",
+    EXAMPLE_POLICY,
+  );
   const cap = capturing();
   const handler = createHandler({
     mcp,

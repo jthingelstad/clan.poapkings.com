@@ -371,11 +371,18 @@ export function createHandler({
     );
     if (feedback && person)
       body.feedback_unseen = await feedback.unseen(person).catch(() => 0);
-    // The rail's Inbox count, for a leader: what is waiting, no evaluation.
-    if (manage && selected && ["leader", "coLeader"].includes(selected.role))
-      body.open_cards = await manage
-        .openCardCount(selected.clan_tag)
-        .catch(() => 0);
+    // Which pages the selected clan's policy turns on (nothing in clan
+    // management exists until a leader saves one), and the rail's Inbox
+    // count for a leader: what is waiting, no evaluation.
+    if (manage && selected) {
+      body.policy = await manage
+        .policySummary(selected.clan_tag)
+        .catch(() => null);
+      if (["leader", "coLeader"].includes(selected.role))
+        body.open_cards = await manage
+          .openCardCount(selected.clan_tag)
+          .catch(() => 0);
+    }
     return json(200, body);
   }
 
@@ -720,11 +727,13 @@ export function createHandler({
       if (method === "POST" && rest === "/scout") {
         if (!["leader", "coLeader", "elder"].includes(who.role))
           return json(403, { error: "elders_only" });
+        // Scout works before a clan has a policy: the applicant's own
+        // statistics, with nothing of the clan's to check them against.
         const policy = await manage.policyFor(tag);
         const r = await scout({
           token,
           tagInput: body.tag,
-          policy: policy.values,
+          policy: policy.set ? policy.values : null,
         });
         return json(r.ok ? 200 : r.status === 401 ? 401 : 400, r);
       }

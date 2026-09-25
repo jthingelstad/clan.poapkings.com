@@ -206,3 +206,30 @@ export function cookieHeader(sessionCookie) {
   const [k, v] = sessionCookie.split("=");
   return { [k]: v };
 }
+
+/**
+ * A memory ledger holding a saved policy for one clan, synchronously: the
+ * test harnesses are built without awaiting, and nothing in clan
+ * management runs until a clan has a policy.
+ */
+export function ledgerWithPolicy(ledger, clanTag, values, version = 1) {
+  const saved_at = "2026-09-01T00:00:00.000Z";
+  ledger.items.set(`policy#${clanTag}#v${version}`, {
+    pk: `policy#${clanTag}#v${version}`,
+    gsi1pk: `clan#${clanTag}`,
+    gsi1sk: `policy#v${String(version).padStart(6, "0")}`,
+    clan_tag: clanTag,
+    version,
+    values,
+    saved_by: "#TESTLEADER",
+    saved_by_name: "A leader",
+    saved_at,
+    note: null,
+  });
+  ledger.items.set(`policy#${clanTag}`, {
+    pk: `policy#${clanTag}`,
+    version,
+    saved_at,
+  });
+  return ledger;
+}

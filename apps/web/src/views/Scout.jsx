@@ -3,10 +3,17 @@ import { manageApi } from "../api.js";
 import { trackEvent } from "../analytics.js";
 
 /**
- * Scout an applicant: paste the tag from the game, read it live on your
- * own live lane, and see the policy answer (would they clear
- * Consideration today; their inactivity clock) beside the performance.
+ * Scout an applicant: paste the tag from the game, read it live, and see
+ * their statistics; once the clan has a policy, also whether they would
+ * meet its minimums today and where its inactivity clock would put them.
  */
+const MINIMUM_UNIT = {
+  war: "war decks",
+  ranked: "ranked battles",
+  donations: "donations",
+  trophies: "trophies",
+};
+
 export function Scout({ clan }) {
   const [tag, setTag] = useState("");
   const [state, setState] = useState({});
@@ -23,7 +30,7 @@ export function Scout({ clan }) {
       return setState({
         error:
           r.data?.code === "invalid_tag"
-            ? "That is not a player tag. Tags look like #20JJJ2CCRU."
+            ? "That is not a player tag. Tags look like #2PQ8VRJ9."
             : (r.data?.error ?? "Elixir did not answer."),
       });
     setState({ result: r.data });
@@ -137,27 +144,43 @@ export function Scout({ clan }) {
       ) : null}
       {r && !r.pending ? (
         <div className="panel">
-          <div className="panel__head">Policy answer, today</div>
+          <div className="panel__head">
+            {a ? "Against this clan's policy, today" : "Recent battles"}
+          </div>
           <div className="panel__body" style={{ display: "grid", gap: "8px" }}>
-            <div>
-              <span
-                className={`chip ${a.floor.passes ? "chip--ok" : "chip--warn"}`}
-              >
-                {a.floor.passes
-                  ? "clears the competitive floor"
-                  : "does not clear the floor"}
-              </span>{" "}
-              <span className="page-head__note">
-                {a.floor.war.decks} war decks (needs {a.floor.war.needed}) or{" "}
-                {a.floor.ranked.battles} ranked battles (needs{" "}
-                {a.floor.ranked.needed}) in the last {a.floor.window_weeks}{" "}
-                weeks
-                {a.floor.bounded_by_log
-                  ? "; the log covers less than the window, so this is a lower bound"
-                  : ""}
-              </span>
-            </div>
-            {a.inactivity ? (
+            {!a ? (
+              <div className="page-head__note">
+                This clan has no policy yet, so there is nothing of the
+                clan&rsquo;s to check an applicant against.
+              </div>
+            ) : a.minimums ? (
+              <div>
+                <span
+                  className={`chip ${a.minimums.passes ? "chip--ok" : "chip--warn"}`}
+                >
+                  {a.minimums.passes
+                    ? "meets the minimums"
+                    : "does not meet the minimums"}
+                </span>{" "}
+                <span className="page-head__note">
+                  {Object.entries(a.minimums.results)
+                    .map(
+                      ([c, x]) =>
+                        `${x.value ?? "unknown"} ${MINIMUM_UNIT[c]} (needs ${x.needed}${x.note ? `, ${x.note}` : ""})`,
+                    )
+                    .join(a.minimums.rule === "all" ? " and " : " or ")}
+                  {` in the last ${a.minimums.window_weeks} weeks`}
+                  {a.minimums.bounded_by_log
+                    ? "; the log covers less than the window, so this is a lower bound"
+                    : ""}
+                </span>
+              </div>
+            ) : (
+              <div className="page-head__note">
+                This clan&rsquo;s policy sets no minimums.
+              </div>
+            )}
+            {a?.inactivity ? (
               <div>
                 <span
                   className={`chip ${a.inactivity.state === "active" ? "chip--ok" : a.inactivity.state === "watch" ? "chip--info" : "chip--warn"}`}
@@ -168,17 +191,21 @@ export function Scout({ clan }) {
                   {a.inactivity.days_idle} days since the last recorded battle
                 </span>
               </div>
-            ) : (
+            ) : null}
+            {r.log.battles === 0 ? (
               <div className="page-head__note">No battle in the log yet.</div>
+            ) : (
+              <div className="page-head__note">
+                Last {r.log.battles} battles: {r.log.wins} W / {r.log.losses} L
+                {r.log.win_rate != null
+                  ? ` (${Math.round(r.log.win_rate * 100)}%)`
+                  : ""}
+                {r.log.oldest ? ` since ${r.log.oldest.slice(0, 10)}` : ""}
+              </div>
             )}
-            <div className="page-head__note">
-              Last {r.log.battles} battles: {r.log.wins} W / {r.log.losses} L
-              {r.log.win_rate != null
-                ? ` (${Math.round(r.log.win_rate * 100)}%)`
-                : ""}
-              {r.log.oldest ? ` since ${r.log.oldest.slice(0, 10)}` : ""}
-            </div>
-            <div className="page-head__note">{a.tenure_note}</div>
+            {a?.tenure_note ? (
+              <div className="page-head__note">{a.tenure_note}</div>
+            ) : null}
           </div>
         </div>
       ) : null}

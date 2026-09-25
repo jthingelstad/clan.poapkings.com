@@ -6,11 +6,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defaults } from "../src/policy.mjs";
 import { factsAt } from "../src/facts.mjs";
-import { member, participation, NOW } from "./fixture.mjs";
+import { member, participation, NOW, EXAMPLE_POLICY } from "./fixture.mjs";
 
-const policy = defaults();
+const policy = EXAMPLE_POLICY;
 
 /** Every regular week finished on war day 3. */
 function finishedOnDay3(members) {

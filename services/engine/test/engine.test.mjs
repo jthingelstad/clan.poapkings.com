@@ -4,7 +4,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defaults } from "../src/policy.mjs";
 import { factsAt } from "../src/facts.mjs";
 import { band, participationPercentile, scores } from "../src/standing.mjs";
 import {
@@ -13,9 +12,9 @@ import {
   replayMachines,
   reviewBoundaries,
 } from "../src/evaluate.mjs";
-import { member, participation, NOW } from "./fixture.mjs";
+import { member, participation, NOW, EXAMPLE_POLICY } from "./fixture.mjs";
 
-const policy = defaults();
+const policy = EXAMPLE_POLICY;
 const DAY = 86400_000;
 
 function bandNow(members, opts = {}) {
@@ -37,7 +36,7 @@ test("the war rate is decks played over decks asked for, capped at full", () => 
   assert.equal(facts.get("#HALF").war.rate, 0.5);
   assert.equal(
     facts.get("#FULL").war.decks_asked,
-    16 * policy.war_rate_window_weeks,
+    16 * policy.war_window_weeks,
   );
 });
 
@@ -53,9 +52,9 @@ test("non-participation scores zero, participants are ranked against each other"
   );
 });
 
-// ---- floors and scores -----------------------------------------------------
+// ---- minimums and scores ---------------------------------------------------
 
-test("war floor and scores: a war player out-scores a war-absent donor", () => {
+test("war minimum and scores: a war player out-scores a war-absent donor", () => {
   const w = member("#W", {
     war: [12, 12, 12, 12, 12, 0],
     donations: [300, 300, 300, 300, 300, 0],
@@ -65,14 +64,14 @@ test("war floor and scores: a war player out-scores a war-absent donor", () => {
     donations: [900, 900, 900, 900, 900, 0],
   });
   const { facts, rows } = bandNow([w, n]);
-  assert.equal(facts.get("#W").floor.passes_war, true);
-  assert.equal(facts.get("#N").floor.passes_war, false);
-  assert.ok(rows.get("#W").war_rate > 0);
-  assert.equal(rows.get("#N").war_rate, 0);
+  assert.equal(facts.get("#W").minimums.met.war, true);
+  assert.equal(facts.get("#N").minimums.met.war, false);
+  assert.ok(rows.get("#W").values.war > 0);
+  assert.equal(rows.get("#N").values.war, 0);
   assert.ok(rows.get("#W").score > rows.get("#N").score);
 });
 
-test("the ranked floor is participation, not the league reached", () => {
+test("the ranked minimum is participation, not the league reached", () => {
   const plays = member("#PLAYS", {
     war: [0, 0, 0, 0, 0, 0],
     ranked: [0, 0, 0, 0, 8, 0],
@@ -82,11 +81,11 @@ test("the ranked floor is participation, not the league reached", () => {
     ranked: [0, 0, 0, 0, 0, 0],
   });
   const { facts } = bandNow([plays, idle]);
-  assert.equal(facts.get("#PLAYS").floor.passes_ranked, true);
-  assert.equal(facts.get("#IDLE").floor.passes_ranked, false);
+  assert.equal(facts.get("#PLAYS").minimums.met.ranked, true);
+  assert.equal(facts.get("#IDLE").minimums.met.ranked, false);
 });
 
-test("competitive: war primary, ranked muted, doing both wins, never saturates", () => {
+test("the Elder score is the weighted mix of what the clan counts, and never saturates", () => {
   const filler = Array.from({ length: 6 }, (_, i) =>
     member(`#F${i}`, {
       war: [1, 1, 1, 1, 1, 0],
@@ -103,11 +102,88 @@ test("competitive: war primary, ranked muted, doing both wins, never saturates",
     war: [0, 0, 0, 0, 0, 0],
     ranked: [10, 10, 10, 10, 10, 0],
   });
-  const { rows } = bandNow([...filler, wardog, waronly, both, rkonly]);
-  assert.ok(rows.get("#BOTH").competitive > rows.get("#WARONLY").competitive);
-  assert.ok(rows.get("#RKONLY").competitive < rows.get("#WARDOG").competitive);
-  assert.ok(rows.get("#RKONLY").competitive > 0);
-  for (const r of rows.values()) assert.ok(r.competitive <= 1);
+  const everyone = [...filler, wardog, waronly, both, rkonly];
+  const { rows } = bandNow(everyone);
+  assert.ok(rows.get("#BOTH").score > rows.get("#WARONLY").score);
+  assert.ok(rows.get("#RKONLY").score < rows.get("#WARDOG").score);
+  assert.ok(rows.get("#RKONLY").score > 0);
+  for (const r of rows.values()) assert.ok(r.score >= 0 && r.score <= 1);
+  // The same roster under a clan that ranks on ranked play alone.
+  const rankedOnly = bandNow(everyone, {
+    war_enabled: false,
+    donations_enabled: false,
+    elder_weight_war: 0,
+    elder_weight_donations: 0,
+    elder_weight_ranked: 1,
+  }).rows;
+  assert.ok(rankedOnly.get("#RKONLY").score > rankedOnly.get("#WARDOG").score);
+  assert.deepEqual(Object.keys(rankedOnly.get("#RKONLY").pct), ["ranked"]);
+  assert.equal(rankedOnly.get("#WARDOG").score, 0);
+});
+
+test("weights are relative: 55/15/30 and 11/3/6 rank a roster the same", () => {
+  const roster = [
+    member("#A", {
+      war: [16, 16, 16, 16, 16, 0],
+      donations: [50, 50, 50, 50, 50, 0],
+    }),
+    member("#B", { war: [4, 4, 4, 4, 4, 0], ranked: [9, 9, 9, 9, 9, 0] }),
+    member("#C", {
+      war: [0, 0, 0, 0, 0, 0],
+      donations: [900, 900, 900, 900, 900, 0],
+    }),
+  ];
+  const a = bandNow(roster).rows;
+  const b = bandNow(roster, {
+    elder_weight_war: 11,
+    elder_weight_ranked: 3,
+    elder_weight_donations: 6,
+  }).rows;
+  for (const tag of ["#A", "#B", "#C"])
+    assert.equal(a.get(tag).score.toFixed(10), b.get(tag).score.toFixed(10));
+});
+
+test("trophy road counts today's trophies from the roster, and a missing count is unknown", () => {
+  const p = participation([member("#HIGH"), member("#LOW"), member("#GONE")]);
+  const pol = {
+    ...policy,
+    trophies_enabled: true,
+    trophies_min: 8000,
+    minimums_rule: "all",
+    war_min_decks: 0,
+    ranked_min_battles: 0,
+    elder_weight_trophies: 50,
+  };
+  const trophies = new Map([
+    ["#HIGH", 9100],
+    ["#LOW", 6200],
+  ]);
+  const facts = new Map(
+    factsAt(p, pol, NOW, { trophies }).map((f) => [f.player_tag, f]),
+  );
+  assert.equal(facts.get("#HIGH").minimums.met.trophies, true);
+  assert.equal(facts.get("#LOW").minimums.met.trophies, false);
+  assert.equal(facts.get("#GONE").minimums.met.trophies, null);
+  assert.equal(facts.get("#GONE").minimums.unknown, true);
+  const rows = scores([...facts.values()], pol);
+  assert.ok(rows.get("#HIGH").pct.trophies > rows.get("#LOW").pct.trophies);
+});
+
+test("minimums: any one of them, or all of them; none set means everyone meets them", () => {
+  const warOnly = member("#WAR", { ranked: [0, 0, 0, 0, 0, 0] });
+  const p = participation([warOnly]);
+  const any = factsAt(p, policy, NOW)[0].minimums;
+  assert.equal(any.passes, true);
+  const all = factsAt(p, { ...policy, minimums_rule: "all" }, NOW)[0].minimums;
+  assert.equal(all.passes, false);
+  assert.equal(all.unknown, false, "a known miss under all is a miss");
+  const none = factsAt(
+    p,
+    { ...policy, war_min_decks: 0, ranked_min_battles: 0 },
+    NOW,
+  )[0].minimums;
+  assert.deepEqual(none.set, {});
+  assert.equal(none.passes, true);
 });
 
 test("an elder who plays ranked is not abandoned; one who plays nothing is", () => {
@@ -635,7 +711,7 @@ test("reconcile: raise for actionable verdicts without an open card, withdraw op
 
 // ---- readiness ---------------------------------------------------------------
 
-test("readiness fails closed: unknown tenure, no war record, switched-off dimensions", () => {
+test("readiness fails closed: unknown tenure, no war record, Elder by hand, removal off", () => {
   const p = participation([member("#A", { tenureKnown: false }), member("#B")]);
   const v = evaluate({ participation: p, policy, now: NOW });
   assert.equal(
@@ -654,13 +730,67 @@ test("readiness fails closed: unknown tenure, no war record, switched-off dimens
     participation: p,
     policy: {
       ...policy,
-      elder_management_enabled: false,
+      elder_mode: "manual",
       removal_enabled: false,
     },
     now: NOW,
   });
   assert.equal(off.members[1].judgment.promotion, "off");
   assert.equal(off.members[1].judgment.removal, "off");
+  assert.equal(off.band, null, "no band when leaders choose Elders by hand");
+  assert.equal(off.boundaries.length, 0);
+  assert.equal(off.members[1].standing, null);
+  assert.deepEqual(off.members[1].actionable, {
+    promotion: false,
+    demotion: false,
+    removal: false,
+  });
+});
+
+test("a clan that does not count Clan Wars is reviewed at the end of each whole week", () => {
+  const noWarClan = {
+    ...policy,
+    war_enabled: false,
+    elder_weight_war: 0,
+    war_min_decks: 0,
+  };
+  const p = participation([member("#B")], { war_weeks: [] });
+  const v = evaluate({ participation: p, policy: noWarClan, now: NOW });
+  // Five whole ISO weeks closed before NOW; the sixth is partial.
+  assert.equal(v.boundaries.length, 5);
+  assert.equal(v.boundaries.at(-1), "2026-09-07T00:00:00.000Z");
+  assert.equal(v.members[0].judgment.promotion, "ready");
+  assert.equal(
+    v.members[0].judgment.promotion,
+    evaluate({ participation: p, policy: noWarClan, now: NOW }).members[0]
+      .judgment.promotion,
+  );
+});
+
+test("Elders can be carded for inactivity when the policy says so; leadership never is", () => {
+  const others = Array.from({ length: 10 }, (_, i) => member(`#O${i}`));
+  const elder = member("#E", {
+    role: "elder",
+    lastBattleDaysAgo: 20,
+    war: [0, 0, 0, 0, 0, 0],
+  });
+  const co = member("#C", {
+    role: "coLeader",
+    lastBattleDaysAgo: 20,
+    war: [0, 0, 0, 0, 0, 0],
+  });
+  const p = participation([...others, elder, co]);
+  const find = (v, tag) => v.members.find((m) => m.player_tag === tag);
+  const shielded = evaluate({ participation: p, policy, now: NOW });
+  assert.equal(find(shielded, "#E").removal.shielded, "role");
+  const included = evaluate({
+    participation: p,
+    policy: { ...policy, removal_includes_elders: true },
+    now: NOW,
+  });
+  assert.equal(find(included, "#E").removal.state, "recommended");
+  assert.equal(find(included, "#E").actionable.removal, true);
+  assert.equal(find(included, "#C").removal.shielded, "role");
 });
 
 test("review boundaries are the observed war-week finishes before now, newest last", () => {
@@ -670,7 +800,7 @@ test("review boundaries are the observed war-week finishes before now, newest la
   assert.deepEqual(b, ["2026-08-24", "2026-08-31", "2026-09-07"]);
 });
 
-test("the war floor counts decks in the window; an unrecorded log never passes the ranked floor", () => {
+test("the war minimum counts decks in the window; an unrecorded log never passes the ranked minimum", () => {
   const two = member("#TWO", { war: [2, 2, 2, 2, 2, 2] });
   const unrecorded = {
     ...member("#UNREC", {
@@ -682,11 +812,15 @@ test("the war floor counts decks in the window; an unrecorded log never passes t
   const facts = factsAt(participation([two, unrecorded]), policy, NOW);
   const a = facts.find((f) => f.player_tag === "#TWO");
   const b = facts.find((f) => f.player_tag === "#UNREC");
-  assert.equal(a.floor.war_decks, policy.floor_window_weeks * 2);
-  assert.equal(a.floor.passes_war, true);
-  assert.equal(a.floor.log_recorded, true, "absent = recorded (an older door)");
-  assert.equal(b.floor.log_recorded, false);
-  assert.equal(b.floor.passes_ranked, false);
+  assert.equal(a.minimums.war_decks, policy.minimums_window_weeks * 2);
+  assert.equal(a.minimums.met.war, true);
+  assert.equal(
+    a.minimums.log_recorded,
+    true,
+    "absent = recorded (an older door)",
+  );
+  assert.equal(b.minimums.log_recorded, false);
+  assert.equal(b.minimums.met.ranked, null);
 });
 
 test("an unrecorded battle log holds every judgment that could card its constructed zeros", () => {

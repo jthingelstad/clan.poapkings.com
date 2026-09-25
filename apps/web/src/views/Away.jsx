@@ -4,12 +4,12 @@ import { keys, useInvalidate, useMyAway } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
 /**
- * Away: a member tells the clan they will be gone, on their own page.
- * elixir-bot took this in chat as a leader's `Hold:` memory; here the
- * member says it themselves (Jamie, 2026-09-12: "they could go there and
- * indicate they are away"). The clock pauses like a leader's hold, up to
- * the policy's cap; leaders see it on the board with the member's note
- * and can clear it; a leader's own hold is not the member's to move.
+ * Away: a member tells the clan they will be gone, on their own page
+ * (Jamie, 2026-09-12: "they could go there and indicate they are away"),
+ * when the clan's policy tracks inactivity and offers it. The clock pauses
+ * like a leader's hold, up to the policy's cap; leaders see it on the board
+ * with the member's note and can clear it; a leader's own hold is not the
+ * member's to move.
  */
 export function Away({ me }) {
   const clan = me?.selected ?? null;
@@ -51,7 +51,7 @@ export function Away({ me }) {
         until the day you name. Leaders see it beside your name.
         {state.allowed
           ? ` Up to ${state.max_days} days at a time.`
-          : " This clan has turned this off; tell a leader instead."}
+          : " This clan's policy does not offer it; tell a leader instead."}
       </p>
       {hold ? (
         <div className="panel">

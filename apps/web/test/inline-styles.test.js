@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
  * `style={{ marginLeft: "auto" }}` was), then lower the number here.
  * Dynamic values are the legitimate remainder.
  */
-const CEILING = 213;
+const CEILING = 207;
 
 const src = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

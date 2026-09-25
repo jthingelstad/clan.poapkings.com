@@ -1,12 +1,15 @@
 /**
- * Standing and the Elder band: elixir-bot's `_elder_scores` and
- * `_elder_band`, as a pure function of the facts at one instant.
+ * Standing and the Elder band, as a pure function of the facts at one
+ * instant. Each category the policy weights is turned into a
+ * participation percentile; the score is their weighted mix.
  *
  * Two populations, deliberately different. The band is a share of the
  * WHOLE active roster, leadership included. Rank, median and who can be
  * promoted run over the RANKED population (members + elders), because a
  * co-leader cannot be promoted to elder and should not dilute the median.
  */
+
+import { elderWeights } from "./policy.mjs";
 
 export const LEADERSHIP = new Set(["leader", "coLeader"]);
 
@@ -33,39 +36,48 @@ export function participationPercentile(value, values) {
   );
 }
 
-export function passesFloor(f) {
-  return f.floor.passes_war || f.floor.passes_ranked;
+/** Whether a member meets the policy's minimums (true with none set). */
+export function passesMinimums(f) {
+  return f.minimums.passes;
 }
+
+/** The value a category contributes, from a member's facts. */
+const METRIC = {
+  war: (f) => f.war.rate,
+  ranked: (f) => f.ranked.battles,
+  donations: (f) => f.donations.average ?? 0,
+  trophies: (f) => f.trophies.count ?? 0,
+};
 
 /** Score every ranked member. Returns a Map tag -> score row. */
 export function scores(facts, policy) {
+  const weights = elderWeights(policy);
   const ranked = facts.filter((f) => !LEADERSHIP.has(f.role));
   const rows = new Map();
   for (const f of ranked) {
+    const values = Object.fromEntries(
+      Object.keys(weights).map((c) => [c, METRIC[c](f)]),
+    );
     rows.set(f.player_tag, {
       player_tag: f.player_tag,
       name: f.name,
       role: f.role,
       tenure_days: f.tenure_days,
       tenure_known: f.tenure_known,
-      war_rate: f.war.rate,
-      ranked_battles: f.ranked.battles,
-      donations: f.donations.average ?? 0,
-      donations_known: f.donations.average !== null,
+      values,
     });
   }
-  const warVals = [...rows.values()].map((r) => r.war_rate);
-  const donVals = [...rows.values()].map((r) => r.donations);
-  const rkVals = [...rows.values()].map((r) => r.ranked_battles);
+  const all = [...rows.values()];
   for (const r of rows.values()) {
-    r.war_pct = participationPercentile(r.war_rate, warVals);
-    r.donation_pct = participationPercentile(r.donations, donVals);
-    r.ranked_pct = participationPercentile(r.ranked_battles, rkVals);
-    r.competitive =
-      r.war_pct + policy.ranked_weight * r.ranked_pct * (1 - r.war_pct);
-    r.score =
-      policy.war_weight * r.competitive +
-      policy.donation_weight * r.donation_pct;
+    r.pct = {};
+    r.score = 0;
+    for (const [c, w] of Object.entries(weights)) {
+      r.pct[c] = participationPercentile(
+        r.values[c],
+        all.map((x) => x.values[c]),
+      );
+      r.score += w * r.pct[c];
+    }
   }
   return rows;
 }
@@ -104,12 +116,12 @@ export function band(rows, factsByTag, rosterSize, policy) {
     return percentile(r.score, sorted) >= policy.worthiness_percentile;
   };
 
-  // Eligibility to HOLD elder: the competitive floor. To be promotable IN a
-  // member also needs known tenure at or above the minimum; an unknown
-  // tenure is never assumed.
+  // Eligibility to HOLD elder: the minimums. To be promotable IN a member
+  // also needs known tenure at or above the policy's; an unknown tenure is
+  // never assumed.
   const eligible = (r) => {
     const f = factsByTag.get(r.player_tag);
-    if (!f || !passesFloor(f)) return false;
+    if (!f || !passesMinimums(f)) return false;
     if (r.role === "elder") return true;
     return r.tenure_known && (r.tenure_days ?? 0) >= policy.tenure_min_days;
   };
@@ -121,7 +133,8 @@ export function band(rows, factsByTag, rosterSize, policy) {
   const abandoned = new Set(
     order
       .filter(
-        (r) => r.role === "elder" && !passesFloor(factsByTag.get(r.player_tag)),
+        (r) =>
+          r.role === "elder" && !passesMinimums(factsByTag.get(r.player_tag)),
       )
       .map((r) => r.player_tag),
   );

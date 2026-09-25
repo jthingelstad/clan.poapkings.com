@@ -161,8 +161,16 @@ describe("feedback", () => {
   });
 
   test("the rail offers Manage to leaders, Awards and Scout to elders, and neither to members", () => {
-    const keys = (role) =>
-      railItems({ ...me, selected: { ...me.selected, role } }).map(
+    const withPolicy = {
+      set: true,
+      version: 1,
+      ranks_elder: true,
+      removal: true,
+      away: true,
+      members_see_standing: true,
+    };
+    const keys = (role, policy = withPolicy) =>
+      railItems({ ...me, policy, selected: { ...me.selected, role } }).map(
         (r) => r.key,
       );
     expect(keys("leader")).toEqual([
@@ -197,6 +205,34 @@ describe("feedback", () => {
       "away",
       "feedback",
     ]);
+    // Before a leader saves a policy nothing in clan management exists:
+    // the roster, Recruit, Scout and the policy editor, and no Away.
+    const noPolicy = { set: false };
+    expect(keys("leader", noPolicy)).toEqual([
+      "clan",
+      "recruit",
+      "policy",
+      "scout",
+      "you",
+      "feedback",
+    ]);
+    expect(keys("elder", noPolicy)).toEqual([
+      "clan",
+      "recruit",
+      "scout",
+      "you",
+      "feedback",
+    ]);
+    expect(keys("member", noPolicy)).toEqual([
+      "clan",
+      "recruit",
+      "you",
+      "feedback",
+    ]);
+    // Away only when the policy offers it.
+    expect(keys("member", { ...withPolicy, away: false })).not.toContain(
+      "away",
+    );
     expect(railItems({ ...me, clans: [{}, {}] })[0].key).toBe("clans");
     expect(railKey("/clan/J2RGCRVG")).toBe("clan");
     expect(railKey("/clan/J2RGCRVG/manage")).toBe("inbox");

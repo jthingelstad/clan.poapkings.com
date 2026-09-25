@@ -1,33 +1,39 @@
 /**
  * verdicts = evaluate(record, policy, now, decisions)
  *
- * A pure function. elixir-bot kept weekly counters because its database
- * rolled forward; Elixir records, so "in the promotable set on three
- * separate weekly reviews" is computed here by replaying the band at
- * each past weekly boundary from history. Nothing is stored between runs
- * except decisions and holds, which are inputs.
+ * A pure function of a SAVED policy: the caller never evaluates a clan
+ * whose leaders have not set one. "In the promotable set on three weekly
+ * reviews" is computed by replaying the band at each past weekly boundary
+ * from the record. Nothing is stored between runs except decisions and
+ * holds, which are inputs.
  *
- * Weekly boundaries are the instants the record saw each war week finish
- * (the game's own Monday reset, observed), newest last; the current
- * instant is judged separately for the removal clock and the standing a
- * leader sees today.
+ * Weekly boundaries follow what the clan counts: when Clan Wars weighs in
+ * the Elder score, the instants the record saw each war week finish (the
+ * game's own Monday reset, observed); otherwise the ends of whole ISO
+ * weeks. The current instant is judged separately for the removal clock
+ * and the standing a leader sees today.
  */
 
 import { factsAt } from "./facts.mjs";
-import { band, scores, passesFloor, LEADERSHIP } from "./standing.mjs";
+import { band, scores, passesMinimums, LEADERSHIP } from "./standing.mjs";
+import { elderWeights, ranksElder } from "./policy.mjs";
 
-export const ELDER_PLUS = new Set(["elder", "coLeader", "leader"]);
 const DAY_MS = 86400_000;
 
 export const CARD_TYPES = ["promotion", "demotion", "removal"];
 
-/** The weekly review instants inside the record, oldest first. */
-export function reviewBoundaries(participation, now, limit) {
+/** The weekly review instants inside the record, oldest first: war-week
+ *  finishes when the policy weighs Clan Wars for Elder, else whole ISO
+ *  weeks' ends. */
+export function reviewBoundaries(participation, now, limit, policy = null) {
   const nowMs = now.getTime();
-  const finished = participation.war_weeks
-    .map((w) =>
-      w.finished_observed_at ? Date.parse(w.finished_observed_at) : null,
-    )
+  const byWar = policy === null || (elderWeights(policy).war ?? 0) > 0;
+  const instants = byWar
+    ? participation.war_weeks.map((w) =>
+        w.finished_observed_at ? Date.parse(w.finished_observed_at) : null,
+      )
+    : participation.weeks.map((w) => (w.to ? Date.parse(w.to) : null));
+  const finished = instants
     .filter((t) => t !== null && t <= nowMs)
     .sort((a, b) => a - b);
   return finished.slice(-limit).map((t) => new Date(t));
@@ -134,6 +140,8 @@ export function replayMachines(trail, policy) {
  * @param {Array}  [input.decisions] decided cards: { player_tag, type, status, decided_at, expires_at? }
  * @param {Array}  [input.holds] { player_tag, until|null }
  * @param {string} [input.policy_version]
+ * @param {Map<string, number|null>} [input.trophies] tag -> trophies today,
+ *   needed only when the policy counts trophy road
  */
 export function evaluate({
   participation,
@@ -142,21 +150,28 @@ export function evaluate({
   decisions = [],
   holds = [],
   policy_version = null,
+  trophies = null,
 }) {
   const nowMs = now.getTime();
   const rosterSize = participation.members.length;
   const holdByTag = new Map(holds.map((h) => [h.player_tag, h]));
+  const ranking = ranksElder(policy);
+  const weights = elderWeights(policy);
   const maxWeeks = Math.max(
     policy.promote_qualifying_weeks,
     policy.demote_outranked_weeks,
     policy.demote_abandoned_weeks,
   );
-  // Enough boundaries to see a reset (two misses) and a full qualifying run.
-  const boundaries = reviewBoundaries(participation, now, maxWeeks + 3);
+  // Enough boundaries to see a reset (two misses) and a full qualifying
+  // run; none at all when Elder is chosen by hand.
+  const boundaries = ranking
+    ? reviewBoundaries(participation, now, maxWeeks + 3, policy)
+    : [];
+  const extra = { trophies };
 
   // Replay the band at each boundary.
   const reviews = boundaries.map((at) => {
-    const facts = factsAt(participation, policy, at);
+    const facts = factsAt(participation, policy, at, extra);
     const byTag = new Map(facts.map((f) => [f.player_tag, f]));
     const rows = scores(facts, policy);
     const b = band(rows, byTag, rosterSize, policy);
@@ -164,10 +179,17 @@ export function evaluate({
   });
 
   // Today's facts and standing.
-  const factsNow = factsAt(participation, policy, now);
+  const factsNow = factsAt(participation, policy, now, extra);
   const byTagNow = new Map(factsNow.map((f) => [f.player_tag, f]));
-  const rowsNow = scores(factsNow, policy);
+  const rowsNow = ranking ? scores(factsNow, policy) : new Map();
   const bandNow = band(rowsNow, byTagNow, rosterSize, policy);
+  // What the record must be able to say for a member to be judged on
+  // Elder: every weighted category, and the minimums.
+  const evidenceGap = (facts) =>
+    ((weights.ranked ?? 0) > 0 && facts.minimums.log_recorded === false) ||
+    ((weights.war ?? 0) > 0 && facts.war.fidelity === "unknown") ||
+    ((weights.trophies ?? 0) > 0 && facts.trophies.count === null) ||
+    facts.minimums.unknown;
   const slack = Math.max(0, policy.roster_cap - rosterSize) / policy.roster_cap;
 
   const members = factsNow.map((f) => {
@@ -206,30 +228,26 @@ export function evaluate({
     const latestFacts = latest?.facts.get(tag) ?? f;
     const promotionJudgment = LEADERSHIP.has(f.role)
       ? "not_applicable"
-      : !policy.elder_management_enabled
+      : !ranking
         ? "off"
         : !f.tenure_known && f.role === "member"
           ? "unknown"
-          : latestFacts.floor.log_recorded === false ||
-              reviews.length === 0 ||
-              latestFacts.war.fidelity === "unknown"
+          : reviews.length === 0 || evidenceGap(latestFacts)
             ? "held"
             : "ready";
     const demotionJudgment =
       f.role !== "elder"
         ? "not_applicable"
-        : !policy.elder_management_enabled
+        : !ranking
           ? "off"
-          : latestFacts.floor.log_recorded === false ||
-              reviews.length === 0 ||
-              latestFacts.floor.war_fidelity === "unknown"
+          : reviews.length === 0 || evidenceGap(latestFacts)
             ? "held"
             : "ready";
 
     // ---- removal clock, at now ----
     let confirmDays = policy.confirm_days;
     let graceDays = 0;
-    if (slack > 0 && passesFloor(f)) {
+    if (slack > 0 && passesMinimums(f)) {
       graceDays = Math.round(policy.contribution_grace_max_days * slack);
       confirmDays += graceDays;
     }
@@ -242,17 +260,20 @@ export function evaluate({
     }
     let shielded = null;
     if (rState === "recommended") {
-      if (ELDER_PLUS.has(f.role)) shielded = "role";
+      if (
+        LEADERSHIP.has(f.role) ||
+        (f.role === "elder" && !policy.removal_includes_elders)
+      )
+        shielded = "role";
       else if (onHold) shielded = "hold";
       else if (!policy.removal_enabled) shielded = "policy";
       if (shielded) rState = "at_risk";
     }
-    const removalJudgment =
-      f.floor.log_recorded === false || f.days_idle === null
+    const removalJudgment = !policy.removal_enabled
+      ? "off"
+      : f.minimums.log_recorded === false || f.days_idle === null
         ? "held"
-        : !policy.removal_enabled
-          ? "off"
-          : "ready";
+        : "ready";
 
     // ---- cooldowns from decisions ----
     const cooldown = {
@@ -307,14 +328,16 @@ export function evaluate({
       standing: row
         ? {
             score: Number(row.score.toFixed(4)),
-            competitive: Number(row.competitive.toFixed(4)),
-            war_pct: Number(row.war_pct.toFixed(4)),
-            ranked_pct: Number(row.ranked_pct.toFixed(4)),
-            donation_pct: Number(row.donation_pct.toFixed(4)),
+            pct: Object.fromEntries(
+              Object.entries(row.pct).map(([c, p]) => [
+                c,
+                Number(p.toFixed(4)),
+              ]),
+            ),
             rank: bandNow.rank.get(tag) ?? null,
             eligible: bandNow.eligible.has(tag),
             worthy: bandNow.should_be.has(tag) || row.score >= bandNow.median,
-            passes_floor: passesFloor(f),
+            passes_minimums: passesMinimums(f),
             in_grow_line: bandNow.promotable.has(tag),
           }
         : null,
@@ -350,25 +373,30 @@ export function evaluate({
   return {
     evaluated_at: now.toISOString(),
     policy_version,
-    // The clan's name as clans_participation reported it, so a page with
-    // no session to ask (How Elder works here) can still say who.
     clan_name: participation.name ?? null,
     as_of: participation.meta?.as_of ?? null,
     freshness_seconds: participation.meta?.freshness_seconds ?? null,
     recording_active_since: participation.recording_active_since ?? null,
     first_roster_observed_at: participation.first_roster_observed_at ?? null,
     boundaries: boundaries.map((b) => b.toISOString()),
-    band: {
-      roster_size: rosterSize,
-      ranked_population: bandNow.ranked_population,
-      floor: bandNow.floor,
-      target: bandNow.target,
-      ceil: bandNow.ceil,
-      current_elders: bandNow.current_elders,
-      median: Number(bandNow.median.toFixed(4)),
+    roster: {
+      size: rosterSize,
       open_slots: Math.max(0, policy.roster_cap - rosterSize),
-      swaps: bandNow.swaps,
     },
+    // The Elder band, when this clan ranks Elder by participation.
+    band: ranking
+      ? {
+          roster_size: rosterSize,
+          ranked_population: bandNow.ranked_population,
+          floor: bandNow.floor,
+          target: bandNow.target,
+          ceil: bandNow.ceil,
+          current_elders: bandNow.current_elders,
+          median: Number(bandNow.median.toFixed(4)),
+          open_slots: Math.max(0, policy.roster_cap - rosterSize),
+          swaps: bandNow.swaps,
+        }
+      : null,
     members,
   };
 }

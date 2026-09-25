@@ -1,6 +1,8 @@
+import { validate } from "../src/policy.mjs";
+
 /**
- * A clans_participation answer, built to the tool's shape (captured live
- * 2026-09-12 from POAP KINGS; values here are invented). Six ISO weeks
+ * A clans_participation answer, built to the tool's shape (values here
+ * are invented). Six ISO weeks
  * ending in the partial week of NOW, and six closed war weeks whose
  * finishes are the weekly review boundaries, plus the week in progress.
  */
@@ -102,3 +104,42 @@ export function participation(members, extra = {}) {
     ...extra,
   };
 }
+
+/**
+ * A saved policy for an example clan that counts Clan Wars, ranked play
+ * and donations, ranks Elder on a weighted mix of them, tracks inactivity
+ * and asks about departures. The engine never runs without a saved policy;
+ * this is the one most tests judge under.
+ */
+export const EXAMPLE_POLICY = validate({
+  war_enabled: true,
+  war_window_weeks: 4,
+  ranked_enabled: true,
+  ranked_window_weeks: 4,
+  donations_enabled: true,
+  donations_window_weeks: 4,
+  minimums_window_weeks: 2,
+  war_min_decks: 1,
+  ranked_min_battles: 5,
+  minimums_rule: "any",
+  elder_mode: "categories",
+  elder_weight_war: 55,
+  elder_weight_ranked: 15,
+  elder_weight_donations: 30,
+  tenure_min_days: 28,
+  band_floor_share: 0.2,
+  band_ceiling_share: 0.3,
+  worthiness_percentile: 0.5,
+  promote_qualifying_weeks: 3,
+  swap_margin: 0.05,
+  demote_abandoned_weeks: 2,
+  demote_outranked_weeks: 3,
+  removal_enabled: true,
+  watch_days: 3,
+  at_risk_days: 5,
+  confirm_days: 3,
+  contribution_grace_max_days: 4,
+  roster_cap: 50,
+  away_max_days: 30,
+  departures_enabled: true,
+}).values;

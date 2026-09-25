@@ -3,6 +3,10 @@
  * card lifecycle, holds, notes, policy versions, standing, scouting. Pure
  * engine in, ledger and Elixir out. Every function takes the caller's
  * resolved context (`who`: their verified tag and role in this clan).
+ *
+ * Nothing here runs for a clan until a leader or co-leader has saved its
+ * policy (Jamie, 2026-09-25): every management call refuses with
+ * `409 no_policy` before then, and the policy editor is the one way in.
  */
 
 import {
@@ -11,14 +15,15 @@ import {
   cardFacts,
   cardRationale,
   defaults,
-  fromLegacy,
   departuresFrom,
+  describePolicy,
   inGameCopy,
   judgmentReasons,
   diff as policyDiff,
   evaluate,
   nextSteps,
   participationPhrase,
+  ranksElder,
   reconcileCards,
   standingForMembers,
   validate,
@@ -100,19 +105,22 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     if (!isLeader(who)) throw new ManageError(403, "leaders_only");
   };
 
+  /** The clan's saved policy, or the starting values with `set: false`
+   *  (a draft for the editor, never something to judge by). */
   async function policyFor(clanTag) {
     const current = await ledger.currentPolicy(clanTag);
     if (current)
       return {
-        // A version saved before decks replaced days reads through the
-        // legacy mapping; a field added since takes its default.
-        values: { ...defaults(), ...fromLegacy(current.values) },
+        set: true,
+        // A field added since the version was saved takes its starting value.
+        values: { ...defaults(), ...current.values },
         version: current.version,
         saved_at: current.saved_at,
         saved_by: current.saved_by,
         saved_by_name: current.saved_by_name ?? null,
       };
     return {
+      set: false,
       values: defaults(),
       version: 0,
       saved_at: null,
@@ -120,6 +128,21 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       saved_by_name: null,
     };
   }
+
+  /** The saved policy, or `409 no_policy`: no management without one. */
+  async function requirePolicy(clanTag) {
+    const policy = await policyFor(clanTag);
+    if (!policy.set) throw new ManageError(409, "no_policy");
+    return policy;
+  }
+
+  /** Tag -> trophies today, when the policy counts trophy road. */
+  const trophiesFrom = (roster) =>
+    roster
+      ? new Map(
+          (roster.members ?? []).map((m) => [m.player_tag, m.trophies ?? null]),
+        )
+      : null;
 
   /** Tag -> name from what the ledger already holds: the latest verdict
    *  snapshot (everyone evaluated), every card that named its member or
@@ -152,7 +175,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     participation = null,
   }) {
     const t = now();
-    const policy = await policyFor(clanTag);
+    const policy = await requirePolicy(clanTag);
     const cached = await ledger.latestVerdicts(clanTag);
     if (
       !force &&
@@ -165,6 +188,14 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
 
     const part =
       participation ?? (await fetchParticipation(mcp, token, clanTag));
+    // The roster carries today's trophies and the join/leave events; read
+    // only when the policy needs one of them.
+    const needsRoster =
+      policy.values.trophies_enabled || policy.values.departures_enabled;
+    const roster =
+      !participation && needsRoster
+        ? await fetchRoster(mcp, token, clanTag)
+        : null;
     const cards = await ledger.cards(clanTag);
     const decisions = cards
       .filter((c) => c.status === "done" || c.status === "declined")
@@ -190,6 +221,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       decisions,
       holds,
       policy_version: policy.version,
+      trophies: policy.values.trophies_enabled ? trophiesFrom(roster) : null,
     });
     // Reconcile cards against the fresh verdicts.
     const open = cards.filter((c) => c.status === "proposed");
@@ -218,8 +250,8 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           as_of: verdicts.as_of,
           freshness_seconds: verdicts.freshness_seconds,
           facts: cardFacts(verdict, policy.values),
-          rationale: cardRationale(type, verdict, policy.values, verdicts.band),
-          phrase: participationPhrase(verdict),
+          rationale: cardRationale(type, verdict, policy.values, verdicts),
+          phrase: participationPhrase(verdict, policy.values),
           days_idle: verdict.removal.days_idle,
           standing: verdict.standing,
         },
@@ -268,11 +300,22 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     }
     // Departures the record shows and this ledger has not explained (a
     // removal card marked Done explains its own): one card each, Kicked /
-    // Left / Ignore for a leader to say. The roster read is the source
-    // of the events; the previous snapshot lends the member's last line.
+    // Left / Ignore for a leader to say, when the policy asks for them.
+    // The roster read is the source of the events; the previous snapshot
+    // lends the member's last line. Switched off, open ones are withdrawn.
+    if (!policy.values.departures_enabled) {
+      for (const c of cards.filter(
+        (c) => c.type === "departure" && c.status === "proposed",
+      ))
+        await ledger.putCard(clanTag, {
+          ...c,
+          status: "withdrawn",
+          withdrawn_at: new Date(t).toISOString(),
+          withdraw_reason: "The policy no longer asks about departures.",
+        });
+    }
     if (!participation) {
-      const roster = await fetchRoster(mcp, token, clanTag);
-      if (roster) {
+      if (roster && policy.values.departures_enabled) {
         const lastKnown = new Map(
           (cached?.members ?? []).map((m) => [m.player_tag, m]),
         );
@@ -317,7 +360,9 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
                 d.last?.facts?.days_idle ?? d.last?.removal?.days_idle ?? null,
               tenure_days: d.last?.facts?.tenure_days ?? null,
               removal_state: d.last?.removal?.state ?? null,
-              phrase: d.last ? participationPhrase(d.last) : null,
+              phrase: d.last
+                ? participationPhrase(d.last, policy.values)
+                : null,
             },
           });
         }
@@ -358,9 +403,28 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
 
     /** Open cards, for the rail's count: a ledger read, no evaluation. */
     async openCardCount(clanTag) {
+      if (!(await policyFor(clanTag)).set) return 0;
       return (await ledger.cards(clanTag)).filter(
         (c) => c.status === "proposed",
       ).length;
+    },
+
+    /** What the chrome needs to know about the clan's policy: whether one
+     *  is set, and the switches that decide which pages exist. */
+    async policySummary(clanTag) {
+      const policy = await policyFor(clanTag);
+      return {
+        set: policy.set,
+        version: policy.version,
+        ranks_elder: policy.set && ranksElder(policy.values),
+        removal: policy.set && policy.values.removal_enabled,
+        away:
+          policy.set &&
+          policy.values.removal_enabled &&
+          policy.values.away_max_days > 0,
+        members_see_standing:
+          policy.set && policy.values.members_see_standing === true,
+      };
     },
 
     /** The policy editor's data: fields with help, groups, current values, versions. */
@@ -370,6 +434,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       const names = await knownNames(clanTag);
       return {
         can_edit: isLeader(who),
+        set: policy.set,
         current: {
           ...policy,
           saved_by_name:
@@ -397,7 +462,8 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         throw Object.assign(new ManageError(400, "invalid_policy"), {
           errors: checked.errors,
         });
-      const before = (await policyFor(clanTag)).values;
+      const prior = await policyFor(clanTag);
+      const before = prior.set ? prior.values : {};
       const saved = await ledger.savePolicy(clanTag, {
         values: checked.values,
         by: who.player_tag,
@@ -425,6 +491,10 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           r.status === 401 ? "session_expired" : "elixir_unavailable",
         );
       const current = await policyFor(clanTag);
+      const roster =
+        checked.values.trophies_enabled || current.values.trophies_enabled
+          ? await fetchRoster(mcp, token, clanTag)
+          : null;
       const at = new Date(now());
       const under = (values, version) => {
         const v = evaluate({
@@ -432,6 +502,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           policy: values,
           now: at,
           policy_version: version,
+          trophies: values.trophies_enabled ? trophiesFrom(roster) : null,
         });
         return {
           band: v.band,
@@ -453,9 +524,10 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         };
       };
       return {
-        current: under(current.values, current.version),
+        // Before the first save there is nothing current to compare with.
+        current: current.set ? under(current.values, current.version) : null,
         draft: under(checked.values, "draft"),
-        changes: policyDiff(current.values, checked.values),
+        changes: policyDiff(current.set ? current.values : {}, checked.values),
       };
     },
 
@@ -490,18 +562,18 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         name: m.name,
         role: m.role,
         judgment: m.judgment,
-        judgment_reasons: judgmentReasons(m, verdicts.boundaries),
+        judgment_reasons: judgmentReasons(
+          m,
+          verdicts.boundaries,
+          policy.values,
+        ),
         promotion: m.promotion,
         demotion: m.demotion,
         removal: m.removal,
         standing: m.standing,
         hold: holdByTag.get(m.player_tag) ?? null,
-        phrase: participationPhrase(m),
+        phrase: participationPhrase(m, policy.values),
         facts: {
-          war_rate: m.facts.war.rate,
-          war_fidelity: m.facts.war.fidelity,
-          ranked_battles: m.facts.ranked.battles,
-          donations: m.facts.donations.average,
           days_idle: m.facts.days_idle,
           tenure_days: m.facts.tenure_days,
           tenure_known: m.facts.tenure_known,
@@ -518,7 +590,13 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         recording_active_since: verdicts.recording_active_since,
         boundaries: verdicts.boundaries,
         policy_version: policy.version,
+        policy: {
+          ranks_elder: ranksElder(policy.values),
+          removal: policy.values.removal_enabled,
+          departures: policy.values.departures_enabled,
+        },
         band: verdicts.band,
+        roster: verdicts.roster ?? null,
         inbox,
         board,
         decline_reasons: DECLINE_REASONS,
@@ -527,6 +605,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
 
     async history(clanTag, who, token = null) {
       requireLeader(who);
+      await requirePolicy(clanTag);
       const allCards = await ledger.cards(clanTag);
       const cards = allCards
         .filter((c) => c.status !== "proposed")
@@ -614,6 +693,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       { status, reason = null, note = null, classification = null },
     ) {
       requireLeader(who);
+      await requirePolicy(clanTag);
       const card = await ledger.card(clanTag, cardId);
       if (!card) throw new ManageError(404, "no_card");
       // A decided card is frozen; a withdrawn card cannot be resurrected.
@@ -661,6 +741,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     // ---- holds -----------------------------------------------------------
     async setHold(clanTag, who, playerTag, { until = null, note = null }) {
       requireLeader(who);
+      await requirePolicy(clanTag);
       if (until && Number.isNaN(Date.parse(until)))
         throw new ManageError(400, "bad_until");
       return ledger.putHold(clanTag, {
@@ -675,6 +756,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     },
     async clearHold(clanTag, who, playerTag) {
       requireLeader(who);
+      await requirePolicy(clanTag);
       await ledger.removeHold(clanTag, playerTag);
     },
 
@@ -685,9 +767,13 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       const holds = await ledger.holds(clanTag);
       const mine = holds.find((h) => h.player_tag === who.player_tag) ?? null;
       const policy = await policyFor(clanTag);
+      const allowed =
+        policy.set &&
+        policy.values.removal_enabled &&
+        policy.values.away_max_days > 0;
       return {
-        allowed: policy.values.away_max_days > 0,
-        max_days: policy.values.away_max_days,
+        allowed,
+        max_days: allowed ? policy.values.away_max_days : 0,
         hold: mine
           ? {
               ...mine,
@@ -702,7 +788,8 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     async setAway(clanTag, who, { until, note = null }) {
       const policy = await policyFor(clanTag);
       const max = policy.values.away_max_days;
-      if (!(max > 0)) throw new ManageError(403, "away_off");
+      if (!policy.set || !policy.values.removal_enabled || !(max > 0))
+        throw new ManageError(403, "away_off");
       const untilMs = Date.parse(String(until ?? ""));
       const t = now();
       if (Number.isNaN(untilMs) || untilMs <= t)
@@ -738,6 +825,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     // write leader notes and read both --------------------------------------
     async notesFor(clanTag, who, playerTag) {
       if (!ELDER_PLUS.has(who.role)) throw new ManageError(403, "elders_only");
+      await requirePolicy(clanTag);
       const all = await ledger.notes(clanTag, playerTag);
       return all
         .filter((n) => n.tier === "elder" || isLeader(who))
@@ -745,6 +833,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     },
     async addNote(clanTag, who, playerTag, text) {
       if (!ELDER_PLUS.has(who.role)) throw new ManageError(403, "elders_only");
+      await requirePolicy(clanTag);
       const body = String(text ?? "").trim();
       if (!body || body.length > 2000) throw new ManageError(400, "bad_note");
       return ledger.putNote(clanTag, {
@@ -767,32 +856,50 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     },
 
     // ---- standing for members; "you" ---------------------------------------
+    /**
+     * Every member of a clan with a policy sees how it runs, in their words
+     * (`how`), and their own line; the list of where everyone stands is
+     * there when Elder is ranked and the policy shows it to members (a
+     * leader always sees it). Nothing is evaluated that the policy does
+     * not use.
+     */
     async standing(clanTag, who, token) {
-      const policy = await policyFor(clanTag);
-      if (!policy.values.members_see_standing && !isLeader(who))
-        throw new ManageError(403, "standing_private");
-      if (!policy.values.elder_management_enabled)
-        return { enabled: false, rows: [], you: null };
+      const policy = await requirePolicy(clanTag);
+      const how = describePolicy(policy.values);
+      const ranked = ranksElder(policy.values);
+      if (!ranked && !policy.values.removal_enabled)
+        return {
+          policy_version: policy.version,
+          how,
+          ranks_elder: false,
+          rows: null,
+          you: null,
+        };
       const { verdicts } = await evaluateClan({ clanTag, token, who });
-      const rows = standingForMembers(verdicts);
+      const showRows =
+        ranked && (policy.values.members_see_standing || isLeader(who));
+      const rows = ranked ? standingForMembers(verdicts, policy.values) : [];
       const mine =
         verdicts.members.find((m) => m.player_tag === who.player_tag) ?? null;
       const holds = await ledger.holds(clanTag);
       const myHold = holds.find((h) => h.player_tag === who.player_tag) ?? null;
       return {
-        enabled: true,
+        policy_version: policy.version,
+        how,
+        ranks_elder: ranked,
         as_of: verdicts.as_of,
         freshness_seconds: verdicts.freshness_seconds,
-        rows,
+        rows: showRows ? rows : null,
         you: mine
           ? {
               status:
                 rows.find((r) => r.player_tag === who.player_tag)?.status ??
                 null,
-              evidence: participationPhrase(mine),
+              evidence: participationPhrase(mine, policy.values),
               next: nextSteps(mine, policy.values),
-              inactivity:
-                mine.removal.state === "none"
+              inactivity: !policy.values.removal_enabled
+                ? null
+                : mine.removal.state === "none"
                   ? null
                   : mine.removal.state === "recommended"
                     ? "at_risk"

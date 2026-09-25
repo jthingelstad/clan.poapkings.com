@@ -1,200 +1,360 @@
 /**
- * Policy: the constants of elixir-bot's engine/management.py as per-clan
- * configuration. Every field carries its label, unit, range, the POAP
- * KINGS default and a short WHY lifted from prompts/POLICY.md; that prose
- * is the help text in the editor and the only documentation of the rules.
+ * Policy: how one clan runs, as versioned configuration its leaders write.
+ * Nothing in clan management runs until a leader or co-leader has saved a
+ * policy (Jamie, 2026-09-25): before then there are no cards, no standing,
+ * no inactivity clock and no awards, only the roster and its statistics.
  *
- * Fields are grouped as the policy reads. A dimension (elder management,
- * removal) can be switched off; a clan that wants only inactivity cards
- * gets only inactivity cards. Windows are in whole weeks (the record is
- * read per ISO week and per war week), evaluated at week boundaries.
+ * A policy is built from CATEGORIES the clan chooses to count (Clan Wars,
+ * ranked play, donations, trophy road), each with its own settings. Elder
+ * is either chosen by the leaders by hand or ranked on a weighted mix of
+ * the counted categories; inactivity removal and departure questions are
+ * each switched on or off. Everything starts off: a leader turns on what
+ * the clan does. The field help is the documentation of the rules; it says
+ * what a setting does, never what a clan should believe.
+ *
+ * Fields are flat and grouped as the editor reads them. `when` makes a
+ * group or field apply only under other values: a list of clauses, any of
+ * which may match; a clause matches when every field in it has the value.
  */
 
-export const POLICY_SCHEMA_VERSION = 1;
+export const POLICY_SCHEMA_VERSION = 2;
+
+export const CATEGORIES = ["war", "ranked", "donations", "trophies"];
+
+export const CATEGORY_LABELS = {
+  war: "Clan Wars",
+  ranked: "Ranked play",
+  donations: "Donations",
+  trophies: "Trophy road",
+};
+
+const ANY_CATEGORY = CATEGORIES.map((c) => ({ [`${c}_enabled`]: true }));
+const RANKING = [{ elder_mode: "categories" }];
 
 export const GROUPS = [
   {
-    key: "consideration",
-    title: "Consideration",
-    why: "Two hard filters, both evaluated live. Tenure gates promotion in; a sitting Elder is never demoted over tenure. The competitive floor is war OR ranked, counted equally.",
+    key: "war",
+    title: "Clan Wars",
+    why: "War decks played in the River Race, from each war week's own deck count. A member is asked for four decks a war day up to the clan's finish, and all four days in Colosseum; decks played after the finish count and are never asked for.",
   },
   {
-    key: "standing",
-    title: "Standing",
-    why: "Every member and Elder is ranked against the others (leaders and co-leaders excluded) on three participation metrics, each turned into a percentile. Nothing about account power counts.",
+    key: "ranked",
+    title: "Ranked play",
+    why: "Ranked battles played, counted per week. Only games played count, not the league reached.",
+  },
+  {
+    key: "donations",
+    title: "Donations",
+    why: "Cards donated, from the game's weekly counter, averaged over whole weeks.",
+  },
+  {
+    key: "trophies",
+    title: "Trophy road",
+    why: "Each member's trophies today, from the latest roster read.",
+  },
+  {
+    key: "minimums",
+    title: "Minimums",
+    why: "The least a member does to count as taking part in what the clan counts. Meeting them is needed to be promoted and to keep Elder, and it earns inactivity grace. Only minimums above zero apply; with none set, everyone meets them.",
+    when: ANY_CATEGORY,
+  },
+  {
+    key: "elder",
+    title: "Elder",
+    why: "How this clan chooses its Elders.",
   },
   {
     key: "band",
-    title: "Elder band",
-    why: "Elders should be a share of the whole active roster, leadership included. Ceiling is hard; target is the aim; floor is a drift limit, not a quota. Growth is gated on worthiness at the median.",
+    title: "How many Elders",
+    why: "Elders as a share of the whole roster, leadership included. Nobody is promoted just to reach the lower share, and growth stops at the upper one.",
+    when: RANKING,
   },
   {
     key: "promotion",
     title: "Promotion",
-    why: "Sustained, never a snapshot: in the promotable set on several weekly reviews. One miss is tolerated; two in a row resets the clock. A swap needs a clear margin, and inside the margin tenure decides.",
+    why: "Sustained, never a snapshot: a member is in the promotable set on several weekly reviews before a card is raised. One missed review is tolerated; two in a row start the count again.",
+    when: RANKING,
   },
   {
     key: "demotion",
     title: "Demotion",
-    why: "A negative action needs sustained evidence, never a small rank movement. Two reasons, two cadences: abandoned the floor (fast) or outranked past the ceiling (matches the challenger's cadence so the swap lands together).",
+    why: "Sustained evidence, never a small rank movement, with two reasons: missing the minimums, or being outranked when a higher-ranked member takes the seat.",
+    when: RANKING,
   },
   {
     key: "removal",
-    title: "Removal",
-    why: "Inactivity and absence, measured from battles played and never from logins. A flat clock; trophies buy no rope, newcomers get no shield. The only leeway is contribution grace, which shrinks as the roster fills.",
+    title: "Inactivity and removal",
+    why: "Measured from battles played, never from logins, and counted from the later of the last battle and the join.",
   },
   {
-    key: "renomination",
-    title: "Re-nomination",
-    why: "Declining a card is the only 'not now'. The engine re-nominates on sustained evidence after a cooldown, not on a leader-set clock.",
+    key: "departures",
+    title: "Departures",
+    why: "A leave and a kick look the same in the roster. Leaders can be asked which it was, so the clan's history says.",
   },
   {
-    key: "transparency",
-    title: "Transparency",
-    why: "The clan is told why, in terms a player can act on: who holds Elder, who is rising, who is slipping, each with their own participation evidence. Never internal scores, percentiles, rank positions or the slot count.",
+    key: "cards",
+    title: "Cards",
+    why: "How the cards leaders decide behave after a decision.",
+    when: [{ elder_mode: "categories" }, { removal_enabled: true }],
+  },
+  {
+    key: "members",
+    title: "What members see",
+    why: "Every member sees how this clan runs. This decides whether they also see where each member stands.",
+    when: RANKING,
   },
 ];
 
-/** @type {Record<string, {group:string,label:string,unit:string,type:"integer"|"number"|"boolean",min?:number,max?:number,default:any,why:string}>} */
+const weightWhy =
+  "Weights are relative: 60, 20 and 20 mean three fifths, one fifth and one fifth of the Elder score. Zero leaves the category out of it.";
+
+/** @type {Record<string, {group:string,label:string,unit:string,type:"integer"|"number"|"boolean"|"enum",min?:number,max?:number,options?:Array<{value:string,label:string}>,default:any,why:string,when?:Array<Record<string, any>>}>} */
 export const FIELDS = {
-  elder_management_enabled: {
-    group: "consideration",
-    label: "Elder management",
+  // ---- categories -------------------------------------------------------
+  war_enabled: {
+    group: "war",
+    label: "Count Clan Wars",
     unit: "on/off",
     type: "boolean",
-    default: true,
-    why: "Turn off to raise no promotion or demotion cards and show no standing; removal keeps working on its own.",
+    default: false,
+    why: "Track war decks for this clan's minimums and Elder score.",
   },
-  tenure_min_days: {
-    group: "consideration",
-    label: "Minimum tenure to be considered",
-    unit: "days",
-    type: "integer",
-    min: 0,
-    max: 365,
-    default: 28,
-    why: "Time served does not earn Elder; it gates consideration and breaks close calls. A member whose join predates the record has an unknown tenure and is held, not assumed.",
-  },
-  floor_window_weeks: {
-    group: "consideration",
-    label: "Competitive floor window",
-    unit: "weeks",
-    type: "integer",
-    min: 1,
-    max: 8,
-    default: 2,
-    why: "The window the floor looks back over (default 14 days). War and ranked count equally here.",
-  },
-  floor_war_decks: {
-    group: "consideration",
-    label: "War decks played",
-    unit: "decks in the window",
-    type: "integer",
-    min: 0,
-    max: 64,
-    default: 1,
-    why: "At least this many war decks played in finished war weeks clears the floor on its own.",
-  },
-  floor_ranked_battles: {
-    group: "consideration",
-    label: "Ranked battles",
-    unit: "battles in the window",
-    type: "integer",
-    min: 0,
-    max: 200,
-    default: 5,
-    why: "At least this many ranked battles clears the floor on its own. Participation, not the league reached: every input is in the player's control.",
-  },
-  war_rate_window_weeks: {
-    group: "standing",
+  war_window_weeks: {
+    group: "war",
     label: "War rate window",
     unit: "war weeks",
     type: "integer",
     min: 1,
     max: 8,
     default: 4,
-    why: "War decks played over war decks asked for, across these war weeks (default 28 days): four a war day up to the boat's finish, so 16 a week, or 12 when the boat finished on day 3. Decks played after the finish count too and are never asked for.",
+    why: "War decks played over war decks asked for, across the last this-many finished war weeks.",
+    when: [{ war_enabled: true }],
+  },
+  ranked_enabled: {
+    group: "ranked",
+    label: "Count ranked play",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "Track ranked battles for this clan's minimums and Elder score.",
   },
   ranked_window_weeks: {
-    group: "standing",
-    label: "Ranked battles window",
+    group: "ranked",
+    label: "Ranked window",
     unit: "weeks",
     type: "integer",
     min: 1,
     max: 8,
     default: 4,
-    why: "How many ranked battles were played in this window; the league reached never counts.",
+    why: "Ranked battles played over the last this-many whole weeks.",
+    when: [{ ranked_enabled: true }],
   },
-  donation_window_weeks: {
-    group: "standing",
-    label: "Donation average window",
+  donations_enabled: {
+    group: "donations",
+    label: "Count donations",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "Track donations for this clan's minimums and Elder score.",
+  },
+  donations_window_weeks: {
+    group: "donations",
+    label: "Donation window",
     unit: "weeks",
     type: "integer",
     min: 1,
     max: 8,
     default: 4,
-    why: "The trailing average of the weekly donation counter, not a single week's snapshot; one week swings on the reset.",
+    why: "The weekly average over the last this-many whole weeks; a single week swings on the reset.",
+    when: [{ donations_enabled: true }],
   },
-  war_weight: {
-    group: "standing",
-    label: "War weight",
-    unit: "share of the score",
-    type: "number",
+  trophies_enabled: {
+    group: "trophies",
+    label: "Count trophy road",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "Track trophies for this clan's minimums and Elder score.",
+  },
+
+  // ---- minimums ---------------------------------------------------------
+  minimums_window_weeks: {
+    group: "minimums",
+    label: "Minimums window",
+    unit: "weeks",
+    type: "integer",
+    min: 1,
+    max: 8,
+    default: 2,
+    why: "War decks and ranked battles are counted over this many weeks for the minimums; donations are the weekly average over it.",
+    when: ANY_CATEGORY,
+  },
+  war_min_decks: {
+    group: "minimums",
+    label: "War decks played",
+    unit: "decks in the window",
+    type: "integer",
     min: 0,
-    max: 1,
-    default: 0.65,
-    why: "score = war_weight x competitive + donation_weight x donation%. War is the primary path because it is direct clan contribution.",
+    max: 64,
+    default: 0,
+    why: "Zero sets no war minimum.",
+    when: [{ war_enabled: true }],
   },
-  donation_weight: {
-    group: "standing",
-    label: "Donation weight",
-    unit: "share of the score",
-    type: "number",
+  ranked_min_battles: {
+    group: "minimums",
+    label: "Ranked battles",
+    unit: "battles in the window",
+    type: "integer",
     min: 0,
-    max: 1,
-    default: 0.35,
-    why: "Donations are the lighter half: lead by example, not the main route. War weight and donation weight must sum to 1.",
+    max: 200,
+    default: 0,
+    why: "Zero sets no ranked minimum.",
+    when: [{ ranked_enabled: true }],
   },
-  ranked_weight: {
-    group: "standing",
-    label: "Ranked weight",
-    unit: "share of the gap war leaves",
-    type: "number",
+  donations_min_weekly: {
+    group: "minimums",
+    label: "Donations",
+    unit: "cards a week, on average",
+    type: "integer",
     min: 0,
-    max: 1,
-    default: 0.4,
-    why: "competitive = war% + ranked_weight x ranked% x (1 - war%). Ranked only represents the clan, so it fills part of the gap war leaves rather than substituting for it; doing both is rewarded.",
+    max: 5000,
+    default: 0,
+    why: "Zero sets no donation minimum.",
+    when: [{ donations_enabled: true }],
   },
+  trophies_min: {
+    group: "minimums",
+    label: "Trophies",
+    unit: "trophies",
+    type: "integer",
+    min: 0,
+    max: 20000,
+    default: 0,
+    why: "Zero sets no trophy minimum.",
+    when: [{ trophies_enabled: true }],
+  },
+  minimums_rule: {
+    group: "minimums",
+    label: "A member meets the minimums by meeting",
+    unit: "rule",
+    type: "enum",
+    options: [
+      { value: "any", label: "any one of them" },
+      { value: "all", label: "all of them" },
+    ],
+    default: "any",
+    why: "Only the minimums set above zero take part.",
+    when: ANY_CATEGORY,
+  },
+
+  // ---- elder --------------------------------------------------------------
+  elder_mode: {
+    group: "elder",
+    label: "Elders are chosen",
+    unit: "mode",
+    type: "enum",
+    options: [
+      { value: "manual", label: "by the leaders, by hand" },
+      {
+        value: "categories",
+        label: "by participation in what the clan counts",
+      },
+    ],
+    default: "manual",
+    why: "By hand, the app raises no promotion or demotion cards. By participation, members are ranked on the weighted categories below and leaders decide the cards that follow.",
+  },
+  elder_weight_war: {
+    group: "elder",
+    label: "Clan Wars weight",
+    unit: "share",
+    type: "integer",
+    min: 0,
+    max: 100,
+    default: 0,
+    why: weightWhy,
+    when: [{ elder_mode: "categories", war_enabled: true }],
+  },
+  elder_weight_ranked: {
+    group: "elder",
+    label: "Ranked play weight",
+    unit: "share",
+    type: "integer",
+    min: 0,
+    max: 100,
+    default: 0,
+    why: weightWhy,
+    when: [{ elder_mode: "categories", ranked_enabled: true }],
+  },
+  elder_weight_donations: {
+    group: "elder",
+    label: "Donations weight",
+    unit: "share",
+    type: "integer",
+    min: 0,
+    max: 100,
+    default: 0,
+    why: weightWhy,
+    when: [{ elder_mode: "categories", donations_enabled: true }],
+  },
+  elder_weight_trophies: {
+    group: "elder",
+    label: "Trophy road weight",
+    unit: "share",
+    type: "integer",
+    min: 0,
+    max: 100,
+    default: 0,
+    why: weightWhy,
+    when: [{ elder_mode: "categories", trophies_enabled: true }],
+  },
+  tenure_min_days: {
+    group: "elder",
+    label: "Days in the clan before promotion",
+    unit: "days",
+    type: "integer",
+    min: 0,
+    max: 365,
+    default: 14,
+    why: "Time in the clan gates promotion and breaks close calls; it never earns Elder on its own. A member whose join predates the record has an unknown tenure and is held, not assumed.",
+    when: RANKING,
+  },
+
+  // ---- band -----------------------------------------------------------------
   band_floor_share: {
     group: "band",
-    label: "Elder floor",
+    label: "Lower share",
     unit: "share of the roster",
     type: "number",
     min: 0,
     max: 1,
     default: 0.2,
-    why: "A drift limit, not a quota. Nothing force-promotes to reach it; a clan without enough worthy members simply carries fewer Elders.",
+    why: "A drift limit, not a quota: nothing is promoted to reach it.",
+    when: RANKING,
   },
   band_ceiling_share: {
     group: "band",
-    label: "Elder ceiling",
+    label: "Upper share",
     unit: "share of the roster",
     type: "number",
     min: 0,
     max: 1,
     default: 0.3,
-    why: "Hard. Growth stops there, and only past it is anyone demoted for the count alone. The target is the midpoint.",
+    why: "Growth stops here; past it, the lowest-ranked Elder is outranked. The target is the midpoint. 1 sets no upper limit.",
+    when: RANKING,
   },
   worthiness_percentile: {
     group: "band",
-    label: "Worthiness floor",
+    label: "Promotion floor",
     unit: "percentile",
     type: "number",
     min: 0,
     max: 1,
     default: 0.5,
-    why: "A member must score at or above this point of the ranked roster (0.5 = the median) to be promoted at all. Promoting a below-average member to hit a number is exactly what the target must not cause.",
+    why: "A member must score at or above this point of the ranked roster (0.5 is the median) to be promoted at all.",
+    when: RANKING,
   },
+
+  // ---- promotion / demotion ---------------------------------------------------
   promote_qualifying_weeks: {
     group: "promotion",
     label: "Qualifying weekly reviews",
@@ -203,7 +363,8 @@ export const FIELDS = {
     min: 1,
     max: 8,
     default: 3,
-    why: "In the promotable set on this many weekly reviews before a card is raised. One miss is tolerated; two in a row resets the clock.",
+    why: "In the promotable set on this many weekly reviews before a card is raised.",
+    when: RANKING,
   },
   swap_margin: {
     group: "promotion",
@@ -213,45 +374,51 @@ export const FIELDS = {
     min: 0,
     max: 0.5,
     default: 0.05,
-    why: "A challenger must out-score the boundary Elder by this much to take the seat. Inside the margin it is a close call and tenure decides it; tenure never manufactures a promotion.",
+    why: "A challenger must outscore the lowest Elder by this much to take the seat when the band is full. Inside the margin, the longer tenure decides.",
+    when: RANKING,
   },
   demote_abandoned_weeks: {
     group: "demotion",
-    label: "Abandoned: weeks",
+    label: "Missed the minimums: reviews",
     unit: "reviews",
     type: "integer",
     min: 1,
     max: 8,
     default: 2,
-    why: "An Elder who fails both halves of the floor has abandoned the duty; this cadence is deliberately faster than promotion.",
+    why: "An Elder who misses the minimums on this many weekly reviews in a row.",
+    when: RANKING,
   },
   demote_outranked_weeks: {
     group: "demotion",
-    label: "Outranked: weeks",
+    label: "Outranked: reviews",
     unit: "reviews",
     type: "integer",
     min: 1,
     max: 8,
     default: 3,
-    why: "Fell outside the ceiling and a higher-ranked member took the seat. Matches the challenger's promotion cadence so the swap lands together and the count never dips mid-swap.",
+    why: "An Elder outside the upper share while a higher-ranked member takes the seat. Matching the promotion count lets the swap land together.",
+    when: RANKING,
   },
+
+  // ---- removal ------------------------------------------------------------------
   removal_enabled: {
     group: "removal",
-    label: "Removal",
+    label: "Raise removal cards",
     unit: "on/off",
     type: "boolean",
-    default: true,
-    why: "Turn off to raise no removal cards; the inactivity clock is still shown to leaders.",
+    default: false,
+    why: "Track inactivity and raise a removal card for leaders to decide.",
   },
   watch_days: {
     group: "removal",
-    label: "Watch",
+    label: "Getting quiet",
     unit: "battle-free days",
     type: "integer",
     min: 1,
     max: 60,
     default: 3,
-    why: "The 'getting quiet' line: shown on the board, never a card.",
+    why: "Shown to leaders on the board; never a card.",
+    when: [{ removal_enabled: true }],
   },
   at_risk_days: {
     group: "removal",
@@ -260,38 +427,51 @@ export const FIELDS = {
     type: "integer",
     min: 1,
     max: 90,
-    default: 5,
-    why: "A flat clock from the last battle (or the join, for a member who has not battled since). Trophies buy no extra rope.",
+    default: 7,
+    why: "Counted from the last battle, or from the join for a member who has not battled since.",
+    when: [{ removal_enabled: true }],
   },
   confirm_days: {
     group: "removal",
-    label: "Confirm",
+    label: "Card after",
     unit: "more days",
     type: "integer",
     min: 0,
     max: 90,
-    default: 3,
-    why: "At risk plus this many days proposes a removal card (default day 8).",
+    default: 7,
+    why: "At risk plus this many days raises a removal card.",
+    when: [{ removal_enabled: true }],
   },
   contribution_grace_max_days: {
     group: "removal",
-    label: "Contribution grace",
+    label: "Grace for meeting the minimums",
     unit: "extra days at an empty roster",
     type: "integer",
     min: 0,
     max: 30,
-    default: 4,
-    why: "A member who currently clears the competitive floor earns up to this many extra confirm days, shrinking linearly as the roster fills and reaching zero when it is full. An idle seat only costs something when there is no slot to spare.",
+    default: 0,
+    why: "A member who meets the minimums earns up to this many extra days, shrinking as the roster fills and reaching zero when it is full. Zero turns grace off.",
+    when: [{ removal_enabled: true }],
   },
   roster_cap: {
     group: "removal",
-    label: "Roster cap",
+    label: "Roster size",
     unit: "members",
     type: "integer",
     min: 1,
     max: 50,
     default: 50,
-    why: "The game's clan size; open slots are the cap minus the active roster.",
+    why: "The clan's full size; open slots are this minus the roster. Grace uses it.",
+    when: [{ removal_enabled: true }],
+  },
+  removal_includes_elders: {
+    group: "removal",
+    label: "Elders can get removal cards",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "Off, an inactive Elder is shown at risk but never carded. Leaders and co-leaders are never carded.",
+    when: [{ removal_enabled: true }],
   },
   away_max_days: {
     group: "removal",
@@ -300,11 +480,24 @@ export const FIELDS = {
     type: "integer",
     min: 0,
     max: 90,
-    default: 30,
-    why: "A member who tells the clan they will be away pauses their own clock, up to this long (0 turns it off; leaders can always hold or clear). elixir-bot took this by chat; here the member says it on their own page.",
+    default: 0,
+    why: "A member who says they will be away pauses their own clock, up to this long. Zero turns it off; leaders can always hold or clear.",
+    when: [{ removal_enabled: true }],
   },
+
+  // ---- departures -------------------------------------------------------------
+  departures_enabled: {
+    group: "departures",
+    label: "Ask about departures",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "When a member leaves and no removal card explains it, leaders get a card: kicked, left, or ignore.",
+  },
+
+  // ---- cards ------------------------------------------------------------------------
   outcome_window_hours: {
-    group: "removal",
+    group: "cards",
     label: "Outcome window",
     unit: "hours",
     type: "integer",
@@ -312,74 +505,116 @@ export const FIELDS = {
     max: 168,
     default: 48,
     why: "After a card is marked Done, the record must show the change (role moved, membership closed) within this window or the card is flagged for a look.",
+    when: [{ elder_mode: "categories" }, { removal_enabled: true }],
   },
   renominate_removal_days: {
-    group: "renomination",
+    group: "cards",
     label: "After a declined removal",
     unit: "days",
     type: "integer",
     min: 0,
     max: 90,
     default: 7,
-    why: "A declined removal card re-nominates after this long if the member still qualifies.",
+    why: "A declined removal is raised again after this long if the member still qualifies.",
+    when: [{ removal_enabled: true }],
   },
   renominate_promotion_days: {
-    group: "renomination",
+    group: "cards",
     label: "After a declined promotion",
     unit: "days",
     type: "integer",
     min: 0,
     max: 90,
     default: 14,
-    why: "A declined promotion re-nominates on sustained evidence after this long.",
+    why: "A declined promotion is raised again after this long on sustained evidence.",
+    when: RANKING,
   },
   renominate_demotion_days: {
-    group: "renomination",
+    group: "cards",
     label: "After a declined demotion",
     unit: "days",
     type: "integer",
     min: 0,
     max: 90,
     default: 14,
-    why: "A declined demotion re-nominates on sustained evidence after this long.",
+    why: "A declined demotion is raised again after this long on sustained evidence.",
+    when: RANKING,
   },
+
+  // ---- members -------------------------------------------------------------------------
   members_see_standing: {
-    group: "transparency",
-    label: "Members may see standing",
+    group: "members",
+    label: "Members see where everyone stands",
     unit: "on/off",
     type: "boolean",
     default: true,
     why: "Who holds Elder, who is rising, who is slipping, each with their own evidence in a player's terms. Nobody below co-leader ever sees a removal card or who is on a clock.",
+    when: RANKING,
   },
 };
 
 export const FIELD_KEYS = Object.keys(FIELDS);
 
-/** A version saved before decks replaced days (Jamie 2026-09-24): N war
- *  days with a deck is at least N decks, so floor_war_days N reads as
- *  floor_war_decks N (never stricter); full_day_bonus no longer exists. */
-export function fromLegacy(values = {}) {
-  const { floor_war_days, full_day_bonus, ...rest } = values ?? {};
-  void full_day_bonus;
-  return floor_war_days !== undefined && rest.floor_war_decks === undefined
-    ? { ...rest, floor_war_decks: floor_war_days }
-    : rest;
+/** Whether a `when` applies under these values (no `when` always does). */
+export function applies(when, values) {
+  if (!when) return true;
+  return when.some((clause) =>
+    Object.entries(clause).every(([k, v]) => values?.[k] === v),
+  );
 }
 
+/** The starting values a new policy is drafted from: everything off. */
 export function defaults() {
   return Object.fromEntries(FIELD_KEYS.map((k) => [k, FIELDS[k].default]));
+}
+
+/** The categories this policy counts. */
+export function countedCategories(policy) {
+  return CATEGORIES.filter((c) => policy?.[`${c}_enabled`] === true);
+}
+
+/**
+ * The Elder score's weights, normalized to sum to 1, over the counted
+ * categories with a weight above zero; empty when Elder is chosen by hand.
+ */
+export function elderWeights(policy) {
+  if (policy?.elder_mode !== "categories") return {};
+  const raw = countedCategories(policy)
+    .map((c) => [c, Number(policy[`elder_weight_${c}`]) || 0])
+    .filter(([, w]) => w > 0);
+  const total = raw.reduce((s, [, w]) => s + w, 0);
+  return total > 0
+    ? Object.fromEntries(raw.map(([c, w]) => [c, w / total]))
+    : {};
+}
+
+/** Whether Elder is ranked by participation under this policy. */
+export const ranksElder = (policy) =>
+  Object.keys(elderWeights(policy)).length > 0;
+
+/** The minimums this policy sets: counted categories with a threshold above zero. */
+export function setMinimums(policy) {
+  const out = {};
+  if (policy?.war_enabled && policy.war_min_decks > 0)
+    out.war = policy.war_min_decks;
+  if (policy?.ranked_enabled && policy.ranked_min_battles > 0)
+    out.ranked = policy.ranked_min_battles;
+  if (policy?.donations_enabled && policy.donations_min_weekly > 0)
+    out.donations = policy.donations_min_weekly;
+  if (policy?.trophies_enabled && policy.trophies_min > 0)
+    out.trophies = policy.trophies_min;
+  return out;
 }
 
 /**
  * Validate a candidate policy. Returns { ok, values, errors } where errors
  * are sentences a leader would need, keyed by the field that owns them.
- * Unknown keys are refused; missing keys take the default.
+ * Unknown keys are refused; missing keys take the starting value.
  */
 export function validate(input = {}) {
   const errors = {};
   const values = defaults();
-  input = fromLegacy(input);
-  for (const key of Object.keys(input)) {
+  for (const key of Object.keys(input ?? {})) {
     if (!FIELDS[key]) {
       errors[key] = "This is not a policy field.";
       continue;
@@ -389,6 +624,12 @@ export function validate(input = {}) {
     if (f.type === "boolean") {
       if (typeof v !== "boolean") {
         errors[key] = `${f.label} is on or off.`;
+        continue;
+      }
+    } else if (f.type === "enum") {
+      if (!f.options.some((o) => o.value === v)) {
+        errors[key] =
+          `${f.label} is one of: ${f.options.map((o) => o.label).join(", ")}.`;
         continue;
       }
     } else {
@@ -410,16 +651,15 @@ export function validate(input = {}) {
     values[key] = v;
   }
   // Cross-field sense, in the leader's words.
+  if (values.elder_mode === "categories" && !ranksElder(values))
+    errors.elder_mode =
+      countedCategories(values).length === 0
+        ? "Ranking Elders by participation needs at least one category the clan counts."
+        : "Give at least one counted category a weight above zero.";
   if (values.band_ceiling_share < values.band_floor_share)
-    errors.band_ceiling_share = "The Elder ceiling cannot be below the floor.";
-  if (Math.abs(values.war_weight + values.donation_weight - 1) > 1e-9)
-    errors.donation_weight =
-      "War weight and donation weight must add up to 1 (for example 0.65 and 0.35).";
-  if (values.floor_war_decks === 0 && values.floor_ranked_battles === 0)
-    errors.floor_war_decks =
-      "With both floors at zero everyone clears the floor; set at least one.";
+    errors.band_ceiling_share = "The upper share cannot be below the lower.";
   if (values.at_risk_days < values.watch_days)
-    errors.at_risk_days = "At risk cannot come before Watch.";
+    errors.at_risk_days = "At risk cannot come before getting quiet.";
   return { ok: Object.keys(errors).length === 0, values, errors };
 }
 

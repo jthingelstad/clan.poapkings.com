@@ -66,7 +66,6 @@ export function Manage({ clan, tab, navigate, who }) {
   );
   // The rail carries the sections now (2026-09-12); nothing to repeat here.
   const tabs = null;
-  void navigate;
   if (tab === "policy")
     return (
       <>
@@ -100,6 +99,28 @@ export function Manage({ clan, tab, navigate, who }) {
         </div>
       </>
     );
+  if (state.error === "no_policy")
+    return (
+      <>
+        {head}
+        <div className="empty">
+          <div className="empty__title">No policy yet</div>
+          <p className="empty__body">
+            Nothing in clan management runs until a leader or co-leader sets
+            this clan&rsquo;s policy.{" "}
+            <a
+              href={`/clan/${clan.clan_tag.slice(1)}/manage/policy`}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(`/clan/${clan.clan_tag.slice(1)}/manage/policy`);
+              }}
+            >
+              Set up the policy
+            </a>
+          </p>
+        </div>
+      </>
+    );
   if (state.error)
     return (
       <>
@@ -128,7 +149,7 @@ export function Manage({ clan, tab, navigate, who }) {
       Judged {ago(d.evaluated_at)} under policy v{d.policy_version}
       {d.boundaries.length
         ? ` over ${d.boundaries.length} weekly reviews (last ${d.boundaries.at(-1).slice(0, 10)})`
-        : " with no closed war week on record yet"}
+        : " with no closed weekly review on record yet"}
       {d.recording_active_since
         ? ` · recording since ${d.recording_active_since.slice(0, 10)}`
         : ""}
@@ -167,7 +188,7 @@ export function Manage({ clan, tab, navigate, who }) {
         {head}
         {tabs}
         {evidenceLine}
-        <BandLine band={d.band} />
+        <BandLine band={d.band} roster={d.roster} />
         {["actionable", "building", "held", "clear"].map((bucket) => {
           const rows = d.board.filter((m) => m.bucket === bucket);
           if (!rows.length) return null;
@@ -182,8 +203,8 @@ export function Manage({ clan, tab, navigate, who }) {
                     <tr>
                       <th>Member</th>
                       <th>Role</th>
-                      <th>Elder</th>
-                      <th>Removal</th>
+                      {d.policy?.ranks_elder ? <th>Elder</th> : null}
+                      {d.policy?.removal ? <th>Removal</th> : null}
                       <th>Evidence</th>
                       <th>Judgment</th>
                     </tr>
@@ -226,8 +247,8 @@ export function Manage({ clan, tab, navigate, who }) {
                         <td>
                           <RoleChip role={m.role} label={m.role} />
                         </td>
-                        <td>{elderCell(m)}</td>
-                        <td>{removalCell(m)}</td>
+                        {d.policy?.ranks_elder ? <td>{elderCell(m)}</td> : null}
+                        {d.policy?.removal ? <td>{removalCell(m)}</td> : null}
                         <td style={{ whiteSpace: "normal", maxWidth: "320px" }}>
                           {m.phrase || <span className="nil">—</span>}
                         </td>
@@ -286,7 +307,14 @@ export function Manage({ clan, tab, navigate, who }) {
   );
 }
 
-function BandLine({ band }) {
+function BandLine({ band, roster }) {
+  if (!band)
+    return roster ? (
+      <p className="page-head__note mt-0 mb-4">
+        Roster {roster.size} ({roster.open_slots} open) · Elders are chosen by
+        the leaders
+      </p>
+    ) : null;
   return (
     <p className="page-head__note" style={{ margin: "0 0 16px" }}>
       Roster {band.roster_size} ({band.open_slots} open) · Elders{" "}
@@ -586,7 +614,7 @@ function Card({ card, clan, reasons, onDecided, who }) {
   );
 }
 
-/** Paste-ready in-game copy: the bot's relay without the bot. */
+/** Paste-ready in-game copy for clan chat. */
 function CopyLine({ text }) {
   const [done, setDone] = useState(false);
   return (

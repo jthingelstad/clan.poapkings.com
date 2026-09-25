@@ -9,9 +9,11 @@ const STATUS = {
   quiet: ["Quiet", ""],
 };
 
-/** Standing, for everyone in the clan when Transparency is on: who holds
- *  Elder, who is rising, who is slipping, each with their own evidence in
- *  a player's terms. Never a score, a rank, or the slot count. */
+/** Standing, for everyone in a clan with a policy: how the clan runs, in
+ *  a member's words and straight from its policy; your own line; and, when
+ *  Elder is ranked and the policy shares it, who holds Elder, who is rising
+ *  and who is slipping, each with their own evidence in a player's terms.
+ *  Never a score, a rank, or the slot count. */
 export function Standing({ clan, who }) {
   const standing = useStanding(clan.clan_tag);
   const env = standing.data;
@@ -19,14 +21,14 @@ export function Standing({ clan, who }) {
     ? standing.isError
       ? { error: true }
       : { loading: true }
-    : env.status === 403
-      ? { private: true }
+    : env.status === 409
+      ? { noPolicy: true }
       : !env.ok
         ? { error: true }
         : { data: env.data };
   const head = (
     <div className="page-head" style={{ alignItems: "center" }}>
-      <h1 className="page__title">Elder standing</h1>
+      <h1 className="page__title">Standing</h1>
       <span className="page-head__note">{clan.name ?? clan.clan_tag}</span>
       {state.data?.as_of ? (
         <Fresh
@@ -44,14 +46,14 @@ export function Standing({ clan, who }) {
         <p className="page__lede">Reading the record…</p>
       </>
     );
-  if (state.private)
+  if (state.noPolicy)
     return (
       <>
         {head}
         <div className="empty">
-          <div className="empty__title">Leaders keep standing private here</div>
+          <div className="empty__title">No policy yet</div>
           <p className="empty__body">
-            This clan's policy does not share standing with members.
+            This clan&rsquo;s leaders have not set up how the clan runs here.
           </p>
         </div>
       </>
@@ -66,24 +68,27 @@ export function Standing({ clan, who }) {
       </>
     );
   const d = state.data;
-  if (!d.enabled)
-    return (
-      <>
-        {head}
-        <div className="empty">
-          <div className="empty__title">Elder management is off here</div>
-          <p className="empty__body">
-            This clan does not run Elder on participation.
-          </p>
-        </div>
-      </>
-    );
   const groups = ["holding", "slipping", "rising", "participating", "quiet"]
-    .map((s) => [s, d.rows.filter((r) => r.status === s)])
+    .map((s) => [s, (d.rows ?? []).filter((r) => r.status === s)])
     .filter(([, rows]) => rows.length);
   return (
     <>
       {head}
+      <section className="panel mb-[18px]">
+        <div className="panel__head">How it works here</div>
+        <div className="panel__body grid gap-3">
+          {d.how.map((section) => (
+            <div key={section.key}>
+              <div className="label mb-1">{section.title}</div>
+              {section.lines.map((line) => (
+                <p key={line} className="mt-0 mb-1">
+                  {line}
+                </p>
+              ))}
+            </div>
+          ))}
+        </div>
+      </section>
       {d.you ? (
         <div className="panel" style={{ marginBottom: "18px" }}>
           <div className="panel__head">
@@ -104,8 +109,7 @@ export function Standing({ clan, who }) {
             {d.you.inactivity ? (
               <div className="callout callout--warn">
                 <span>
-                  You have not played in {Math.floor(d.you.days_idle)} days; the
-                  clan notices after {"a few"}.
+                  You have not played in {Math.floor(d.you.days_idle)} days.
                 </span>
               </div>
             ) : null}
@@ -154,11 +158,12 @@ export function Standing({ clan, who }) {
           </div>
         </section>
       ))}
-      <p className="page-head__note">
-        Outranked means someone participated more than you this week. Standing
-        is participation: war decks, ranked battles, donations. Nothing about
-        account power counts.
-      </p>
+      {groups.length ? (
+        <p className="page-head__note">
+          Standing is participation in what this clan counts, compared across
+          its members and Elders over the windows above.
+        </p>
+      ) : null}
     </>
   );
 }

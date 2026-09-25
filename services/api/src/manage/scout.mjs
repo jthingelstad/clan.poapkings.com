@@ -1,6 +1,8 @@
 /**
- * Scout an applicant: a tag pasted from the game, read live with the
- * leader's own live lane, judged against this clan's policy today.
+ * Scout an applicant: a tag pasted from the game, read live, and, once the
+ * clan has a policy, checked against the minimums and the inactivity clock
+ * it sets. Before a policy exists Scout still shows the applicant's
+ * statistics; it just has nothing of the clan's to check them against.
  *
  * Two live reads: players_profile (trophies, Path of Legends, years played,
  * war-day wins, donations) and battles_query (the last log). Both are
@@ -9,6 +11,7 @@
  * asks again. Facts from Elixir; the policy answer is this app's.
  */
 
+import { ranksElder, setMinimums } from "@elixir-clan/engine";
 import { normalizeTag } from "../gate.mjs";
 
 const DAY_MS = 86400_000;
@@ -22,12 +25,7 @@ function badge(profile, name) {
 }
 
 export function createScout({ mcp, now = () => Date.now() }) {
-  return async function scout({
-    token,
-    tagInput,
-    policy,
-    clanMedianDonations = null,
-  }) {
+  return async function scout({ token, tagInput, policy = null }) {
     const tag = normalizeTag(tagInput);
     if (!tag) return { ok: false, code: "invalid_tag" };
     const profile = await mcp.callTool(token, "players_profile", {
@@ -69,8 +67,9 @@ export function createScout({ mcp, now = () => Date.now() }) {
     const p = profile.ok ? profile.body : null;
     const battles =
       log.ok && Array.isArray(log.body?.battles) ? log.body.battles : [];
-    // Windows over the last log: the floor window and the removal clock.
-    const floorFrom = t - policy.floor_window_weeks * 7 * DAY_MS;
+    // Windows over the last log: the minimums window and the removal clock.
+    const windowWeeks = policy?.minimums_window_weeks ?? 2;
+    const floorFrom = t - windowWeeks * 7 * DAY_MS;
     const inFloor = battles.filter(
       (b) => Date.parse(b.battle_time) >= floorFrom,
     );
@@ -98,11 +97,6 @@ export function createScout({ mcp, now = () => Date.now() }) {
     const daysIdle = last ? Number(((t - last) / DAY_MS).toFixed(2)) : null;
     const wins = battles.filter((b) => b.me?.outcome === "win").length;
     const losses = battles.filter((b) => b.me?.outcome === "loss").length;
-    const passesWar =
-      policy.floor_war_decks > 0 && warDecks >= policy.floor_war_decks;
-    const passesRanked =
-      policy.floor_ranked_battles > 0 &&
-      rankedInFloor >= policy.floor_ranked_battles;
     const oldest =
       battles.map((b) => Date.parse(b.battle_time)).sort((a, b) => a - b)[0] ??
       null;
@@ -149,45 +143,80 @@ export function createScout({ mcp, now = () => Date.now() }) {
         covers_window: logCoversFloor,
         as_of: log.ok ? (log.body?.meta?.as_of ?? null) : null,
       },
-      policy_answer: {
-        floor: {
-          passes: passesWar || passesRanked,
-          war: {
-            decks: warDecks,
-            needed: policy.floor_war_decks,
-            passes: passesWar,
-          },
-          ranked: {
-            battles: rankedInFloor,
-            needed: policy.floor_ranked_battles,
-            passes: passesRanked,
-          },
-          window_weeks: policy.floor_window_weeks,
-          bounded_by_log: !logCoversFloor,
-        },
-        inactivity:
-          daysIdle === null
-            ? null
-            : {
-                days_idle: daysIdle,
-                state:
-                  daysIdle >= policy.at_risk_days + policy.confirm_days
-                    ? "would_be_recommended"
-                    : daysIdle >= policy.at_risk_days
-                      ? "at_risk"
-                      : daysIdle >= policy.watch_days
-                        ? "watch"
-                        : "active",
-              },
-        donations:
-          p && clanMedianDonations !== null
-            ? {
-                this_week: p.snapshot?.donations_this_week ?? null,
-                clan_median_weekly: clanMedianDonations,
-              }
-            : null,
-        tenure_note: `Elder consideration needs ${policy.tenure_min_days} days in the clan; a new member starts at zero.`,
-      },
+      policy_answer: policy
+        ? policyAnswer({
+            policy,
+            profile: p,
+            warDecks,
+            rankedInFloor,
+            daysIdle,
+            boundedByLog: !logCoversFloor,
+          })
+        : null,
     };
+  };
+}
+
+/** The applicant against this clan's policy: each minimum it sets, the
+ *  inactivity clock when it tracks one, and the tenure Elder needs. */
+function policyAnswer({
+  policy,
+  profile,
+  warDecks,
+  rankedInFloor,
+  daysIdle,
+  boundedByLog,
+}) {
+  const set = setMinimums(policy);
+  const check = (value, needed) => ({
+    value,
+    needed,
+    passes: value === null || value === undefined ? null : value >= needed,
+  });
+  const results = {};
+  if (set.war !== undefined) results.war = check(warDecks, set.war);
+  if (set.ranked !== undefined)
+    results.ranked = check(rankedInFloor, set.ranked);
+  if (set.donations !== undefined)
+    results.donations = {
+      ...check(profile?.snapshot?.donations_this_week ?? null, set.donations),
+      note: "this week so far",
+    };
+  if (set.trophies !== undefined)
+    results.trophies = check(profile?.snapshot?.trophies ?? null, set.trophies);
+  const verdicts = Object.values(results).map((r) => r.passes);
+  const passes =
+    verdicts.length === 0
+      ? null
+      : policy.minimums_rule === "all"
+        ? verdicts.every((v) => v === true)
+        : verdicts.some((v) => v === true);
+  return {
+    minimums: verdicts.length
+      ? {
+          rule: policy.minimums_rule,
+          window_weeks: policy.minimums_window_weeks,
+          results,
+          passes,
+          bounded_by_log: boundedByLog,
+        }
+      : null,
+    inactivity:
+      policy.removal_enabled && daysIdle !== null
+        ? {
+            days_idle: daysIdle,
+            state:
+              daysIdle >= policy.at_risk_days + policy.confirm_days
+                ? "would_be_recommended"
+                : daysIdle >= policy.at_risk_days
+                  ? "at_risk"
+                  : daysIdle >= policy.watch_days
+                    ? "watch"
+                    : "active",
+          }
+        : null,
+    tenure_note: ranksElder(policy)
+      ? `Elder consideration needs ${policy.tenure_min_days} days in the clan; a new member starts at zero.`
+      : null,
   };
 }
