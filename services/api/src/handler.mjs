@@ -666,9 +666,9 @@ export function createHandler({
       if (rest === "/me/away") {
         if (method === "GET") return json(200, await manage.myAway(tag, who));
         if (method === "PUT")
-          return json(200, await manage.setAway(tag, who, body));
+          return json(200, await manage.setAway(tag, who, body, token));
         if (method === "DELETE") {
-          await manage.clearAway(tag, who);
+          await manage.clearAway(tag, who, token);
           return json(200, { ok: true });
         }
       }
@@ -699,7 +699,14 @@ export function createHandler({
         );
       const decide = /^\/actions\/([A-Za-z0-9_-]+)\/decide$/.exec(rest);
       if (method === "POST" && decide)
-        return json(200, await manage.decide(tag, who, decide[1], body));
+        return json(200, await manage.decide(tag, who, decide[1], body, token));
+      // What the clan shares with Elixir (door 3): leaders' switches.
+      if (rest === "/sharing") {
+        if (method === "GET")
+          return json(200, await manage.sharingView(tag, who));
+        if (method === "PUT")
+          return json(200, await manage.saveSharing(tag, who, body.values));
+      }
       const comment = /^\/actions\/([A-Za-z0-9_-]+)\/comments$/.exec(rest);
       if (method === "POST" && comment)
         return json(200, await manage.comment(tag, who, comment[1], body.text));

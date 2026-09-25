@@ -27,6 +27,8 @@ const KIND = {
   outcome_verified: "Confirmed by the record",
   outcome_flagged: "Flagged: no change seen",
   comment: "Comment",
+  shared: "Shared with Elixir",
+  not_shared: "Not shared with Elixir",
 };
 const CLASSIFIED = {
   member_kicked: "said: kicked",
@@ -140,10 +142,20 @@ function MessageField({ label, value, onChange, max, rows = 1 }) {
 }
 
 /** A Clan Leader Message ready to send in the game: a title and a message,
- *  each within the game's limit, edited before copying. */
-export function LeaderMessage({ message }) {
-  const [title, setTitle] = useState(message?.title ?? "");
-  const [body, setBody] = useState(message?.body ?? "");
+ *  each within the game's limit, edited before copying. The card holds
+ *  the words (`value`/`onChange`) so completing the action can say what
+ *  was sent; on its own it keeps them itself. */
+export function LeaderMessage({ message, value = null, onChange = null }) {
+  const [own, setOwn] = useState({
+    title: message?.title ?? "",
+    body: message?.body ?? "",
+  });
+  const words = value ?? own;
+  const change = onChange ?? setOwn;
+  const title = words.title;
+  const body = words.body;
+  const setTitle = (t) => change({ ...words, title: t });
+  const setBody = (b) => change({ ...words, body: b });
   return (
     <div className="grid gap-2 rounded-lg border border-[var(--line-soft)] bg-[var(--ground-sunken)] p-2.5">
       <div className="page-head__note">
@@ -283,6 +295,12 @@ export function ActionCard({
   const open = action.status === "proposed";
   const mine = action.audience?.kind === "member";
   const ev = action.evidence ?? {};
+  // The words as the person edits them, sent with a completion so what
+  // the clan shares with Elixir is what was said in the game.
+  const [words, setWords] = useState({
+    title: action.message?.title ?? "",
+    body: action.message?.body ?? "",
+  });
   const decide = async (status, extra = {}) => {
     setBusy(true);
     setError("");
@@ -291,6 +309,11 @@ export function ActionCard({
       reason:
         status === "declined" && LEADER_TYPES.has(action.type) ? reason : null,
       note: note || null,
+      ...(status === "done" && action.message
+        ? { sent: { title: words.title, body: words.body } }
+        : status === "done" && action.copy && action.type === "welcome"
+          ? { sent: { line: action.copy } }
+          : {}),
       ...extra,
     });
     setBusy(false);
@@ -395,7 +418,11 @@ export function ActionCard({
         ) : null}
         {action.copy && open ? <CopyLine text={action.copy} /> : null}
         {action.message && open ? (
-          <LeaderMessage message={action.message} />
+          <LeaderMessage
+            message={action.message}
+            value={words}
+            onChange={setWords}
+          />
         ) : null}
         {LEADER_TYPES.has(action.type) && ev.facts?.length ? (
           <ul className="m-0 pl-[18px] text-[13.5px] text-[var(--ink-body)]">

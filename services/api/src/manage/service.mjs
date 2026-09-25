@@ -49,6 +49,7 @@ import {
 } from "@elixir-clan/engine";
 import { newId } from "./ledger.mjs";
 import { createActionStore } from "./actions.mjs";
+import { createSharing } from "./sharing.mjs";
 
 export const EVALUATION_TTL_MS = 5 * 60_000;
 export const PARTICIPATION_WEEKS = 8;
@@ -271,6 +272,8 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     shapeAction,
     logsByCard,
   } = createActionStore({ ledger, now });
+  // What the clan shares with Elixir as attested facts (door 3).
+  const sharing = createSharing({ ledger, mcp, logAction });
 
   /** Tag -> trophies today, when the policy counts trophy road. */
   const trophiesFrom = (roster) =>
@@ -1181,7 +1184,15 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       clanTag,
       who,
       cardId,
-      { status, reason = null, note = null, classification = null },
+      {
+        status,
+        reason = null,
+        note = null,
+        classification = null,
+        // The words the person sent in the game, as they edited them.
+        sent = null,
+      },
+      token = null,
     ) {
       await requirePolicy(clanTag);
       const card = await ledger.card(clanTag, cardId);
@@ -1253,8 +1264,21 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           },
         },
       );
+      // What the clan has chosen to share with Elixir; never holds up
+      // the decision, and the log says what happened.
+      await sharing
+        .afterDecision(clanTag, token, who, card, decided, { sent })
+        .catch((e) =>
+          console.warn(
+            JSON.stringify({ level: "warn", sharing_failed: e.message }),
+          ),
+        );
       return decided;
     },
+
+    // ---- sharing with Elixir (door 3) --------------------------------------
+    sharingView: (clanTag, who) => sharing.view(clanTag, who),
+    saveSharing: (clanTag, who, values) => sharing.save(clanTag, who, values),
 
     // ---- holds -----------------------------------------------------------
     async setHold(clanTag, who, playerTag, { until = null, note = null }) {
@@ -1303,7 +1327,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           : null,
       };
     },
-    async setAway(clanTag, who, { until, note = null }) {
+    async setAway(clanTag, who, { until, note = null }, token = null) {
       const policy = await policyFor(clanTag);
       const max = policy.values.away_max_days;
       if (!policy.set || !policy.values.removal_enabled || !(max > 0))
@@ -1329,6 +1353,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         set_at: new Date(t).toISOString(),
       });
       // Marking away completes the "going to be away?" action, if one is open.
+      let completed = null;
       for (const c of (await ledger.cards(clanTag)).filter(
         (c) =>
           c.type === "away" &&
@@ -1348,10 +1373,14 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           by: person(who),
           text,
         });
+        completed = c.card_id;
       }
+      await sharing
+        .away(clanTag, token, who, hold, { cardId: completed })
+        .catch(() => []);
       return hold;
     },
-    async clearAway(clanTag, who) {
+    async clearAway(clanTag, who, token = null) {
       const existing = (await ledger.holds(clanTag)).find(
         (h) => h.player_tag === who.player_tag,
       );
@@ -1359,6 +1388,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       if (existing.kind !== "away")
         throw new ManageError(409, "held_by_leader");
       await ledger.removeHold(clanTag, who.player_tag);
+      await sharing.awayCleared(clanTag, token, who).catch(() => {});
     },
 
     // ---- notes: elders write elder notes and read elder notes; leaders

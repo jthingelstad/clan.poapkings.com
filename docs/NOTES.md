@@ -873,3 +873,25 @@ than its own thing.
   belongs to the whole clan; the clan's own model is its first section,
   and the doors' switches (sharing with Elixir, mail) go there next.
 
+## 2026-09-25 — Door 3: sharing with Elixir (Jamie)
+
+Jamie, with elixir-mcp's work done: move forward with the doors. His calls:
+attested facts **separate and labelled** in Elixir; visibility **per
+type** (promotions, awards and messages to anyone verified in the clan; a
+kick or leave and an away only to its leaders, never an agent, so a kick is
+never narrated; a Drop record to the player and their followers); this
+round **Elixir's door, then Clan**, with Drop in its own session.
+
+- Elixir (77dd4c2e, live): `attested_fact`, the fact routes, the
+  `clans:attest` scope (family apps only), the timeline's `attested`
+  section decided per reader; DECISIONS amended ("game facts only", "the
+  consumer taxonomy") with a new line.
+- Clan: Clan settings ▸ Share with Elixir, one switch per kind, all off;
+  facts shared when an action completes (and a member's away), each logged
+  on the action as shared or not; Clan now asks for `clans:attest` at
+  sign-in, so a session from before shares only after signing in again.
+- Jamie also asked the agent to provision integration keys rather than do
+  it himself: Elixir's migrate `{integration}` op takes a locally minted
+  digest, so a key never passes through anyone. Drop already has one
+  (`elixir-drop`); its facts need `facts:write` added in Drop's round.
+

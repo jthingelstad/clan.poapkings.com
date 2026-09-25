@@ -158,6 +158,32 @@ export function createElixirApiClient({
       });
     },
 
+    /** Share a fact about the clan with Elixir (JSON API 2.2.0): an
+     *  attested fact, on the person's own grant (clans:attest). */
+    writeFact(token, clanTag, fact) {
+      return timedElixir("clan_fact", async () => {
+        const r = await request(token, {
+          method: "POST",
+          path: `/clans/${enc(clanTag)}/facts`,
+          body: fact,
+        });
+        return r.ok ? { ok: true, body: r.data } : r;
+      });
+    },
+
+    /** Take a shared fact back, by the ref Clan gave it; one Elixir no
+     *  longer holds is already gone. */
+    removeFact(token, clanTag, ref) {
+      return timedElixir("clan_fact_remove", async () => {
+        const r = await request(token, {
+          method: "DELETE",
+          path: `/clans/${enc(clanTag)}/facts/${encodeURIComponent(ref)}`,
+        });
+        if (!r.ok && r.status === 404) return { ok: true, gone: true };
+        return r.ok ? { ok: true, body: r.data } : r;
+      });
+    },
+
     /** One read, named as the tool it used to be: the body is that tool's
      *  structured result, and a refusal keeps the tool's code. */
     callTool(token, name, args = {}) {

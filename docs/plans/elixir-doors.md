@@ -1,7 +1,8 @@
 # Plan: three doors into Elixir for the family's apps
 
 **Proposed 2026-09-25 by Elixir Clan, for the Elixir team; Jamie's answers
-folded in the same day. Not built.**
+folded in the same day. Door 3 BUILT 2026-09-25 (Elixir 9.2.0, JSON API
+2.2.0; Clan's sharing switches); doors 1 and 2 not built.**
 Kept here until the family's plans folder (`../elixir-family/plans/`) can
 take it. Elixir decides the contracts; nothing here is Elixir's until its
 team agrees.

@@ -69,6 +69,9 @@ export function fakeMcp({
     roster,
     refuse: false,
     acceptedTokens: null,
+    facts: [],
+    removed: [],
+    factAnswer: null,
   };
   const refused = () => ({ ok: false, status: 401, error: "http 401" });
   const tokenOk = (token) =>
@@ -92,6 +95,22 @@ export function fakeMcp({
     },
     callTool(token, name, args) {
       return timedElixir(name, () => this.rawCallTool(token, name, args));
+    },
+    // Attested facts (JSON API 2.2.0): recorded, answered as scripted.
+    async writeFact(token, clanTag, fact) {
+      calls.push(["writeFact", token, { clanTag, ...fact }]);
+      state.facts.push({ clanTag, ...fact });
+      return (
+        state.factAnswer ?? {
+          ok: true,
+          body: { id: String(state.facts.length), visibility: "clan" },
+        }
+      );
+    },
+    async removeFact(token, clanTag, ref) {
+      calls.push(["removeFact", token, { clanTag, ref }]);
+      state.removed.push(ref);
+      return { ok: true };
     },
     async rawCallTool(token, name, args) {
       calls.push([name, token, args]);

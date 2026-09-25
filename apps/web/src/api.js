@@ -68,6 +68,9 @@ export const manageApi = {
   setModelKey: (tag, key) => put(`${clanBase(tag)}/model`, { key }),
   chooseModel: (tag, model) => put(`${clanBase(tag)}/model`, { model }),
   removeModelKey: (tag) => del(`${clanBase(tag)}/model`),
+  // What the clan shares with Elixir (door 3): one switch per fact type.
+  sharing: (tag) => get(`${clanBase(tag)}/sharing`),
+  saveSharing: (tag, values) => put(`${clanBase(tag)}/sharing`, { values }),
   // Away: the member's own word (2026-09-12).
   myAway: (tag) => get(`${clanBase(tag)}/me/away`),
   setAway: (tag, body) => put(`${clanBase(tag)}/me/away`, body),

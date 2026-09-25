@@ -36,6 +36,7 @@ export const keys = {
   awards: (tag) => ["clan", tag, "awards"],
   recruit: (tag) => ["clan", tag, "recruit"],
   model: (tag) => ["clan", tag, "model"],
+  sharing: (tag) => ["clan", tag, "sharing"],
   standing: (tag) => ["clan", tag, "standing"],
   trophies: (tag) => ["clan", tag, "trophies"],
   actions: (tag) => ["clan", tag, "actions"],
@@ -120,6 +121,10 @@ export const useRecruit = (tag) =>
 /** The clan's own model: its key (never the key itself) and its uses. */
 export const useModel = (tag) =>
   useGated(keys.model(tag), () => manageApi.model(tag));
+
+/** What the clan shares with Elixir: the leaders' switches. */
+export const useSharing = (tag) =>
+  useGated(keys.sharing(tag), () => manageApi.sharing(tag));
 
 export const useHistory = (tag) =>
   useQuery({

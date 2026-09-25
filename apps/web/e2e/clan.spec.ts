@@ -240,6 +240,21 @@ test.describe("signed in", () => {
             set: false,
           },
         ],
+        "GET /api/clans/2PQRJ8LV/sharing": [
+          200,
+          {
+            clan_tag: "#2PQRJ8LV",
+            types: {
+              departure_classified: {
+                label: "Kicks and leaves",
+                why: "When a leader answers a departure.",
+                sees: "The clan's leaders and co-leaders only.",
+              },
+            },
+            values: { departure_classified: false },
+            saved_at: null,
+          },
+        ],
       }),
     );
     await page.goto("/clan/2PQRJ8LV");
@@ -252,6 +267,8 @@ test.describe("signed in", () => {
       page.getByRole("heading", { name: "Clan settings" }),
     ).toBeVisible();
     await expect(page.getByText("The clan’s own model")).toBeVisible();
+    await expect(page.getByText("Share with Elixir")).toBeVisible();
+    await expect(page.getByLabel("Kicks and leaves")).not.toBeChecked();
     await expect(page.getByLabel("Add the clan's key")).toHaveAttribute(
       "type",
       "password",

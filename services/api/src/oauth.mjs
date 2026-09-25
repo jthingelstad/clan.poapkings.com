@@ -14,7 +14,10 @@
 
 import { createHash, randomBytes } from "node:crypto";
 
-export const SCOPE = "cr:read";
+/** Reading the record, and (JSON API 2.2.0) recording what the person
+ *  does in their clan as attested facts, which only the Elixir family's
+ *  own apps may ask for; what is shared is the clan's choice. */
+export const SCOPE = "cr:read clans:attest";
 const DISCOVERY_TTL_MS = 300_000;
 
 import { timedElixir } from "./trace.mjs";

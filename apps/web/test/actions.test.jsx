@@ -205,7 +205,7 @@ describe("clan leader messages", () => {
     );
   });
 
-  test("an announcement is marked sent without a reason", async () => {
+  test("an announcement is marked sent without a reason, with the words as edited", async () => {
     vi.spyOn(manageApi, "actions").mockResolvedValue(
       view({
         open: [
@@ -240,12 +240,20 @@ describe("clan leader messages", () => {
       />,
     );
     await waitFor(() => expect(screen.getByText("The clan")).toBeTruthy());
+    // What is shared with Elixir is what the leader sent, as edited.
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Our rules" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Sent" }));
     await waitFor(() =>
       expect(decide).toHaveBeenCalledWith("#2PQRJ8LV", "r1", {
         status: "done",
         reason: null,
         note: null,
+        sent: {
+          title: "Our rules",
+          body: "We now run the clan with Elixir Clan.",
+        },
       }),
     );
   });

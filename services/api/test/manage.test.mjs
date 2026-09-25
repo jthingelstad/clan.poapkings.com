@@ -1509,3 +1509,221 @@ test("you here: with no policy, or below 10 members, it is your statistics alone
   assert.equal(b.body.clan, null);
   assert.deepEqual(b.body.trophies, []);
 });
+
+// ---- sharing with Elixir (door 3) ----------------------------------------------
+
+test("sharing: nothing leaves the clan until a leader switches a kind on; then a completed removal is shared as a kick and logged", async () => {
+  const removalOf = async (h, cookies) =>
+    (
+      await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions")
+    ).body.open.find((a) => a.type === "removal");
+  const decide = (h, cookies, card) =>
+    api(
+      h,
+      cookies,
+      "POST",
+      `/api/clans/2PQRJ8LV/actions/${card.card_id}/decide`,
+      { status: "done" },
+    );
+  // Off, as every clan starts.
+  const quiet = harness({ part: partClan() });
+  const qc = await leader(quiet);
+  const settings = await api(quiet, qc, "GET", "/api/clans/2PQRJ8LV/sharing");
+  assert.equal(settings.status, 200, JSON.stringify(settings.body));
+  assert.ok(Object.values(settings.body.values).every((v) => v === false));
+  assert.match(settings.body.types.departure_classified.sees, /never an agent/);
+  assert.equal(
+    (await decide(quiet, qc, await removalOf(quiet, qc))).status,
+    200,
+  );
+  assert.deepEqual(quiet.mcp.state.facts, [], "off: nothing shared");
+  // Switched on by a leader: the kick goes to Elixir, and the log says so.
+  const h = harness({ part: partClan() });
+  const cookies = await leader(h);
+  const saved = await api(h, cookies, "PUT", "/api/clans/2PQRJ8LV/sharing", {
+    values: { departure_classified: true },
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const bad = await api(h, cookies, "PUT", "/api/clans/2PQRJ8LV/sharing", {
+    values: { departure_classified: "yes" },
+  });
+  assert.equal(bad.status, 400);
+  const target = await removalOf(h, cookies);
+  assert.equal((await decide(h, cookies, target)).status, 200);
+  assert.equal(h.mcp.state.facts.length, 1);
+  const [fact] = h.mcp.state.facts;
+  assert.equal(fact.type, "departure_classified");
+  assert.deepEqual(fact.detail, { kind: "kick" });
+  assert.equal(fact.ref, `action:${target.card_id}`);
+  assert.equal(fact.clanTag, "#2PQRJ8LV");
+  const log = await h.ledger.actionLog("#2PQRJ8LV", target.card_id);
+  const shared = log.find((e) => e.kind === "shared");
+  assert.ok(shared);
+  assert.match(shared.text, /Shared with Elixir: kicks and leaves/);
+});
+
+test("sharing: a sign-in without the capability is logged, never blocks the decision; only leaders see the switches", async () => {
+  const h = harness({ part: partClan() });
+  const cookies = await leader(h);
+  await api(h, cookies, "PUT", "/api/clans/2PQRJ8LV/sharing", {
+    values: { departure_classified: true },
+  });
+  h.mcp.state.factAnswer = {
+    ok: false,
+    status: 403,
+    code: "insufficient_scope",
+  };
+  const view = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions");
+  const removal = view.body.open.find((a) => a.type === "removal");
+  const done = await api(
+    h,
+    cookies,
+    "POST",
+    `/api/clans/2PQRJ8LV/actions/${removal.card_id}/decide`,
+    { status: "done" },
+  );
+  assert.equal(done.status, 200, "the decision stands");
+  const log = await h.ledger.actionLog("#2PQRJ8LV", removal.card_id);
+  const entry = log.find((e) => e.kind === "not_shared");
+  assert.ok(entry);
+  assert.match(entry.text, /Sign out and in again/);
+  const memberSide = harness({
+    players: [
+      player({ player_tag: "#8QCV", name: "Sleepy", clan_role: "member" }),
+    ],
+    part: partClan(),
+  });
+  const mc = await leader(memberSide);
+  const refused = await api(
+    memberSide,
+    mc,
+    "GET",
+    "/api/clans/2PQRJ8LV/sharing",
+  );
+  assert.equal(refused.status, 403);
+});
+
+test("sharing: a member's own away is shared while it lasts and taken back when cleared", async () => {
+  const h = harness({
+    players: [
+      player({ player_tag: "#8QCV", name: "Sleepy", clan_role: "member" }),
+    ],
+    part: partClan(),
+  });
+  await h.ledger.saveSharing("#2PQRJ8LV", {
+    values: { member_away: true },
+    saved_at: new Date(h.clock.t).toISOString(),
+  });
+  const cookies = await leader(h);
+  const until = new Date(h.clock.t + 5 * DAY).toISOString();
+  const set = await api(h, cookies, "PUT", "/api/clans/2PQRJ8LV/me/away", {
+    until,
+  });
+  assert.equal(set.status, 200, JSON.stringify(set.body));
+  const [fact] = h.mcp.state.facts;
+  assert.equal(fact.type, "member_away");
+  assert.equal(fact.player_tag, "#8QCV");
+  assert.equal(fact.ref, "away:#8QCV");
+  assert.equal(fact.detail.until, until);
+  await api(h, cookies, "DELETE", "/api/clans/2PQRJ8LV/me/away");
+  assert.deepEqual(h.mcp.state.removed, ["away:#8QCV"]);
+});
+
+test("sharing: each completed action attests only what happened, in the words sent; a removal's chat line is never shared", async () => {
+  const { factsOfAction } = await import("../src/manage/sharing.mjs");
+  const at = "2026-09-25T12:00:00.000Z";
+  const card = (type, extra = {}) => ({
+    card_id: "c1",
+    type,
+    player_tag: "#8QCV",
+    player_name: "Sleepy",
+    evidence: {},
+    ...extra,
+  });
+  const done = { status: "done", decided_at: at };
+  const promo = factsOfAction(card("promotion"), done, {
+    sent: { title: "New Elder!", body: "Sleepy is now an Elder." },
+  });
+  assert.deepEqual(
+    promo.map((f) => f.type),
+    ["role_change_made", "clan_message"],
+  );
+  assert.deepEqual(promo[0].detail, { from: "member", to: "elder" });
+  assert.deepEqual(promo[1].detail, {
+    channel: "leader_message",
+    title: "New Elder!",
+    body: "Sleepy is now an Elder.",
+  });
+  assert.equal(promo[1].ref, "action:c1:message");
+  const demo = factsOfAction(card("demotion"), done);
+  assert.deepEqual(demo[0].detail, { from: "elder", to: "member" });
+  assert.equal(demo[1].detail.channel, "leader_message");
+  const removal = factsOfAction(card("removal"), done, {
+    sent: { line: "Sleepy was removed for inactivity." },
+  });
+  assert.deepEqual(
+    removal.map((f) => f.type),
+    ["departure_classified"],
+    "the removal line names an inactive member: never a message",
+  );
+  const welcome = factsOfAction(card("welcome"), done, {
+    sent: { line: "Welcome to the clan, Sleepy!" },
+  });
+  assert.deepEqual(welcome[0].detail, {
+    channel: "clan_chat",
+    body: "Welcome to the clan, Sleepy!",
+  });
+  const left = factsOfAction(card("departure", { evidence: { left_at: at } }), {
+    status: "done",
+    decided_at: at,
+    outcome: { classification: "member_left" },
+  });
+  assert.deepEqual(left[0].detail, { kind: "leave", left_at: at });
+  const ignored = factsOfAction(card("departure"), {
+    status: "done",
+    decided_at: at,
+    outcome: { classification: "ignored" },
+  });
+  assert.deepEqual(ignored, []);
+  assert.deepEqual(
+    factsOfAction(card("promotion"), { status: "declined" }),
+    [],
+  );
+  const awards = factsOfAction(
+    card("awards_announcement", {
+      player_tag: null,
+      evidence: {
+        season_id: 131,
+        message: { title: "Season 131 awards", body: "Iron Deck: Sleepy." },
+      },
+    }),
+    done,
+    {
+      grants: [
+        {
+          season_id: 131,
+          award_id: "iron",
+          name: "Iron Deck",
+          rank: 1,
+          player_tag: "#8QCV",
+        },
+        {
+          season_id: 130,
+          award_id: "iron",
+          name: "Iron Deck",
+          rank: 1,
+          player_tag: "#O1",
+        },
+      ],
+    },
+  );
+  assert.deepEqual(
+    awards.map((f) => f.type),
+    ["clan_message", "award_granted"],
+  );
+  assert.deepEqual(awards[1].detail, {
+    award: "Iron Deck",
+    season_id: 131,
+    place: 1,
+  });
+});

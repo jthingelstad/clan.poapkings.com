@@ -28,6 +28,8 @@
  *                            manage/model.mjs), who added it, the model;
  *                            outside the ByClan index on purpose, so no
  *                            listing of a clan's items ever carries it
+ *   sharing#<clan>           what the clan shares with Elixir: one switch
+ *                            per attested fact type (door 3), who set them
  *   model_call#<clan>#<at>#<id>
  *                            one use of the clan's model: who, what for,
  *                            the model, the tokens; 90 days (TTL)
@@ -390,6 +392,19 @@ function ledgerOver(io) {
         gsi1pk: clanKey(clanTag),
         gsi1sk: "recruit_facts#latest",
         ...facts,
+      });
+    },
+    // ---- what the clan shares with Elixir ------------------------------
+    async sharing(clanTag) {
+      const item = await io.get(`sharing#${clanTag}`);
+      return item ? stripKeys(item) : null;
+    },
+    async saveSharing(clanTag, item) {
+      await io.put({
+        ...item,
+        pk: `sharing#${clanTag}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: "sharing#latest",
       });
     },
     // ---- the clan's own model ------------------------------------------
