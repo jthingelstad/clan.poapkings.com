@@ -1,6 +1,7 @@
 # Objective reading map
 
-Read `AGENTS.md`, `WORKFLOW.md`, this map and your objective. Read the
+Read `AGENTS.md`, `docs/VISION.md` (what the product is for and its
+principles), `WORKFLOW.md`, this map and your objective. Read the
 decisions in `docs/NOTES.md` (newest last) since the previous successful
 run; on first use, read the headings and the decisions relevant to the
 objective. Record the reviewed revision in automation memory. A saved

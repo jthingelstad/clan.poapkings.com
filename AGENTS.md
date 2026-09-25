@@ -9,6 +9,9 @@ decide, departures, notes, holds, awards, recruiting copy and scouting.
 It is a general clan-management tool for any Clash Royale clan (Jamie,
 2026-09-25): how a clan runs comes from its saved policy, never from code.
 
+What it is for, who it serves, its principles and how the next step is
+chosen: `docs/VISION.md`. Read it before proposing a feature.
+
 `CLAUDE.md` is a symlink to this file. Do not fork them.
 
 ## What this is, in five rules
