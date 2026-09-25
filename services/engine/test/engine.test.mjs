@@ -53,19 +53,6 @@ test("non-participation scores zero, participants are ranked against each other"
   );
 });
 
-test("eight decks is eight decks however the days fell", () => {
-  const halves = member("#H", {
-    war: [8, 8, 8, 8, 8, 0],
-    days: Array(6).fill([2, 2, 2, 2]),
-  });
-  const fulls = member("#F", {
-    war: [8, 8, 8, 8, 8, 0],
-    days: Array(6).fill([4, 4, 0, 0]),
-  });
-  const { facts } = bandNow([halves, fulls]);
-  assert.equal(facts.get("#F").war.rate, facts.get("#H").war.rate);
-});
-
 // ---- floors and scores -----------------------------------------------------
 
 test("war floor and scores: a war player out-scores a war-absent donor", () => {

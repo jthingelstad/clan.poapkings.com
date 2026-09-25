@@ -7,8 +7,8 @@
  * evidence that existed before `at`, so the same function replays any
  * past weekly boundary.
  *
- * Every fact carries how it was known: exact, `weekly` (a war week
- * without per-day polls, its decks spread over the days battled) or
+ * Every war fact carries how it was known: `weekly` (the game's deck
+ * count for the war week, the only war figure Elixir serves) or
  * `unknown` (null in the record). Unknown never becomes zero.
  */
 

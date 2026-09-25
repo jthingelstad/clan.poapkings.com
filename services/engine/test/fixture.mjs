@@ -52,7 +52,8 @@ export function warWeeks() {
 
 /**
  * One member. `war` is decks per war week (six entries, the open week
- * last); `days` optionally per-day decks per war week (null = unpolled).
+ * last). Elixir serves no per-day war arrays (contracts 9.0.0 and 9.0.1:
+ * weekly aggregates only), so neither does this fixture.
  */
 export function member(tag, opts = {}) {
   const {
@@ -61,7 +62,6 @@ export function member(tag, opts = {}) {
     tenureDays = 120,
     tenureKnown = true,
     war = [16, 16, 16, 16, 16, 8],
-    days = null,
     ranked = [0, 0, 0, 0, 0, 0],
     battles = [20, 20, 20, 20, 20, 10],
     donations = [200, 200, 200, 200, 200, 100],
@@ -85,21 +85,7 @@ export function member(tag, opts = {}) {
     donations,
     war_decks: war,
     war_points: war.map((d) => (d ?? 0) * 200),
-    war_decks_by_day:
-      days ??
-      war.map((d) => (d === null ? [null, null, null, null] : spread(d))),
-    war_battles_by_day: war.map((d) => (d === null ? [0, 0, 0, 0] : spread(d))),
   };
-}
-
-/** Spread a weekly deck count over four days, four at a time. */
-export function spread(decks) {
-  let left = decks;
-  return [0, 1, 2, 3].map(() => {
-    const d = Math.min(4, Math.max(0, left));
-    left -= d;
-    return d;
-  });
 }
 
 export function participation(members, extra = {}) {
