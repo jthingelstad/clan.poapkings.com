@@ -166,7 +166,9 @@ member; no policy version was saved.
 ## Waiting on Jamie
 
 - **poapkings.com**: point the Members / FAQ Elder prose at
-  `https://clan.poapkings.com/clan/J2RGCRVG/how-elder-works`.
+  `https://clan.poapkings.com/clan/J2RGCRVG/how-elder-works`. **Jamie
+  2026-09-25: leave poapkings.com as is for now** (its Elder prose
+  included), so this is not pending.
 
 - The public Elder page now names POAP KINGS from the latest verdict snapshot
   without a session or roster read, shipped in `b4a47bd` and confirmed live on

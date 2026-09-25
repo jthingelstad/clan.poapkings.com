@@ -481,9 +481,9 @@ Loop's daily duty.
 
 Scheduled evaluation on the leader's refresh grant so cards are waiting in
 the morning (the ledger needs no migration for it); the goodbye routine
-reading `member_kicked` from the cards; the poapkings.com Elder prose
-replaced by `/clan/J2RGCRVG/how-elder-works`. Read `../elixir-family/MAP.md`
-§5 first.
+reading `member_kicked` from the cards. The poapkings.com Elder prose
+replaced by `/clan/J2RGCRVG/how-elder-works` is on hold: Jamie 2026-09-25,
+leave poapkings.com as is for now. Read `../elixir-family/MAP.md` §5 first.
 
 ---
 
