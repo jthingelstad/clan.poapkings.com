@@ -200,6 +200,12 @@ test("scheduled: after evaluating, the people who can act on something new are e
   const removal = (await ledger.cards("#2PQRJ8LV")).find(
     (c) => c.type === "removal",
   );
+  assert.ok(
+    sent.messages[0].lines.includes(
+      `#${removal.number} Remove from the clan: Sleepy (new)`,
+    ),
+    "the email names it by its number",
+  );
   const log = await ledger.actionLog("#2PQRJ8LV", removal.card_id);
   const emailed = log.find((e) => e.kind === "emailed");
   assert.match(emailed.text, /Emailed to 1 person who can act on it/);
@@ -207,4 +213,44 @@ test("scheduled: after evaluating, the people who can act on something new are e
   clock.t += 86_400_000;
   await run();
   assert.equal(mcp.state.mail.length, 1);
+});
+
+test("scheduled: actions raised before numbers existed are numbered before the email names them", async () => {
+  const ledger = ledgerWithPolicy(
+    createMemoryLedger(),
+    "#2PQRJ8LV",
+    EXAMPLE_POLICY,
+  );
+  await ledger.putCard("#2PQRJ8LV", {
+    card_id: "old",
+    type: "removal",
+    status: "proposed",
+    player_tag: "#8QCV",
+    player_name: "Sleepy",
+    raised_at: "2026-09-10T00:00:00.000Z",
+  });
+  const mcp = fakeMcp({
+    roster: rosterBody([
+      { player_tag: "#20QQL8CCRU", name: "Ada", role: "leader" },
+      { player_tag: "#8QCV", name: "Sleepy", role: "member" },
+    ]),
+  });
+  const manage = createManageService({
+    ledger,
+    mcp,
+    now: () => NOW.getTime(),
+    log: quiet,
+    appUrl: "https://clan.test",
+  });
+  const r = await manage.mailActionsWaiting("#2PQRJ8LV", "svt_test");
+  assert.equal(r.mailed, 1, JSON.stringify(r));
+  const [sent] = mcp.state.mail;
+  assert.deepEqual(sent.messages[0].lines, [
+    "#1 Remove from the clan: Sleepy (new)",
+  ]);
+  assert.equal(
+    sent.messages[0].link,
+    "https://clan.test/clan/2PQRJ8LV/actions/1",
+  );
+  assert.equal((await ledger.card("#2PQRJ8LV", "old")).number, 1);
 });

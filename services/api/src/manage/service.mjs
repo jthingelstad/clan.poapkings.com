@@ -1337,6 +1337,8 @@ export function createManageService({
       const cards = await ledger.cards(clanTag);
       if (!cards.some((c) => c.status === "proposed")) return { mailed: 0 };
       if (typeof mcp.sendMail !== "function") return { mailed: 0 };
+      // The email names actions by number: any still without one gets it.
+      await numberActions(clanTag, cards);
       const roster = await fetchRoster(mcp, key, clanTag);
       if (!roster) return { mailed: 0, mail_error: "no_roster" };
       const messages = actionsWaitingMail({
