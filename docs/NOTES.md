@@ -916,3 +916,16 @@ put on the list by hand (its `schedule#` marker, the item its next
 evaluation writes) so the first morning run does not wait on a visit. A
 manual invoke before the key check answered `clans: 0` (nothing written).
 
+## 2026-09-25 — Door 2: actions waiting, by email (Jamie)
+
+Jamie's calls: the kind is on to start; a family app composing mail that
+Elixir sends is an appropriate exception to Elixir's own rule; only
+people who can act on an action are sent it. After the morning
+evaluation, each person who can act on something new since their last
+email gets one email through Elixir listing everything waiting for them
+(Elixir 2.4.0, kind `clan_actions_waiting`, permission `mail:send` on
+Clan's key). An action left open is not mailed again every morning; the
+action's log says `emailed`. The first run (2026-09-26, 06:00 Central)
+mails POAP KINGS' leaders everything open, since nothing was mailed
+before. The weekly clan report is its own later round.
+

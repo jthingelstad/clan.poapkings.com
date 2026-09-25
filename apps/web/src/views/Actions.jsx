@@ -83,6 +83,17 @@ export function Actions({ clan, who, navigate }) {
         <p className="page__lede">Reading the record…</p>
       </>
     );
+  // Door 2: the morning email, and where it is switched off (Elixir's).
+  const emailNote = (
+    <p className="page-head__note mt-0 mb-4">
+      On a morning when something new here is yours to do, Elixir emails you
+      what is waiting.{" "}
+      <a href="https://elixir.poapkings.com/account/profile/email">
+        Change that in Elixir
+      </a>
+      .
+    </p>
+  );
   const groups = ORDER.map((t) => [
     t,
     d.open.filter((a) => a.type === t),
@@ -101,6 +112,7 @@ export function Actions({ clan, who, navigate }) {
   return (
     <>
       {head}
+      {emailNote}
       {groups.length === 0 ? (
         <div className="empty mb-6">
           <div className="empty__title">Nothing waiting for you</div>

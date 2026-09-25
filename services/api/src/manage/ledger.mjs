@@ -31,6 +31,9 @@
  *   schedule#<clan>          the clan is on the morning evaluation's list
  *                            (partition schedule#clans of the index): put
  *                            when a policy is saved or evaluated
+ *   mailed#<clan>#<tag>      when this person was last sent "actions
+ *                            waiting" for this clan (door 2): the next
+ *                            email waits for something new
  *   sharing#<clan>           what the clan shares with Elixir: one switch
  *                            per attested fact type (door 3), who set them
  *   model_call#<clan>#<at>#<id>
@@ -203,6 +206,20 @@ function ledgerOver(io) {
       await io.put({ pk: `policy#${clanTag}`, version, saved_at });
       await scheduleClan(clanTag);
       return stripKeys(item);
+    },
+    // ---- "actions waiting" emails (door 2) -----------------------------
+    async mailedAt(clanTag) {
+      const items = await io.listByPrefix(clanTag, "mailed#");
+      return Object.fromEntries(items.map((i) => [i.player_tag, i.at]));
+    },
+    async saveMailed(clanTag, playerTag, at) {
+      await io.put({
+        pk: `mailed#${clanTag}#${playerTag}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: `mailed#${playerTag}`,
+        player_tag: playerTag,
+        at,
+      });
     },
     // ---- the morning evaluation's list (door 1) ------------------------
     async scheduledClans() {

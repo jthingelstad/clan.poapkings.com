@@ -127,3 +127,82 @@ test("scheduled: a clan's evaluation reads Elixir on the key and raises actions 
     "an evaluated clan is on the list",
   );
 });
+
+test("scheduled: after evaluating, the people who can act on something new are emailed through Elixir, once", async () => {
+  const others = Array.from({ length: 10 }, (_, i) => member(`#O${i}`));
+  const idle = member("#8QCV", {
+    name: "Sleepy",
+    lastBattleDaysAgo: 20,
+    war: [0, 0, 0, 0, 0, 0],
+  });
+  const king = member("#20QQL8CCRU", { name: "Ada", role: "leader" });
+  const part = participation([king, ...others, idle], {
+    clan_tag: "#2PQRJ8LV",
+    name: "Example Clan",
+  });
+  const roster = {
+    ...rosterBody([
+      { player_tag: "#20QQL8CCRU", name: "Ada", role: "leader" },
+      { player_tag: "#UQ8LP2R9C", name: "Ben", role: "coLeader" },
+      { player_tag: "#8QCV", name: "Sleepy", role: "member" },
+      { player_tag: "#E1", name: "Eli", role: "elder" },
+    ]),
+    member_count: part.members.length,
+  };
+  const mcp = fakeMcp({ roster });
+  mcp.state.mailStatus["#UQ8LP2R9C"] = "no_account";
+  const inner = mcp.callTool.bind(mcp);
+  mcp.callTool = async (token, name, args) => {
+    if (name === "clans_participation") return { ok: true, body: part };
+    return inner(token, name, args);
+  };
+  const ledger = ledgerWithPolicy(
+    createMemoryLedger(),
+    "#2PQRJ8LV",
+    EXAMPLE_POLICY,
+  );
+  const clock = { t: NOW.getTime() };
+  const manage = createManageService({
+    ledger,
+    mcp,
+    now: () => clock.t,
+    log: quiet,
+    appUrl: "https://clan.test",
+  });
+  const run = createScheduledRun({
+    ledger: { scheduledClans: async () => ["#2PQRJ8LV"] },
+    manage,
+    integrationKey: "svt_test",
+    log: quiet,
+  });
+  const first = await run();
+  assert.equal(first.results[0].mailed, 1, JSON.stringify(first.results));
+  const [sent] = mcp.state.mail;
+  assert.equal(sent.kind, "clan_actions_waiting");
+  // Only people who can act: the leaders, never the elder or the member.
+  assert.deepEqual(sent.messages.map((m) => m.player_tag).sort(), [
+    "#20QQL8CCRU",
+    "#UQ8LP2R9C",
+  ]);
+  assert.ok(
+    sent.messages[0].lines.includes("Remove from the clan: Sleepy (new)"),
+    JSON.stringify(sent.messages[0].lines),
+  );
+  assert.equal(
+    sent.messages[0].link,
+    "https://clan.test/clan/2PQRJ8LV/actions",
+  );
+  assert.ok(
+    mcp.calls.some(([n, key]) => n === "sendMail" && key === "svt_test"),
+  );
+  const removal = (await ledger.cards("#2PQRJ8LV")).find(
+    (c) => c.type === "removal",
+  );
+  const log = await ledger.actionLog("#2PQRJ8LV", removal.card_id);
+  const emailed = log.find((e) => e.kind === "emailed");
+  assert.match(emailed.text, /Emailed to 1 person who can act on it/);
+  // The next morning, nothing new: nobody is emailed again.
+  clock.t += 86_400_000;
+  await run();
+  assert.equal(mcp.state.mail.length, 1);
+});

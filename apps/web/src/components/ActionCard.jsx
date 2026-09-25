@@ -27,6 +27,7 @@ const KIND = {
   outcome_verified: "Confirmed by the record",
   outcome_flagged: "Flagged: no change seen",
   comment: "Comment",
+  emailed: "Emailed",
   shared: "Shared with Elixir",
   not_shared: "Not shared with Elixir",
 };

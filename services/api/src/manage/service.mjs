@@ -46,6 +46,8 @@ import {
   countedCategories,
   memberWeeks,
   welcomesFrom,
+  actionsWaitingMail,
+  ACTIONS_MAIL_KIND,
 } from "@elixir-clan/engine";
 import { newId } from "./ledger.mjs";
 import { createActionStore } from "./actions.mjs";
@@ -149,7 +151,13 @@ export async function fetchNames(mcp, token, tags) {
   return names;
 }
 
-export function createManageService({ ledger, mcp, now = () => Date.now() }) {
+export function createManageService({
+  ledger,
+  mcp,
+  now = () => Date.now(),
+  /** Elixir Clan's origin, for the links in its email */
+  appUrl = "https://clan.poapkings.com",
+}) {
   const isLeader = (who) => LEADERS.has(who.role);
   const requireLeader = (who) => {
     if (!isLeader(who)) throw new ManageError(403, "leaders_only");
@@ -1290,6 +1298,68 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         force: true,
       });
       return { members: verdicts?.members?.length ?? null };
+    },
+
+    /**
+     * "Actions waiting for you" (door 2): after the morning evaluation,
+     * one email through Elixir to each person who can act on something
+     * that became theirs since their last one (`actionsWaitingMail`),
+     * named by player tag on Clan's own key; Elixir holds the addresses
+     * and the switches. What Elixir answered is remembered, so the next
+     * email waits for something new; each action's log says it was
+     * emailed.
+     */
+    async mailActionsWaiting(clanTag, key) {
+      const cards = await ledger.cards(clanTag);
+      if (!cards.some((c) => c.status === "proposed")) return { mailed: 0 };
+      if (typeof mcp.sendMail !== "function") return { mailed: 0 };
+      const roster = await fetchRoster(mcp, key, clanTag);
+      if (!roster) return { mailed: 0, mail_error: "no_roster" };
+      const messages = actionsWaitingMail({
+        clanTag,
+        clanName: roster.name ?? null,
+        cards,
+        people: (roster.members ?? []).map((m) => ({
+          player_tag: m.player_tag,
+          name: m.name ?? null,
+          role: m.role ?? "member",
+        })),
+        lastMailed: await ledger.mailedAt(clanTag),
+        appUrl,
+      });
+      if (!messages.length) return { mailed: 0 };
+      const r = await mcp.sendMail(key, clanTag, {
+        kind: ACTIONS_MAIL_KIND,
+        messages: messages.map(({ player_tag, subject, lines, link }) => ({
+          player_tag,
+          subject,
+          lines,
+          link,
+        })),
+      });
+      if (!r.ok)
+        return { mailed: 0, mail_error: r.code ?? r.status ?? "no_answer" };
+      const at = new Date(now()).toISOString();
+      const outcome = {};
+      const emailedPer = new Map();
+      for (const res of r.body?.results ?? []) {
+        outcome[res.status] = (outcome[res.status] ?? 0) + 1;
+        // Anything but a failure is an answer: the next email waits for
+        // something new (a person with no Elixir account is not asked
+        // again every morning).
+        if (res.status !== "failed")
+          await ledger.saveMailed(clanTag, res.player_tag, at);
+        if (res.status !== "sent") continue;
+        const m = messages.find((x) => x.player_tag === res.player_tag);
+        for (const id of m?.new_card_ids ?? [])
+          emailedPer.set(id, (emailedPer.get(id) ?? 0) + 1);
+      }
+      for (const [cardId, n] of emailedPer)
+        await logAction(clanTag, cardId, "emailed", {
+          text: `Emailed to ${n} ${n === 1 ? "person" : "people"} who can act on it.`,
+          detail: { count: n },
+        });
+      return { mailed: outcome.sent ?? 0, mail: outcome };
     },
 
     // ---- sharing with Elixir (door 3) --------------------------------------

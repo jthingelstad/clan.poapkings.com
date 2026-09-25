@@ -762,6 +762,20 @@ one JSON line (`scheduled: "evaluate"`, each clan's result, never the
 key). The list is `schedule#<clan>` in the `schedule#clans` partition of
 the index, put when a policy is saved or evaluated.
 
+**Then the email (door 2, JSON API 2.4.0).** After each clan's
+evaluation, `mailActionsWaiting` emails, through Elixir, each person who
+can act on something that became theirs since their last email
+(`actionsWaitingMail` in `services/engine/src/mail.mjs`: only people who
+can act on an action are sent it, Jamie; the email lists everything
+waiting for them, the new marked). Clan names each person by player tag
+(`POST /api/v1/clans/{tag}/mail`, kind `clan_actions_waiting`, on the same
+key, which holds `mail:send`); Elixir sends only to the account that
+verified the player, while in the clan, with the kind on (on to start),
+at most one a day per clan, and answers each message's outcome, never an
+address. Clan remembers the answer (`mailed#<clan>#<tag>`), so the next
+email waits for something new, and each action's log says it was
+emailed. The Actions page says so and links Elixir's email settings.
+
 The key is the NoEcho stack parameter `ElixirIntegrationKey` (PRESERVED,
 env `ELIXIR_INTEGRATION_KEY`), minted locally and provisioned through
 Elixir's `{integration}` migrate op with only its digest, then staged once

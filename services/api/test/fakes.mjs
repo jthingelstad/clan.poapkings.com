@@ -71,6 +71,8 @@ export function fakeMcp({
     acceptedTokens: null,
     facts: [],
     removed: [],
+    mail: [],
+    mailStatus: {},
     factAnswer: null,
   };
   const refused = () => ({ ok: false, status: 401, error: "http 401" });
@@ -106,6 +108,22 @@ export function fakeMcp({
           body: { id: String(state.facts.length), visibility: "clan" },
         }
       );
+    },
+    // Mail through Elixir (JSON API 2.4.0): recorded; each message is
+    // answered from `state.mailStatus[tag]`, else sent.
+    async sendMail(key, clanTag, body) {
+      calls.push(["sendMail", key, { clanTag, ...body }]);
+      state.mail.push({ clanTag, ...body });
+      return {
+        ok: true,
+        body: {
+          kind: body.kind,
+          results: body.messages.map((m) => ({
+            player_tag: m.player_tag,
+            status: state.mailStatus[m.player_tag] ?? "sent",
+          })),
+        },
+      };
     },
     async removeFact(token, clanTag, ref) {
       calls.push(["removeFact", token, { clanTag, ref }]);

@@ -154,8 +154,9 @@ edit; feedback to the maintainer. See `AGENTS.md` for how.
    and members, not only leaders; "your actions" wherever you are.
 2. **Always current, and telling you.** Scheduled evaluation, so actions
    wait in the morning and a closed season's awards are granted without
-   anyone visiting; a weekly clan report and "actions waiting for you" by
-   email through Elixir.
+   anyone visiting (built 2026-09-25, door 1), and "actions waiting for
+   you" by email through Elixir (built 2026-09-25, door 2); a weekly clan
+   report by email is next.
 3. **What the clan is for.** Goals (war, ladder, donations, playing
    together, presence) and presets, so a new leader starts from "we are a
    war clan" or "we are a social clan", not a blank form of forty settings.

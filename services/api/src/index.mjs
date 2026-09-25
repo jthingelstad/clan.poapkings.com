@@ -50,7 +50,11 @@ const model = createModelService({
   rosterFor: (token, clanTag) => fetchRoster(mcp, token, clanTag),
 });
 
-const manage = createManageService({ ledger, mcp });
+const manage = createManageService({
+  ledger,
+  mcp,
+  appUrl: env("APP_URL").replace(/\/$/, ""),
+});
 const awards = createAwardsService({
   ledger,
   participationFor: (token, clanTag) => fetchParticipation(mcp, token, clanTag),

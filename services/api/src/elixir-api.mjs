@@ -171,6 +171,20 @@ export function createElixirApiClient({
       });
     },
 
+    /** Mail through Elixir (JSON API 2.4.0, on Clan's integration key with
+     *  mail:send): per player tag, a subject, plain lines and a link;
+     *  Elixir answers each message's outcome, never an address. */
+    sendMail(key, clanTag, body) {
+      return timedElixir("clan_mail", async () => {
+        const r = await request(key, {
+          method: "POST",
+          path: `/clans/${enc(clanTag)}/mail`,
+          body,
+        });
+        return r.ok ? { ok: true, body: r.data } : r;
+      });
+    },
+
     /** Take a shared fact back, by the ref Clan gave it; one Elixir no
      *  longer holds is already gone. */
     removeFact(token, clanTag, ref) {

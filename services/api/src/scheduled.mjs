@@ -4,7 +4,9 @@
  * the ledger's list (a policy saved or evaluated) is evaluated on Elixir
  * Clan's own integration key (`clans:read`, JSON API 2.3.0), so actions
  * wait for leaders and a closed season's awards are granted without anyone
- * visiting. No person's token is stored or used. One clan's failure never
+ * visiting; then each person who can act on something new is emailed
+ * through Elixir (door 2). No person's token is stored or used. One
+ * clan's failure never
  * stops the rest; the run ends with ONE log line saying what happened to
  * each clan. Without a key it does nothing and says so.
  */
@@ -38,7 +40,16 @@ export function createScheduledRun({
         const a = awards
           ? await awards.evaluateOnSchedule(clan, integrationKey)
           : null;
-        results.push({ clan, ok: true, ...m, ...(a ?? {}) });
+        // Then tell the people who can act on something new (door 2).
+        // A mail failure is reported and never undoes the evaluation.
+        const mail = manage.mailActionsWaiting
+          ? await manage
+              .mailActionsWaiting(clan, integrationKey)
+              .catch((e) => ({
+                mail_error: e?.code ?? String(e?.message ?? e).slice(0, 120),
+              }))
+          : null;
+        results.push({ clan, ok: true, ...m, ...(a ?? {}), ...(mail ?? {}) });
       } catch (e) {
         // A clan without a policy or below 10 members is skipped as on a
         // visit; anything else is a failure worth reading.
