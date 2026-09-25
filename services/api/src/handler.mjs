@@ -74,6 +74,8 @@ export function createHandler({
   recruit = null,
   /** the clan's own model: its key and its uses (`manage/model.mjs`) */
   model = null,
+  /** Leader Messages drafted by the clan's model (`manage/drafts.mjs`) */
+  drafts = null,
   feedback = null,
   /** Verified player tags of the product's maintainer(s): MaintainerTags. */
   maintainerTags = [],
@@ -649,6 +651,18 @@ export function createHandler({
         }
         return json(400, { error: "bad_request" });
       }
+      // A Leader Message in the clan's voice, by the clan's own model.
+      const draft = /^\/actions\/([A-Za-z0-9_-]+)\/draft$/.exec(rest);
+      if (method === "POST" && draft) {
+        if (!drafts) return json(404, { error: "not_found" });
+        return json(
+          200,
+          await drafts.leaderMessage(tag, who, token, draft[1], {
+            note: body.note ?? null,
+            clanName: clan.name ?? null,
+          }),
+        );
+      }
       if (!manage) return json(404, { error: "not_found" });
       if (method === "GET" && rest === "/manage")
         return json(
@@ -690,13 +704,15 @@ export function createHandler({
           200,
           await manage.previewPolicy(tag, who, token, body.values ?? {}),
         );
-      if (method === "GET" && rest === "/actions")
-        return json(
-          200,
-          await manage.actionsView(tag, who, token, {
-            refresh: event.queryStringParameters?.refresh === "1",
-          }),
-        );
+      if (method === "GET" && rest === "/actions") {
+        const view = await manage.actionsView(tag, who, token, {
+          refresh: event.queryStringParameters?.refresh === "1",
+        });
+        // Leaders are told whether the clan's model can draft messages.
+        if (model && ["leader", "coLeader"].includes(who.role))
+          view.model = await model.summary(tag);
+        return json(200, view);
+      }
       const decide = /^\/actions\/([A-Za-z0-9_-]+)\/decide$/.exec(rest);
       if (method === "POST" && decide)
         return json(200, await manage.decide(tag, who, decide[1], body, token));

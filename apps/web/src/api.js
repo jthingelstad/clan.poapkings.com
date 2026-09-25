@@ -36,6 +36,9 @@ export const manageApi = {
     get(`${clanBase(tag)}/actions${refresh ? "?refresh=1" : ""}`),
   decideAction: (tag, id, body) =>
     post(`${clanBase(tag)}/actions/${id}/decide`, body),
+  // A Leader Message in the clan's voice, by the clan's own model.
+  draftLeaderMessage: (tag, id, note) =>
+    post(`${clanBase(tag)}/actions/${id}/draft`, { note }),
   commentAction: (tag, id, text) =>
     post(`${clanBase(tag)}/actions/${id}/comments`, { text }),
   setHold: (tag, playerTag, body) =>

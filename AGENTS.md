@@ -339,7 +339,15 @@ its mail) belongs there next. Then the clan's
 model may write **words, never judgments**:
 
 - **What it may write** is a closed list (`PURPOSES` in
-  `services/engine/src/words.mjs`): today `recruit_pitch`. Each purpose's
+  `services/engine/src/words.mjs`): `recruit_pitch` and, since the second
+  round (2026-09-25), `leader_message`: on an open action that ends in a
+  Clan Leader Message (promotion, demotion, the season's awards, how the
+  clan runs), a leader asks for it in the clan's voice (`POST
+  /api/clans/<TAG>/actions/<id>/draft`, `manage/drafts.mjs`, "Draft in our
+  voice" in the editor). The model writes `{name}` and `{winners}`, never a
+  name; Clan puts the names back and applies the chat filter and the
+  game's limits (`leaderMessageFromDraft`); the action's log says
+  `drafted`. Each purpose's
   request is built in the engine from clan-level facts only (the game's
   numbers for the clan, its goals and posture, `describePolicy`, its own
   words, the leader's note), never a member's name or numbers, and its

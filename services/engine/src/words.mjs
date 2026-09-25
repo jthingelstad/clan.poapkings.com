@@ -16,13 +16,18 @@
 
 import { MAX_POINTS, PITCH_FIELDS, validatePitch } from "./recruit.mjs";
 import { GOALS, POSTURES } from "./goals.mjs";
-import { clipChat } from "./chat.mjs";
+import { chatSafe, chatWarnings, clipChat } from "./chat.mjs";
+import { LEADER_MESSAGE, fitList } from "./render.mjs";
 
 /** What a clan's model may write. */
 export const PURPOSES = {
   recruit_pitch: {
     label: "Recruiting pitch",
     why: "Drafts the clan's recruiting words for a leader to edit and save.",
+  },
+  leader_message: {
+    label: "Leader Message",
+    why: "Drafts a Clan Leader Message in the clan's own voice (a promotion, a demotion, the season's awards, how the clan runs) for a leader to edit and send.",
   },
 };
 
@@ -229,5 +234,159 @@ export function pitchFromDraft(input, current = null, { prompt = "" } = {}) {
           `Check before saving: ${numbers.map((x) => Number(x).toLocaleString("en-US")).join(", ")} ${numbers.length === 1 ? "was" : "were"} not in anything the model was told about the clan.`,
         ]
       : [],
+  };
+}
+
+// ---------------------------------------------------------------- Leader Messages
+
+const MESSAGE_TOOL = {
+  name: "write_leader_message",
+  description:
+    "A Clan Leader Message for a leader to edit, then send in the game.",
+  input_schema: {
+    type: "object",
+    properties: {
+      title: {
+        type: "string",
+        description: `At most ${LEADER_MESSAGE.title} characters.`,
+      },
+      body: {
+        type: "string",
+        description: `At most ${LEADER_MESSAGE.body - 30} characters, placeholders included.`,
+      },
+    },
+    required: ["title", "body"],
+  },
+};
+
+const MESSAGE_SYSTEM = [
+  "You draft a Clan Leader Message for a Clash Royale clan, in the clan's own voice: the title-and-message mail a leader sends to every member's in-game Inbox. A leader edits it before sending.",
+  `Keep the title to ${LEADER_MESSAGE.title} characters and the message to ${LEADER_MESSAGE.body - 30}. Plain, warm, specific to what happened; no speeches.`,
+  "The game's chat filter blanks some innocent text, so: write 'and', never '&'; never put '+' before a number; never join two words with a hyphen; never write 'phone'; no links, emoji, hashtags, markdown or @mentions.",
+  "Never write a score, a rank, a percentage or a number the clan's facts below do not give. Never invent an event, a reward or a rule.",
+  "Never write a member's name yourself: where the member goes write {name}; where the list of awards and their winners goes write {winners}. Use each placeholder you are told to, exactly once.",
+  "Answer by calling write_leader_message.",
+].join("\n");
+
+const MESSAGE_KINDS = ["promotion", "demotion", "awards", "rules"];
+
+/**
+ * The request for a Clan Leader Message in the clan's voice. Names never
+ * reach the model: it writes {name} or {winners} and Clan puts them in
+ * (`leaderMessageFromDraft`). `voice` is the clan's own recruiting words,
+ * `current` the template draft the action already carries.
+ */
+export function leaderMessageRequest({
+  kind,
+  clanName = null,
+  voice = null,
+  goals = [],
+  changes = [],
+  first = false,
+  seasonId = null,
+  awardCount = 0,
+  current = null,
+  note = null,
+} = {}) {
+  if (!MESSAGE_KINDS.includes(kind))
+    throw new Error(`no Leader Message for ${kind}`);
+  const lines = [`The clan: ${clanName ?? "a Clash Royale clan"}.`];
+  if (voice?.tagline || voice?.about)
+    lines.push(
+      "",
+      "The clan in its own words (write in this voice):",
+      ...(voice.tagline ? [`Tagline: ${voice.tagline}`] : []),
+      ...(voice.about ? [`About: ${voice.about}`] : []),
+    );
+  if (goals.length)
+    lines.push(
+      "",
+      `What the clan is for: ${goals.map((g) => GOALS[g]?.label ?? g).join(", ")}.`,
+    );
+  lines.push("", "What happened:");
+  if (kind === "promotion")
+    lines.push(
+      "A member was just promoted to Elder by the clan's own rules. Write {name} for them.",
+    );
+  else if (kind === "demotion")
+    lines.push(
+      "An Elder moves back to Member for now, by the clan's own rules; it can come back. Write {name} for them. Kind, never shaming.",
+    );
+  else if (kind === "awards")
+    lines.push(
+      `Season ${seasonId ?? "?"} closed and the clan granted ${awardCount} award${awardCount === 1 ? "" : "s"}. Write {winners} where the list goes; keep the rest short.`,
+    );
+  else if (first)
+    lines.push(
+      "The clan now runs with Elixir Clan: members can sign in with Elixir to see how it works and where they stand.",
+    );
+  else
+    lines.push(
+      `The clan changed how it runs: ${changes.join(", ") || "some settings"}. Members can see how it works in Elixir Clan.`,
+    );
+  if (current?.title || current?.body)
+    lines.push(
+      "",
+      "The plain draft to improve on:",
+      `Title: ${current.title ?? ""}`,
+      `Message: ${current.body ?? ""}`,
+    );
+  const ask = String(note ?? "")
+    .trim()
+    .slice(0, NOTE_MAX);
+  if (ask) lines.push("", `The leader's note: ${ask}`);
+  return {
+    purpose: "leader_message",
+    max_tokens: 400,
+    system: MESSAGE_SYSTEM,
+    prompt: lines.join("\n"),
+    tool: MESSAGE_TOOL,
+  };
+}
+
+/**
+ * A model's Leader Message, made safe to send: the member's name and the
+ * awards list put in where the model left {name} and {winners} (or added
+ * when it left them out), the game's chat filter rules applied, and each
+ * part clipped to the game's limits. `warnings` are what a leader should
+ * still look at (a score or rank, text the filter would blank).
+ */
+export function leaderMessageFromDraft(
+  input,
+  { kind, name = null, awards = [] } = {},
+) {
+  const a = input && typeof input === "object" ? input : {};
+  const who = chatSafe(name ?? "a member");
+  const put = (text) => String(text ?? "").replaceAll("{name}", who);
+  let title = put(a.title).replaceAll("{winners}", "").trim();
+  let body = put(a.body);
+  if ((kind === "promotion" || kind === "demotion") && !body.includes(who))
+    body = `${who}: ${body}`;
+  if (kind === "awards") {
+    const list = awards.map(
+      (x) => `${x.name}: ${(x.winners ?? []).join(", ")}`,
+    );
+    const room = Math.max(
+      40,
+      LEADER_MESSAGE.body -
+        (body.includes("{winners}")
+          ? body.length - "{winners}".length
+          : body.length + 1),
+    );
+    const winners = list.length ? fitList(list, room) : "";
+    body = body.includes("{winners}")
+      ? body.replace("{winners}", winners)
+      : `${body} ${winners}`.trim();
+  }
+  body = body.replaceAll("{winners}", "").replaceAll("{name}", who);
+  title = clipChat(chatSafe(title), LEADER_MESSAGE.title);
+  body = clipChat(chatSafe(body), LEADER_MESSAGE.body);
+  return {
+    title,
+    body,
+    warnings: [
+      ...chatWarnings(title, LEADER_MESSAGE.title),
+      ...chatWarnings(body, LEADER_MESSAGE.body),
+    ],
   };
 }

@@ -929,3 +929,15 @@ action's log says `emailed`. The first run (2026-09-26, 06:00 Central)
 mails POAP KINGS' leaders everything open, since nothing was mailed
 before. The weekly clan report is its own later round.
 
+## 2026-09-25 — The clan's model, second use: Leader Messages (Jamie)
+
+Jamie took the runner-up as its own round after door 2. On an open action
+that ends in a Clan Leader Message, a leader can have it drafted in the
+clan's voice ("Draft in our voice", with an optional note), then edits and
+sends it as before. The model is told the clan's facts, its own recruiting
+words and what happened, never a member's name: it writes `{name}` and
+`{winners}` and Clan fills them in, applies the chat filter rules and the
+24/180 limits, and flags anything a leader should check (a score or rank).
+The action's log says it was drafted; the use counts toward the clan's 20 a
+day on its key.
+

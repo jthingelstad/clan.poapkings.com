@@ -28,6 +28,7 @@ const KIND = {
   outcome_flagged: "Flagged: no change seen",
   comment: "Comment",
   emailed: "Emailed",
+  drafted: "Drafted by the clan's model",
   shared: "Shared with Elixir",
   not_shared: "Not shared with Elixir",
 };
@@ -146,13 +147,36 @@ function MessageField({ label, value, onChange, max, rows = 1 }) {
  *  each within the game's limit, edited before copying. The card holds
  *  the words (`value`/`onChange`) so completing the action can say what
  *  was sent; on its own it keeps them itself. */
-export function LeaderMessage({ message, value = null, onChange = null }) {
+export function LeaderMessage({
+  message,
+  value = null,
+  onChange = null,
+  onDraft = null,
+}) {
   const [own, setOwn] = useState({
     title: message?.title ?? "",
     body: message?.body ?? "",
   });
   const words = value ?? own;
   const change = onChange ?? setOwn;
+  // The clan's model (when its key is in use): a draft in the clan's
+  // voice replaces the words, and what they had comes back with one click.
+  const [ask, setAsk] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [said, setSaid] = useState("");
+  const [previous, setPrevious] = useState(null);
+  const draft = async () => {
+    setDrafting(true);
+    setSaid("");
+    const r = await onDraft(ask.trim() || null);
+    setDrafting(false);
+    if (r.error) return setSaid(r.error);
+    setPrevious(words);
+    change({ title: r.title, body: r.body });
+    setSaid(
+      `Drafted by ${r.model}.${r.warnings?.length ? ` Check: ${r.warnings.join("; ")}.` : ""} Edit it, then copy and send.`,
+    );
+  };
   const title = words.title;
   const body = words.body;
   const setTitle = (t) => change({ ...words, title: t });
@@ -177,9 +201,63 @@ export function LeaderMessage({ message, value = null, onChange = null }) {
         max={LEADER_MESSAGE.body}
         rows={3}
       />
+      {onDraft ? (
+        <div className="grid gap-1.5">
+          <div className="flex flex-wrap gap-2">
+            <input
+              className="input flex-[1_1_200px]"
+              aria-label="What should it say?"
+              placeholder="What should it say? (optional)"
+              value={ask}
+              maxLength={300}
+              onChange={(e) => setAsk(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn--sm"
+              disabled={drafting}
+              onClick={draft}
+            >
+              {drafting ? "Drafting…" : "Draft in our voice"}
+            </button>
+          </div>
+          {said ? (
+            <span className="page-head__note" role="status">
+              {said}
+            </span>
+          ) : null}
+          {previous ? (
+            <button
+              type="button"
+              className="btn--text justify-self-start"
+              onClick={() => {
+                change(previous);
+                setPrevious(null);
+                setSaid("");
+              }}
+            >
+              Put back what I had
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
+
+/** What a draft refusal means, in a leader's words. */
+const DRAFT_ERROR = {
+  no_model_key: "The clan has no model key yet (Manage ▸ Settings).",
+  model_key_refused:
+    "Anthropic stopped accepting the clan's key. Add it again in Settings.",
+  model_key_unreadable: "The clan's key needs to be added again in Settings.",
+  model_unavailable:
+    "The chosen model is no longer available to this key. Pick another in Settings.",
+  model_daily_limit:
+    "The clan's model has drafted as many times as it may today. Try again tomorrow.",
+  model_key_owner_left:
+    "The clan's key was added by someone who no longer leads the clan. Add a key of yours in Settings.",
+};
 
 /** Who wrote a log entry. */
 function By({ by }) {
@@ -286,6 +364,7 @@ export function ActionCard({
   reasons,
   onChanged,
   navigate,
+  model = null,
 }) {
   const [reason, setReason] = useState("not_now");
   const [note, setNote] = useState("");
@@ -423,6 +502,26 @@ export function ActionCard({
             message={action.message}
             value={words}
             onChange={setWords}
+            onDraft={
+              model?.set && !model.refused && action.can_act !== false
+                ? async (note) => {
+                    const r = await manageApi.draftLeaderMessage(
+                      clan.clan_tag,
+                      action.card_id,
+                      note,
+                    );
+                    if (!r.ok)
+                      return {
+                        error:
+                          DRAFT_ERROR[r.data?.error] ??
+                          r.data?.message ??
+                          "The clan's model did not answer. Try again in a minute.",
+                      };
+                    trackEvent("clan.model_drafted", "leader_message");
+                    return r.data;
+                  }
+                : null
+            }
           />
         ) : null}
         {LEADER_TYPES.has(action.type) && ev.facts?.length ? (

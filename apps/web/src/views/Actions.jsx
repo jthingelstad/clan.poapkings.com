@@ -105,6 +105,7 @@ export function Actions({ clan, who, navigate }) {
       clan={clan}
       who={who}
       reasons={d.decline_reasons}
+      model={d.model ?? null}
       onChanged={changed}
       navigate={navigate}
     />

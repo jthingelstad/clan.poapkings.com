@@ -15,6 +15,7 @@ import { createRecruitService } from "./manage/recruit.mjs";
 import { createModelService } from "./manage/model.mjs";
 import { createAnthropicClient } from "./anthropic.mjs";
 import { createScheduledRun } from "./scheduled.mjs";
+import { createDrafts } from "./manage/drafts.mjs";
 import { createScout } from "./manage/scout.mjs";
 import { createFeedbackService } from "./feedback.mjs";
 import { createSnsNotifier } from "./notify.mjs";
@@ -71,6 +72,7 @@ const scheduled = createScheduledRun({
 const http = createHandler({
   mcp,
   model,
+  drafts: createDrafts({ ledger, model }),
   manage,
   awards,
   scout: createScout({ mcp }),

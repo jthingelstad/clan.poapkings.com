@@ -174,7 +174,8 @@ edit; feedback to the maintainer. See `AGENTS.md` for how.
    trophies over time. Requests to Elixir first.
 7. **Words by the clan's own model.** A clan's own Anthropic key writes the
    weekly report, the recruiting copy, a season recap; templates remain the
-   fallback.
+   fallback. Built: the recruiting pitch, and Leader Messages in the clan's
+   voice (promotions, demotions, the season's awards, how it runs).
 8. **Growing the clan.** Recruit and Scout shaped by what the clan is for; a
    clan below 10 helped toward 10; members inviting their leaders.
 9. **Families** (horizon): a main clan and its feeder, and graduating

@@ -259,6 +259,97 @@ describe("clan leader messages", () => {
   });
 });
 
+describe("the clan's model on a Leader Message", () => {
+  test("a leader drafts it in the clan's voice, sees what to check, and can put back what they had", async () => {
+    vi.spyOn(manageApi, "actions").mockResolvedValue(
+      view({
+        model: { set: true, refused: false, model: "claude-sonnet-5" },
+        open: [
+          {
+            card_id: "r1",
+            type: "rules_announcement",
+            label: "Tell the clan how it runs",
+            status: "proposed",
+            can_act: true,
+            audience: { kind: "leaders" },
+            player_tag: null,
+            raised_at: "2026-09-12T20:00:00Z",
+            channel: "leader_message",
+            copy: null,
+            message: {
+              title: "How our clan runs",
+              body: "We now run the clan with Elixir Clan.",
+            },
+            evidence: { version: 1, changes: [] },
+            log: [],
+          },
+        ],
+      }),
+    );
+    const draft = vi.spyOn(manageApi, "draftLeaderMessage").mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        title: "Our way, in brief",
+        body: "We run the clan with Elixir Clan now. Sign in to see where you stand.",
+        warnings: [],
+        model: "claude-sonnet-5",
+      },
+    });
+    renderWithProviders(
+      <Actions
+        clan={clan}
+        who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
+      />,
+    );
+    fireEvent.change(await screen.findByLabelText("What should it say?"), {
+      target: { value: "warm" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Draft in our voice" }));
+    await waitFor(() =>
+      expect(draft).toHaveBeenCalledWith("#2PQRJ8LV", "r1", "warm"),
+    );
+    expect(await screen.findByDisplayValue("Our way, in brief")).toBeTruthy();
+    expect(screen.getByText(/Drafted by claude-sonnet-5/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Put back what I had"));
+    expect(await screen.findByDisplayValue("How our clan runs")).toBeTruthy();
+  });
+
+  test("without the clan's key, there is no draft button", async () => {
+    vi.spyOn(manageApi, "actions").mockResolvedValue(
+      view({
+        open: [
+          {
+            card_id: "r1",
+            type: "rules_announcement",
+            label: "Tell the clan how it runs",
+            status: "proposed",
+            can_act: true,
+            audience: { kind: "leaders" },
+            player_tag: null,
+            raised_at: "2026-09-12T20:00:00Z",
+            channel: "leader_message",
+            copy: null,
+            message: { title: "How our clan runs", body: "Hello." },
+            evidence: { version: 1, changes: [] },
+            log: [],
+          },
+        ],
+      }),
+    );
+    renderWithProviders(
+      <Actions
+        clan={clan}
+        who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
+      />,
+    );
+    await screen.findByDisplayValue("How our clan runs");
+    expect(
+      screen.queryByRole("button", { name: "Draft in our voice" }),
+    ).toBeNull();
+  });
+});
+
 describe("you here", () => {
   test("a member sees their week, what the clan makes of it, and their time here", async () => {
     const { YouHere } = await import("../src/views/YouHere.jsx");

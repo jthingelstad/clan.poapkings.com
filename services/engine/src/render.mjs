@@ -446,7 +446,7 @@ const filterSafe = chatSafe;
 const clip = clipChat;
 
 /** Join items into a line that fits, saying how many did not. */
-function fitList(items, max, sep = "; ") {
+export function fitList(items, max, sep = "; ") {
   const out = [];
   for (const item of items) {
     const next = [...out, item].join(sep);

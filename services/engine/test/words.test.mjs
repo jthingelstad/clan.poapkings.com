@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  leaderMessageFromDraft,
+  leaderMessageRequest,
   MODEL_PREFERENCE,
   NOTE_MAX,
   PURPOSES,
@@ -27,8 +29,12 @@ const FACTS = {
   top_donors: [{ name: "Givername", value: 800 }],
 };
 
-test("a model writes words for a closed list of uses, none about a member", () => {
-  assert.deepEqual(Object.keys(PURPOSES), ["recruit_pitch"]);
+test("a model writes words for a closed list of uses, none a judgment about a member", () => {
+  assert.deepEqual(Object.keys(PURPOSES), ["recruit_pitch", "leader_message"]);
+  assert.doesNotMatch(
+    JSON.stringify(PURPOSES),
+    /judge|score|rank|remove|kick|recommend/i,
+  );
 });
 
 test("the default model is the first preferred one the key reaches", () => {
@@ -109,4 +115,66 @@ test("a draft is tidied, clipped to each field, keeps the clan's own website and
   // A missing answer is an empty draft with the fields it lacks named.
   const empty = pitchFromDraft(null, null);
   assert.ok(empty.errors.tagline && empty.errors.about);
+});
+
+test("a Leader Message request never carries a member's name; the model writes placeholders", () => {
+  const r = leaderMessageRequest({
+    kind: "promotion",
+    clanName: "Example Clan",
+    voice: { tagline: "Steady wars", about: "We war." },
+    goals: ["war"],
+    current: { title: "Congrats, new Elder!", body: "{name} is now an Elder." },
+  });
+  assert.equal(r.purpose, "leader_message");
+  assert.match(r.system, /Never write a member's name/);
+  assert.match(r.system, /never '&'/);
+  assert.match(r.prompt, /Write \{name\}/);
+  assert.match(r.prompt, /Tagline: Steady wars/);
+  const awards = leaderMessageRequest({
+    kind: "awards",
+    seasonId: 131,
+    awardCount: 2,
+  });
+  assert.match(awards.prompt, /Season 131 closed/);
+  assert.match(awards.prompt, /\{winners\}/);
+  assert.throws(() => leaderMessageRequest({ kind: "removal" }));
+});
+
+test("a drafted Leader Message gets its names back, the game's filter rules and its limits", () => {
+  const promo = leaderMessageFromDraft(
+    {
+      title: "New Elder & friends",
+      body: "Cheers to {name} for every war day +4!",
+    },
+    { kind: "promotion", name: "Ab-Cd" },
+  );
+  assert.equal(promo.title, "New Elder and friends");
+  assert.equal(promo.body, "Cheers to Ab Cd for every war day 4!");
+  assert.deepEqual(promo.warnings, []);
+  // A model that forgot the placeholder still names the member.
+  const forgot = leaderMessageFromDraft(
+    { title: "Elder update", body: "Back to Member for now." },
+    { kind: "demotion", name: "Sleepy" },
+  );
+  assert.match(forgot.body, /^Sleepy: /);
+  const awards = leaderMessageFromDraft(
+    {
+      title: "Season 131 awards are in and they are great",
+      body: "Well played! {winners}",
+    },
+    {
+      kind: "awards",
+      awards: [
+        { name: "Iron Deck", winners: ["Ada", "Ben"] },
+        { name: "Top Donor", winners: ["Cy"] },
+      ],
+    },
+  );
+  assert.ok(awards.title.length <= 24, awards.title);
+  assert.equal(awards.body, "Well played! Iron Deck: Ada, Ben; Top Donor: Cy.");
+  const ranked = leaderMessageFromDraft(
+    { title: "Rules", body: "You rank 5 of 39 now." },
+    { kind: "rules" },
+  );
+  assert.ok(ranked.warnings.some((w) => /score, rank or band/.test(w)));
 });

@@ -12,6 +12,7 @@ import { createHandler } from "../src/handler.mjs";
 import { createMemoryLedger } from "../src/manage/ledger.mjs";
 import { createRecruitService } from "../src/manage/recruit.mjs";
 import { fetchRoster } from "../src/manage/service.mjs";
+import { createDrafts } from "../src/manage/drafts.mjs";
 import {
   USES_PER_DAY,
   createModelService,
@@ -128,6 +129,7 @@ function harness({ players = [player()] } = {}) {
     store: createMemoryStore(),
     recruit: createRecruitService({ ledger, mcp, model, now }),
     model,
+    drafts: createDrafts({ ledger, model, now }),
     sessionSecret: "test-secret",
     appUrl: "https://clan.test",
     elixirUrl: "https://elixir.test",
@@ -327,4 +329,75 @@ test("model: a sealed key opens only for its clan and the person who added it, u
   assert.equal(a.open(box, "#2PQRJ8LV|#8QCV"), null);
   assert.equal(sealer("secret-two").open(box, "#2PQRJ8LV|#20QQL8CCRU"), null);
   assert.ok(!JSON.stringify(box).includes(GOOD));
+});
+
+test("model: a leader drafts an open action's Leader Message in the clan's voice; the model never sees the member's name", async () => {
+  const h = harness();
+  const c = await signedIn(h);
+  await api(h, c, "PUT", MODEL, { key: GOOD });
+  const card = {
+    card_id: "promo1",
+    clan_tag: "#2PQRJ8LV",
+    type: "promotion",
+    status: "proposed",
+    player_tag: "#8QCV",
+    player_name: "Secretname",
+    raised_at: "2026-09-25T11:00:00.000Z",
+    evidence: {
+      message: {
+        title: "Congrats, new Elder!",
+        body: "Secretname is now an Elder. Thank you for showing up.",
+      },
+    },
+  };
+  await h.ledger.putCard("#2PQRJ8LV", card);
+  await h.ledger.putCard("#2PQRJ8LV", {
+    ...card,
+    card_id: "done1",
+    status: "done",
+  });
+  h.anthropic.state.write = (key, request) => ({
+    ok: true,
+    model: request.model,
+    usage: { input_tokens: 300, output_tokens: 40 },
+    input: {
+      title: "A new Elder & a toast",
+      body: "Three cheers for {name}, our newest Elder. See you in war!",
+    },
+  });
+  const path = "/api/clans/2PQRJ8LV/actions/promo1/draft";
+  const r = await api(h, c, "POST", path, { note: "keep it short" });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.title, "A new Elder and a toast");
+  assert.equal(
+    r.body.body,
+    "Three cheers for Secretname, our newest Elder. See you in war!",
+  );
+  assert.deepEqual(r.body.warnings, []);
+  const [, , sent] = h.anthropic.state.calls.at(-1);
+  assert.equal(sent.tool.name, "write_leader_message");
+  assert.doesNotMatch(sent.prompt, /Secretname/, "names never reach the model");
+  assert.match(sent.prompt, /keep it short/);
+  const log = await h.ledger.actionLog("#2PQRJ8LV", "promo1");
+  assert.ok(log.some((e) => e.kind === "drafted"));
+  const s = await api(h, c, "GET", MODEL);
+  assert.equal(s.body.uses.recent[0].purpose, "leader_message");
+  // A closed action, or one without a Leader Message, is not drafted.
+  const closed = await api(
+    h,
+    c,
+    "POST",
+    "/api/clans/2PQRJ8LV/actions/done1/draft",
+    {},
+  );
+  assert.equal(closed.status, 409);
+});
+
+test("model: only leaders draft Leader Messages", async () => {
+  const h = harness({
+    players: [player({ player_tag: BEA, name: "Bea", clan_role: "elder" })],
+  });
+  const c = await signedIn(h);
+  const r = await api(h, c, "POST", "/api/clans/2PQRJ8LV/actions/x/draft", {});
+  assert.equal(r.status, 403);
 });
