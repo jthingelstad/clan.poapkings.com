@@ -730,3 +730,21 @@ request logs and analytics mask action ids as they did card ids.
   hand). How it works here opens with them; a leader's first recruiting
   pitch starts from a draft of them. Goals judge nothing on their own.
 
+## 2026-09-25 — The doors, settled; Clan Leader Messages (Jamie)
+
+- **Door 1** is an Elixir integration (Admin → Integrations, an admin-issued
+  key with named permissions; Drop is the first): Elixir Clan becomes the
+  second, with a `clans:read` permission for scheduled evaluation.
+- **Door 2**: email is Elixir's (kinds, preferences, one-click unsubscribe,
+  the account's activity log); Elixir Clan is a client of it, and Elixir
+  Drop can be later.
+- **Door 3**: the five fact types, plus `clan_message`, a message sent to the
+  clan.
+- **Clan Leader Messages** are a kind of action Jamie wants targeted: the
+  game's "Clan Leader Message" (a title and a message, sent by a leader or
+  co-leader only, landing in every member's Inbox, more durable than clan
+  chat). Actions completed by saying something in the game therefore have two
+  channels: a clan chat line (anyone the action is for) and a leader
+  message (leaders and co-leaders only). Its length limits are not in the
+  game's API or our reference; to be read in the game before copy is sized.
+

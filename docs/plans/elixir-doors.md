@@ -1,6 +1,7 @@
 # Plan: three doors into Elixir for the family's apps
 
-**Proposed 2026-09-25 by Elixir Clan, for the Elixir team. Not built.**
+**Proposed 2026-09-25 by Elixir Clan, for the Elixir team; Jamie's answers
+folded in the same day. Not built.**
 Kept here until the family's plans folder (`../elixir-family/plans/`) can
 take it. Elixir decides the contracts; nothing here is Elixir's until its
 team agrees.
@@ -31,32 +32,32 @@ carries its provenance: the vertical, the person's verified tag and role at
 the time, and when. The naming test applies: nothing in the contract names
 a policy, a threshold or a verdict.
 
-## Door 1: a first-party read grant with no person present
+## Door 1: Elixir Clan as an integration
 
-Recorded game data is already readable by every account. A first-party
-client (Clan, Drop) gets a **client-credentials grant** to `/api/v1` with
-`cr:read`, audited per call like any grant, spending no quota as
-first-party reads do today. Clan uses it only for clans whose leaders saved
-a policy, on a schedule (once or twice a day), and never stores a person's
-tokens to do it.
+Jamie, 2026-09-25: use Elixir's existing **integrations** (Admin →
+Integrations: an admin-issued `svt_` key, named permissions, budgets, last
+use and suspension; Elixir Drop is the first). Elixir Clan becomes the
+second integration, with one new permission, `clans:read`: the JSON API's
+`GET /clans/{tag}/participation` and `GET /clans/{tag}/roster` for any
+recorded clan, the same answers a person's grant gets. Clan uses it only for
+clans whose leaders saved a policy, on a schedule (once or twice a day), and
+keeps the key in its server configuration like any secret. No person's
+tokens are ever stored for this.
 
-*Alternative, no Elixir change:* Clan keeps a leader's rotating refresh
-token and reads on their behalf. It works, but Clan would hold people's
-credentials; the grant is the cleaner door.
+## Door 2: mail through Elixir's email
 
-## Door 2: mail to a person
-
-`POST /api/v1/mail` for first-party clients: the recipient named by a
-verified player tag (Elixir resolves the person and their address), a
-**kind** from a registry (`clan.weekly_report`, `clan.actions_waiting`,
-later Drop's), a subject and a Markdown body. Elixir sends only if the
-person has that kind switched on in Elixir's account settings (one place to
-manage every family email), adds the unsubscribe link and the send id,
-keeps the send record, and answers with the send id. The vertical never
-sees an address.
-
-Clan would send: a **weekly clan report** to members who want it, and
-**actions waiting for you** (a digest, never one mail per action).
+Jamie, 2026-09-25: email is managed in Elixir, and Elixir Clan is a client
+of it. Elixir already has the kinds, the per-kind preferences under the
+account's email settings, one-click unsubscribe, the send ledger and the
+account's activity log; Clan's mail joins them as new kinds rather than a
+new system. On its integration key, with a `mail:send` permission, Clan
+posts a composed issue for a kind (`clan_weekly_report`,
+`clan_actions_waiting`, a digest, never one mail per action) and the player
+tags it is for; Elixir sends only to accounts whose verified player is in
+that clan and who have the kind switched on, adds the unsubscribe link and
+the send id, and shows the mail in the account's activity like its own. The
+integration never sees an address. Elixir Drop, which today sends only
+magic sign-in links from its own side, can add kinds the same way later.
 
 ## Door 3: facts people attested
 
@@ -71,6 +72,7 @@ small bounded `detail`:
 | `role_change_made` | Clan, a leader | the member, from and to, the action it completes |
 | `award_granted` | Clan | the award's name, season, place |
 | `member_away` | Clan, the member | until |
+| `clan_message` | Clan, whoever sent it | a message sent to the clan: a Clan Leader Message (title and body) or a clan chat line, the action it completes |
 | `personal_record` | Drop | the game, the score, the previous best |
 
 Elixir records them with their provenance and shows them where a fact
@@ -95,11 +97,17 @@ raises the actions; the mail tells people).
 - Door 2: the weekly report and the actions digest, and a per-person choice
   shown in Clan that links to Elixir's settings.
 
-## Questions for Jamie and the Elixir team
+## Settled with Jamie (2026-09-25)
 
-1. Client credentials for first-party apps (door 1), or Clan holding
-   leaders' refresh tokens?
-2. Email consent per kind in Elixir's account settings (door 2), off by
-   default?
-3. Which fact types are worth it first (door 3), and what may a clan share
-   beyond its own members?
+1. Door 1 is an integration, Elixir's existing admin-approved kind.
+2. Email is Elixir's: kinds, preferences, unsubscribe and the activity log;
+   Clan (and later Drop) are clients.
+3. The fact types above, with `clan_message` added.
+
+## Open for the Elixir team
+
+- The `clans:read` and `mail:send` permissions and the facts routes in the
+  JSON API contract; the facts' visibility and how the Timeline and the
+  events feed show them.
+- Default for the new mail kinds (Elixir's own product mail sets the
+  pattern).
