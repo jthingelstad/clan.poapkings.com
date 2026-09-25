@@ -61,17 +61,21 @@ docs/NOTES.md      decisions, newest last; what is waiting on Jamie
 | The door | `/api/v1/*` | Elixir's JSON API (`services/api/src/elixir-api.mjs`). It keeps the old MCP client's `initialize`/`callTool` interface: each tool name maps to one operation, answered with that tool's structured result, and a refusal comes back as problem+json carrying the tool's code. Plan: `../elixir-family/plans/clan-app-api.md` |
 
 Elixir's contract is documented at <https://elixir.poapkings.com/docs>
-(`protocol`, `connections`, `agents`, `verify`). Do not restate it here.
+(`integrations` for the JSON API Clan reads, `protocol` for OAuth discovery
+and registration, `connections`, `verify`). Do not restate it here.
 
 ## The gate, in order (`services/api/src/gate.mjs`)
 
-One read, `GET /api/v1/me` (the principal block and the players; the client
-serves it as `initialize` then `elixir_my_players`); the first refusal wins
-and each has its own page (`apps/web/src/views/Refused.jsx`):
+`GET /api/v1/me` (the principal block and the players; the client answers
+`initialize` and then `elixir_my_players` from it, one request each); the
+first refusal wins and each has its own page
+(`apps/web/src/views/Refused.jsx`):
 
-1. `_meta["elixir.poapkings.com/principal"].kind === "person"` (the docs say
-   `person`, not `user`); an agent's or integration's grant → `not_a_person`,
-   and NO session is created
+1. `/me`'s `principal.kind === "person"` (the block MCP's `initialize` used
+   to carry in `_meta`; the docs say `person`, not `user`); an agent's or
+   integration's grant → `not_a_person`, and NO session is created (Elixir's
+   `/api/v1` already refuses a grant that is not a person's; this check
+   stays behind it)
 2. at least one player on the account → else `no_primary_player` (Elixir →
    Tracking)
 3. at least one claim with `claim_status === "verified"` → else `unverified`
@@ -91,8 +95,8 @@ refuses any clan outside the set (`not_your_clan`); a session with no
 selection and no `?clan=` gets `409 no_selection`. Arriving at
 `/clan/<TAG>` for another of your clans selects it.
 
-The roster is read with `clans_roster` naming the clan explicitly (the
-tool's default is the first RECORDED clan among the account's claims). A
+The roster is `GET /api/v1/clans/{tag}/roster` (`clans_roster`'s result),
+the clan always named in the path. A
 `not_recorded`/`no_subject` answer is its own page state: "Elixir isn't
 recording your clan yet".
 
@@ -307,8 +311,9 @@ background job and no stored credential.
 
 ## Elixir JSON API operations this app depends on
 
-Each answers with the named Elixir tool's structured result (JSON API
-contract 1.2.0).
+Each answers with the named Elixir tool's structured result, at the hub's
+current JSON API version (see `packages/contracts/integration-api.openapi.json`
+`info.version` in elixir-mcp; a removed or renamed field is a major there).
 
 | Operation | Tool result | Used for |
 |---|---|---|
@@ -372,7 +377,7 @@ Elixir's requested interval (Scout stops after six attempts). The page shows
 
 `services/api/src/trace.mjs` (2026-09-12, after slow pages and a log group
 holding only START/END/REPORT). Every request runs inside a trace; every
-Elixir call (`mcp.mjs`, `oauth.mjs`) and every table operation (`store.mjs`,
+Elixir call (`elixir-api.mjs`, `oauth.mjs`) and every table operation (`store.mjs`,
 `ledger.mjs`) is timed into it. The handler ends the request with:
 
 - **one JSON line** in `/aws/lambda/elixir-clan-api`: `http` (the route with
