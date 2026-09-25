@@ -15,7 +15,7 @@ the product docs it points at.
    detached or unexpectedly-ahead checkout makes the run read-only. Never
    publish a pre-existing commit.
 2. Measure current state: the live site and API (`/api/health`, the smoke
-   script's reads, the public awards document), CI (`gh run list`), the
+   script's reads), CI (`gh run list`), the
    stack and its alarms (`--profile cloud-engineer`, read-only), the ledger through
    the host scripts, `docs/NOTES.md` since the last reviewed revision, and
    Elixir's contract version against the pinned dependency.
@@ -65,11 +65,11 @@ One objective label each; no dispatch or handoff labels.
 ## Human boundary
 
 Jamie decides: any change to what the engine judges or how (a new policy
-field, a new award kind, a changed default), anything that touches a member's
-in-game standing outside the leader's own decision on a card, the shape of
-the public documents (poapkings.com reads them), the OAuth scope, anything
-stored about a person beyond what `AGENTS.md` lists, broad communication to a
-clan, and the elixir-bot history import (declined). Ask one concrete yes/no
+field, a new award kind, a changed starting value), anything that touches a
+member's in-game standing outside the leader's own decision on a card,
+anything published outside a signed-in session (nothing is, by decision), the
+OAuth scope, anything stored about a person beyond what `AGENTS.md` lists, and
+broad communication to a clan. Ask one concrete yes/no
 question with the evidence and the smallest useful version.
 
 Autonomous when they preserve that boundary: bug and reliability fixes, a

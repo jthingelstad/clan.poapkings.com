@@ -25,8 +25,9 @@ know. Silence is the one answer never allowed.
   quotes what will change or why it will not; template-flat replies fail
   the bar. A bigger change is one decision for Jamie with the item quoted.
 - **Docs currency.** `AGENTS.md`, the policy editor's help text (the only
-  documentation of the rules), the awards editor's help text, the
-  `how-elder-works` page, `docs/NOTES.md`'s "waiting on Jamie" items:
+  documentation of the rules), the awards editor's help text, Standing's
+  "How it works here" (written from each clan's policy), `docs/NOTES.md`'s
+  "waiting on Jamie" items:
   advertised features exist and existing features are advertised.
 - **The notification path.** New feedback publishes to `elixir-clan-feedback`;
   the subscription is Jamie's address. If items appear in the queue that no

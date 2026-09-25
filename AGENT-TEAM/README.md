@@ -18,13 +18,13 @@ is wrong about me" must be answered.
 | **Run Elixir Clan** | `run-elixir-clan.md` | Is the product up, deployed from `main`, cheap, and still speaking Elixir's current contract? |
 | **Judge Fairly** | `judge-fairly.md` | Do the verdicts, cards, standing and awards follow the clan's policy and the record — and does the record cover what they claim? |
 | **Close the Loop** | `close-the-loop.md` | Is every piece of feedback answered, acted on or framed for Jamie, and do the docs still describe the shipped product? |
-| **Guard the Door** | `guard-the-door.md` | Are the seams to Elixir, the public repo, the session cookies and the public documents holding to their boundaries? |
+| **Guard the Door** | `guard-the-door.md` | Are the seams to Elixir, the public repo and the session cookies holding to their boundaries, with nothing published? |
 
 Calendar cadence: [generated schedule](SCHEDULE.md), sourced from
 `automations.toml`.
 
 Guard the Door is an independent control: Run cannot waive its findings,
-and it never widens a scope, a cookie or a public document to make another
+and it never widens a scope, a cookie or a public route to make another
 objective's work easier. Do not add a Growth, Analyst or Cost role: cost
 belongs to Run, judgment quality to Judge Fairly, product signal to Close
 the Loop.
@@ -52,13 +52,12 @@ acceptance.
   product needs and Elixir lacks is a request to Elixir's team (its
   `elixir_feedback` tool or its AGENT-TEAM), never a judgment moved
   upstream. Never touch Elixir's database; every seam is a public door.
-- **elixir-bot (`../elixir-bot`)** is POAP KINGS' established agent and the
-  origin of the rules ported here. Its ledger is read-only evidence for
-  Judge Fairly (`scripts/import-elixir-bot.mjs` dry runs); importing its
-  history was declined 2026-09-12 and stays declined.
-- **poapkings.com** reads this product's public awards document. Its
-  build is its own; a change to the document's shape is a contract change
-  here (Guard the Door reviews it, Close the Loop announces it).
+- **Elixir Clan is for any clan** (Jamie, 2026-09-25). It was bootstrapped
+  from one clan's Discord bot; that history is in `docs/NOTES.md` and is
+  not a reference for how the product should behave. Each clan's own saved
+  policy is. No team work saves a clan's policy, awards or pitch.
+- **Nothing is published.** Every route under `/api/clans` needs a session;
+  no other site reads a document from this product.
 - **projects-sysadmin AGENT-TEAM** drains the shared alarm queue daily.
   This team owns *this stack's* operational truth: the Operator sees that
   `elixir-clan-api-errors` fired, Run Elixir Clan owns why and the fix.
@@ -76,7 +75,6 @@ acceptance.
 - `services/engine/` — the pure engine (policy, facts, standing, evaluate,
   render, awards) and its golden tests.
 - `services/api/` — one Lambda: auth, the gate, sessions, the roster,
-  Manage (ledger, service, awards, scout), feedback, the public documents.
+  Manage (ledger, service, awards, recruit, scout), feedback.
 - `apps/web/` — the SPA. `infra/` — one stack, deploy/smoke scripts.
-- `scripts/feedback.mjs` — the feedback queue from the host;
-  `scripts/import-elixir-bot.mjs` — read-only comparison against elixir-bot.
+- `scripts/feedback.mjs` — the feedback queue from the host.

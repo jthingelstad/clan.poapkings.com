@@ -3,9 +3,11 @@
 Elixir Clan: being in a clan, on top of Elixir. `clan.poapkings.com`, one of
 the Elixir family's verticals (`../elixir-family/MAP.md`). It signs people
 in with Elixir's OAuth, requires a verified player, shows them their clan
-with their own role, and (second push, 2026-09-12) runs a clan's own
-management policy against the record: standing, the Elder band, the
-removal clock, action cards leaders decide, notes, holds, and scouting.
+with their own role, and runs each clan's own policy against the record:
+Elder by participation or by hand, the removal clock, action cards leaders
+decide, departures, notes, holds, awards, recruiting copy and scouting.
+It is a general clan-management tool for any Clash Royale clan (Jamie,
+2026-09-25): how a clan runs comes from its saved policy, never from code.
 
 `CLAUDE.md` is a symlink to this file. Do not fork them.
 
@@ -30,22 +32,30 @@ removal clock, action cards leaders decide, notes, holds, and scouting.
    copied. Anything this app needs that the kit lacks is a kit addition
    there, then a pin bump here - never a local copy. The unofficial
    disclaimer is on every page.
+6. **Any clan, and nothing until its policy.** No code, default, help text
+   or copy is shaped by one clan: a clan's rules, awards and words live in
+   its saved policy, awards and pitch. Until a leader or co-leader saves a
+   policy, no clan-management function runs (members still see the roster
+   and its statistics; Recruit and Scout work). A test fails if product
+   source names a clan, a real player, one clan's awards or website, or
+   elixir-bot (`services/engine/test/no-clan-specifics.test.mjs`).
+7. **An app, not a publisher.** Every route under `/api/clans` needs a
+   session: no public pages, no public documents (Jamie, 2026-09-25). What
+   members should see, they see signed in.
 
 ## Layout
 
 ```
 apps/web/          React 19 + Vite SPA on Elixir's kit (TanStack Router + Query,
                    Tailwind v4 over Elixir's tokens): /, /clans, /clan/<TAG>,
-                   /clan/<TAG>/standing, /clan/<TAG>/recruit,
+                   /clan/<TAG>/standing, /clan/<TAG>/trophies, /clan/<TAG>/recruit,
                    /clan/<TAG>/manage/{inbox,board,history,policy,awards,scout},
-                   /clan/<TAG>/how-elder-works (public), /you, /you/away, /feedback,
-                   /maintain/feedback, /refused/<reason>
+                   /you, /you/away, /feedback, /maintain/feedback, /refused/<reason>
 services/engine/   the management engine, PURE: policy schema, facts, standing,
                    evaluate, render, awards, recruit. No I/O, no clock. Golden tests in test/.
 services/api/      Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*,
                    /api/clans/<TAG>/* (manage/ = ledger, service, awards, recruit, scout)
-scripts/           import-elixir-bot.mjs (read-only dry run of elixir-bot's ledger;
-                   importing was DECLINED 2026-09-12, never offer to run --write)
+scripts/           feedback.mjs (the Close-the-Loop owner's read of the queue)
 infra/             one CloudFormation stack + scripts (bootstrap, deploy, smoke)
 docs/NOTES.md      decisions, newest last; what is waiting on Jamie
 ```
@@ -127,79 +137,92 @@ retention is separate from the session cache window.
 
 ## The engine's contract (`services/engine`)
 
-`verdicts = evaluate({ participation, policy, now, decisions, holds })`, a
-pure function. Inputs are Elixir's `clans_participation` answer (columns per
-ISO week and per war week, the recording horizon), the validated policy
-values, the instant, the decided cards and the holds. Nothing else is
-remembered between runs.
+`verdicts = evaluate({ participation, policy, now, decisions, holds,
+trophies })`, a pure function of a SAVED policy: the service never evaluates
+a clan without one. Inputs are Elixir's `clans_participation` answer
+(columns per ISO week and per war week, the recording horizon), the
+validated policy values, the instant, the decided cards, the holds, and,
+only when the policy counts trophy road, each member's trophies today from
+`clans_roster`. Nothing else is remembered between runs.
 
-- **Weekly boundaries** are the observed finishes of the clan's war weeks
-  (`war_weeks[].finished_observed_at`, the game's Monday reset as the record
-  saw it), oldest first. The band is replayed at each; elixir-bot's promote
-  and demote machines (`replayMachines`) run over that trail. "Three
+- **Categories**: a policy counts any of Clan Wars, ranked play, donations
+  and trophy road (`countedCategories`), each with its own window and an
+  optional minimum. Nothing is mentioned, measured or advised for a
+  category the clan does not count.
+- **Minimums** (`facts.minimums`): each minimum set above zero is met,
+  missed or unknown; the clan chooses any one of them or all of them; none
+  set means everyone meets them. They gate promotion, keep Elder
+  (`abandoned` demotion) and earn removal grace.
+- **Elder**: `elder_mode` is `manual` (leaders choose; no promotion or
+  demotion cards, no band) or `categories`: members and Elders are ranked
+  on a weighted mix of the counted categories (`elderWeights`, relative
+  weights normalized to 1; each metric a participation percentile, zero is
+  zero); the band is a share of the whole roster; swaps pair the weakest
+  challenger with the strongest outranked Elder and a close call inside
+  the margin goes to tenure (known on both sides). The promote and demote
+  machines (`replayMachines`) replay over the weekly trail, so "three
   qualifying reviews" is computed from history every time.
-- **Windows are in weeks**: the floor over the last N closed ISO weeks
-  (ranked) and N closed war weeks (war decks); the war rate is weekly decks
-  played over decks asked across the last N closed war weeks; ranked and
-  donations use N closed ISO weeks. At a boundary, that is exactly the
-  policy's weeks.
+- **Weekly reviews** are the observed finishes of the clan's war weeks
+  (`war_weeks[].finished_observed_at`) when Clan Wars weighs in Elder, and
+  the ends of whole ISO weeks otherwise: a clan that does not war is still
+  reviewed.
+- **Windows are in weeks**: minimums over the last N closed ISO weeks
+  (ranked, donations) and N closed war weeks (war decks); the war rate is
+  weekly decks played over decks asked across the last N closed war weeks.
 - **An early finish makes later war days optional**: outside Colosseum,
   `finish_war_day` sets the number of required days and therefore the decks
-  asked (four per day). The race's weekly `decksUsed` is the decks played;
-  decks after the finish still add credit without adding to the ask, while
-  skipping those days never lowers the floor, war rate or perfect-attendance
-  result. Colosseum always asks for all four days.
-- **War fidelity**: the race's weekly `decksUsed` total is `weekly`; a null
-  week is `unknown`. No battle is attributed to a war day. Every fact says
-  which.
+  asked (four per day). Decks after the finish still add credit without
+  adding to the ask. Colosseum always asks for all four days. War fidelity
+  is `weekly` from the race's own `decksUsed`, or `unknown`; no battle is
+  attributed to a war day.
 - **Fail closed**: `judgment_status` per dimension is `ready`, `held` (no
-  war record or no closed review yet), `unknown` (tenure predates the
-  record: `tenure_known: false`), `off` (the policy switched it off) or
-  `not_applicable` (leadership is never ranked; only an elder is demotable).
-  Held and unknown members are shown on the board and never carded.
-- **Standing** (`standing.mjs`): participation percentiles (zero is zero,
-  participants ranked among themselves), `competitive = war% +
-  ranked_weight × ranked% × (1 − war%)`, `score = war_weight × competitive +
-  donation_weight × donation%`; the band is a share of the whole roster,
-  rank and median over members + elders; swaps pair the weakest challenger
-  with the strongest outranked elder and a close call inside the margin
-  goes to tenure (known on both sides).
-- **Removal**: the clock runs from the later of the last battle and the
-  observed join; grace = round(grace_max × open_slots / cap) when the floor
-  is cleared; elder+ and an active hold stop at `at_risk`; a member with no
-  anchor is `held`.
+  closed review yet, or the answer turns on something the record cannot
+  show: an unrecorded battle log, an unknown war week, a missing trophy
+  count, an unknown minimum), `unknown` (tenure predates the record), `off`
+  (the policy does not do it) or `not_applicable` (leadership is never
+  ranked; only an Elder is demotable). Held and unknown members are shown
+  on the board and never carded.
+- **Removal** (`removal_enabled`): the clock runs from the later of the last
+  battle and the observed join; grace = round(grace_max × open_slots / cap)
+  for a member meeting the minimums; leadership and an active hold stop at
+  `at_risk`, and so do Elders unless `removal_includes_elders`; a member
+  with no anchor is `held`.
 - **Cards** (`reconcileCards`): one open card per (member, type); raised when
   `actionable` (ready + eligible/recommended + past the cooldown), withdrawn
   with a reason when not. Outcomes are verified from the record on the next
   evaluation (removal: membership closed → `member_kicked`; promotion or
   demotion: the role moved) or flagged after `outcome_window_hours`.
+- **Words** (`render.mjs`): card facts, the member-safe phrase, next steps,
+  paste-ready in-game copy and `describePolicy` (the "How it works here"
+  section of Standing) are all written from the clan's policy.
 
-## Policy is versioned configuration
+## Policy is versioned configuration, and nothing runs without it
 
-`services/engine/src/policy.mjs` owns the fields: label, unit, range,
-starting value, and `why` from elixir-bot's POLICY.md, grouped as the policy
-reads. Those values began with POAP KINGS, but every clan's policy is Elixir
-Clan's own and is never described as another clan's policy. There is no policy
-markdown in this repo; the editor's help text is the documentation. Every save is a new immutable version
-(`policy#<clan>#v<n>`), the pointer moves, cards stamp the version that
-judged them. `validate()` refuses nonsense in a leader's words. Version 0
-means "the starting rules, unsaved".
+`services/engine/src/policy.mjs` (schema 2, 2026-09-25) owns the fields:
+label, unit, range, starting value, a `why` that says what the setting does
+(never what a clan should believe), and `when`, the values under which a
+field or group applies (the editor shows only those). Everything starts
+off: no category counted, Elder by hand, no removal, no departure cards.
+Every save is a new immutable version (`policy#<clan>#v<n>`), the pointer
+moves, cards stamp the version that judged them. `validate()` refuses
+nonsense in a leader's words. A clan with no saved version has no policy:
+every management route answers `409 no_policy`, `/api/me` carries
+`policy: { set: false }`, and the rail offers only the roster, Recruit,
+Scout and (to leaders) the policy editor, whose first save is version 1.
 
-## Awards (third push, 2026-09-12)
+## Awards
 
-elixir-bot's season awards as per-clan configuration: a CATALOG OF KINDS,
-never a rules engine (`services/engine/src/awards.mjs`). Each kind is one
-function with a few parameters; every award a clan runs is an instance
-with the clan's own name and description. Kinds: `season_points_podium`
-(War Champ: war points over the season, tiebreak donations or none),
-`perfect_attendance` (Iron King: pass/fail, decks per day, allowed misses),
-`donations_podium`, `rookie_podium` (first season here = joined during
-this season, or during the previous one without a war day in it; a join
-that predates the record is never a rookie), and `leaders_pick` (by hand,
-with a note; who may grant). **Free Pass is not an award**: it is what
-POAP KINGS does to recognise its War Champ, so it is a `leaders_pick`
-granted with the podium in view; POAP KINGS alone starts with it (Jamie,
-2026-09-12 and 2026-09-24).
+Season recognition as per-clan configuration: a CATALOG OF KINDS, never a
+rules engine (`services/engine/src/awards.mjs`). Each kind is one function
+with a few parameters; every award a clan runs is an instance with the
+clan's own name and description. Kinds: `season_points_podium` (war points
+over the season, tiebreak donations or none), `perfect_attendance`
+(pass/fail, decks per day, allowed misses), `donations_podium`,
+`rookie_podium` (first season here = joined during this season, or during
+the previous one without a war day in it; a join that predates the record
+is never a rookie), and `leaders_pick` (by hand, with a note; who may
+grant). Every clan starts with no awards (Jamie, 2026-09-25); leaders add
+the ones it runs, each kind offered under its plain title.
 
 Periods are war seasons as the record saw them (`war_weeks` grouped by
 `season_id`); a season is judged only when CLOSED (every week finished
@@ -212,40 +235,42 @@ The document is versioned like policy (`awards#<clan>#v<n>`). The open
 season's standings are provisional and say so. A computed grant is the
 record's and cannot be taken back; a manual one is a leader's and can.
 
-Surfaces: Manage ▸ Awards (elders read and grant what elders may; leaders
-edit), the member sheet's trophy case, and the PUBLIC document
-`GET /api/clans/<TAG>/awards` (no session; JSON; `cache-control: public,
-max-age=300`; edge-cached on its own CloudFront behavior; `404
-not_published` until the clan switches publish on). Nothing here narrates
-an award; poapkings.com or any site reads the document. No public HTML
-page, by decision.
+Surfaces, all signed in: Manage ▸ Awards (elders read and grant what elders
+may; leaders edit), the member sheet's trophy case, and **Trophies**
+(`/clan/<TAG>/trophies`, `GET /api/clans/<TAG>/trophies`) for every member:
+the awards the clan runs with their rules, the winners season by season,
+and your own. Opening Trophies evaluates, so a closed season's grants are
+written by whichever member looks first. Nothing is published outside the
+app.
 
-## Recruit (2026-09-13)
+## Recruit
 
-elixir-bot's `promotion-content` job (Friday copy for five channels, composed
-by a model from live clan stats, posted to #recruiting for members to
-reuse) as a page every member can use, without a model:
-`services/engine/src/recruit.mjs`. Two inputs: the clan's **pitch** (a
-leader's words, versioned like policy: `recruit#<clan>#v<n>`; tagline,
-about, up to six points, who we want, website, how to get in; POAP KINGS
-starts with its own words from `prompts/lanes/recruiting.md`, while another
-clan starts with plain copy that names and promises nothing for it) and **facts** from one live
-read of the clan (`GET /api/v1/clans/{tag}/live`, `live_fetch`'s result for
-`/clans/{tag}`: required trophies, members and open slots, clan score, war
-trophies, donations a week, top trophies and donors), cached six hours in
-`recruit_facts#<clan>` so a member's page open never spends a live read; a
-pending read is passed through with the recorded roster standing in (its
-type, description, clan score and war trophies when the record has them;
-no join floor, donations a week or location until the live read lands); a
-leader's "read again" is floored at ten minutes. `recruitCopy` writes the five channels (message,
-social, email, Discord, Reddit) deterministically; `validateCopy` keeps the
-bot's rules (Discord title line ends `Required Trophies: [N]`, Reddit title
-carries `[N]` for r/RoyaleRecruit, no invite link in the Reddit body, plain
-channels plain, no backticks) and the page shows a break rather than
-hiding it. Every piece is editable before copying and resets to the clan's
-words. `GET /api/clans/<TAG>/recruit` for every member; `POST` for leaders.
-Live reads are first-party and spend no person's Elixir quota; the cache still
-caps them at one per clan per six hours.
+A page every member can use (`services/engine/src/recruit.mjs`), open before
+a clan has a policy. Two inputs: the clan's **pitch** (a leader's words,
+versioned like policy: `recruit#<clan>#v<n>`; tagline, about, up to six
+points, who we want, website, how to get in; every clan starts with an
+empty pitch and there is no copy until a leader writes one) and **facts**
+from one live read of the clan (`GET /api/v1/clans/{tag}/live`,
+`live_fetch`'s result for `/clans/{tag}`: required trophies, members and
+open slots, clan score, war trophies, donations a week, top trophies and
+donors), cached six hours in `recruit_facts#<clan>` so a member's page open
+never spends a live read; a pending read is passed through with the
+recorded roster standing in (its type, description, clan score and war
+trophies when the record has them; no join floor, donations a week or
+location until the live read lands); a leader's "read again" is floored at
+ten minutes.
+
+`recruitCopy` writes two formats deterministically (Jamie, 2026-09-25): a
+**personal** note (subject and plain body) for one person by email or
+message, and a public **post** for a recruiting forum (a Discord recruiting
+channel, r/RoyaleRecruit) that carries the forums' requirements itself: the
+required trophies in brackets in the title and as `Required Trophies: [N]`
+in the body, and no invite link in the body. `validateCopy` checks an
+edited copy still carries them. Every piece is editable before copying and
+resets to the clan's words. `GET /api/clans/<TAG>/recruit` for every
+member; `POST` for leaders. Live reads are first-party and spend no
+person's Elixir quota; the cache still caps them at one per clan per six
+hours.
 
 ## Feedback (2026-09-12)
 
@@ -268,35 +293,37 @@ address; the agent team's Close-the-Loop owner reads by script,
 `scripts/feedback.mjs`). Feedback is not an incident: it never goes to the
 alarm topic.
 
-## Fourth push (2026-09-12): what was carried from elixir-bot, and what was not
+## Departures, away, the timeline, in-game copy
 
-Reviewed elixir-bot's whole management surface against this product. Carried:
-**departure cards** (a `member_left` in Elixir's roster events that no Done
-removal card explains raises a card only while the member remains gone; a
-later rejoin raises nothing and withdraws an open card; a leader answers
-Kicked / Left / Ignore, never declines; the classification is the ledger's
-leave-vs-kick record and the timeline shows it); **away** (a member marks themselves away
-on `/you/away` for up to `away_max_days`; it is a hold of kind `away`, the
-clock pauses, leaders see it on the board and can clear it, a leader's own
-hold is not the member's to move); the **membership timeline** in History
-(joins, leaves, role changes from `clans_roster.recent_events`); **paste-ready
-in-game copy** on cards and timeline rows (`inGameCopy`: plain sentences,
-200 characters, no "&" or "+digits", the game's filter). The rail is
-Elixir's console rail, groups and all.
+**Departure cards** (`departures_enabled`): a `member_left` in Elixir's
+roster events that no Done removal card explains raises a card only while
+the member remains gone; a later rejoin raises nothing and withdraws an
+open card; a leader answers Kicked / Left / Ignore, never declines; the
+classification is the ledger's leave-vs-kick record and the timeline shows
+it. Switched off, open departure cards are withdrawn. **Away** (when the
+policy tracks inactivity and `away_max_days` > 0): a member marks themselves
+away on `/you/away`; it is a hold of kind `away`, the clock pauses, leaders
+see it on the board and can clear it, a leader's own hold is not the
+member's to move. The **membership timeline** in History (joins, leaves,
+role changes from `clans_roster.recent_events`). **Paste-ready in-game
+copy** on cards and timeline rows (`inGameCopy`: plain sentences, 200
+characters, no "&" or "+digits", the game's filter), naming nobody's rules.
+The rail is Elixir's console rail, groups and all.
 
-Not carried, by decision (Jamie): scheduled evaluation stays a next-push
-item; premise-fingerprint re-nomination, member shields and the weekly
-digest are not features here; **alt accounts are Elixir's knowledge** (a
-fact request to Elixir if ever needed, never recorded here); Discord
-webhooks are deferred, coming later. The bot's narration lanes never move.
+Not features here, by decision (Jamie): premise-fingerprint re-nomination,
+member shields, the weekly digest; **alt accounts are Elixir's knowledge**
+(a fact request to Elixir if ever needed, never recorded here); Discord
+webhooks are deferred. Scheduled evaluation is the next push.
 
 ## Roles in Manage
 
 From the roster, as the gate resolves them. Leader and co-leader: Manage
-(inbox, board, history, policy, scout), holds, leader notes, and every note.
-Elder: elder notes (write and read), scout. Everyone in the clan: Standing
-and their own line, when `members_see_standing` is on. Nobody below
-co-leader ever sees a removal card or who is on a clock.
+(inbox, board, history, policy, awards, scout), holds, leader notes, and
+every note. Elder: elder notes (write and read), awards (read; grant what
+elders may), scout. Everyone in the clan, once there is a policy: Standing
+("How it works here" and their own line, plus where everyone stands when
+Elder is ranked and `members_see_standing` is on) and Trophies. Nobody
+below co-leader ever sees a removal card or who is on a clock.
 
 ## What is stored, second push
 
@@ -306,7 +333,7 @@ overwritten each evaluation), cards (kept: this ledger is how a leave is
 told from a kick), holds, and notes (tiered `leader` / `elder`). Tags and
 summaries, never Elixir payloads. `ledger.deleteClan` removes the set; call
 it when a clan's last verified leader disconnects. Evaluation is on demand
-with the signed-in leader's token, cached five minutes per clan; no
+with the signed-in person's token, cached five minutes per clan; no
 background job and no stored credential.
 
 ## Elixir JSON API operations this app depends on
@@ -318,7 +345,7 @@ current JSON API version (see `packages/contracts/integration-api.openapi.json`
 | Operation | Tool result | Used for |
 |---|---|---|
 | `GET /api/v1/me` | principal + `elixir_my_players` | the gate |
-| `GET /api/v1/clans/{tag}/roster` | `clans_roster` | the clan page, departures, history |
+| `GET /api/v1/clans/{tag}/roster` | `clans_roster` | the clan page, departures, history, today's trophies when the policy counts trophy road |
 | `GET /api/v1/clans/{tag}/participation?weeks=8` | `clans_participation` | every evaluation: one call, eight weeks, no agent-sized cap |
 | `POST /api/v1/players/names` | `players_names` | name legacy departure cards whose roster event carried only a tag |
 | `GET /api/v1/players/{tag}/profile?fresh=1`, `GET /api/v1/players/{tag}/battles?limit=25&fresh=1` | `players_profile`, `battles_query` | scouting an applicant; `live_pending` is passed through with `retry_after_s` |
@@ -424,12 +451,12 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.card_decided` | `<type>:<status or classification>` e.g. `removal:done`, `departure:leave` |
 | `clan.hold_set`, `clan.note_added` | `until` \| `open`; `leader` \| `elder` |
 | `clan.policy_previewed`, `clan.policy_saved` | (none); `v<n>` |
-| `clan.awards_saved`, `clan.award_granted` | `published` \| `private`; the award kind |
+| `clan.awards_saved`, `clan.award_granted` | `v<n>`; the award kind |
 | `clan.scout` | `answered` \| `pending` |
 | `clan.away_set`, `clan.away_cleared` | (none) |
 | `clan.feedback_sent`, `clan.feedback_answered` | the category; the status |
 | `clan.copy_in_game` | (none) |
-| `clan.recruit_copied`, `clan.recruit_saved` | the channel; `v<n>` |
+| `clan.recruit_copied`, `clan.recruit_saved` | `personal` \| `post`; `v<n>` |
 | `web.api_timeout`, `web.api_network`, `web.api_bad_response`, `web.api_slow` (over 3 s) | the route key, ids as `*` |
 
 No server-side events: Elixir's go through its email relay with an API
@@ -479,11 +506,10 @@ Loop's daily duty.
 
 ## Next push
 
-Scheduled evaluation on the leader's refresh grant so cards are waiting in
-the morning (the ledger needs no migration for it); the goodbye routine
-reading `member_kicked` from the cards. The poapkings.com Elder prose
-replaced by `/clan/J2RGCRVG/how-elder-works` is on hold: Jamie 2026-09-25,
-leave poapkings.com as is for now. Read `../elixir-family/MAP.md` §5 first.
+Scheduled evaluation on the leader's refresh grant so cards (and a closed
+season's grants) are waiting in the morning for every clan with a policy;
+the ledger needs no migration for it. Read `../elixir-family/MAP.md` §5
+first.
 
 ---
 

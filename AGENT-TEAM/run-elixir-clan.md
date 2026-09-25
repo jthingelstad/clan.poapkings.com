@@ -22,9 +22,10 @@ follow, or a client registration that quietly expired.
   --profile cloud-engineer`). An alarm the Operator saw is one this objective
   explains: read the Lambda log group for the window, name the cause.
 - **Cost.** The stack's estimated charges stay near zero; the reserved
-  concurrency of 10 and the 30-day log retention are the ceilings. Every
-  page view spends the person's Elixir quota, not ours; a change that
-  polls or loops is a defect whatever it costs here.
+  concurrency of 10 and the 30-day log retention are the ceilings. Clan is
+  a first-party client, so its reads spend no one's Elixir quota (Jamie,
+  2026-09-23); a change that polls or loops is still a defect whatever it
+  costs here.
 - **Elixir's contract.** Compare the contract version Elixir answers
   (`initialize` result, or the `elixir_changelog` tool) with the version
   `AGENTS.md` §Elixir tools this app depends on names. A minor bump with a

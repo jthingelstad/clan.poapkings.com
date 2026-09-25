@@ -165,19 +165,16 @@ member; no policy version was saved.
 
 ## Waiting on Jamie
 
-- **poapkings.com**: point the Members / FAQ Elder prose at
-  `https://clan.poapkings.com/clan/J2RGCRVG/how-elder-works`. **Jamie
-  2026-09-25: leave poapkings.com as is for now** (its Elder prose
-  included), so this is not pending.
-
-- The public Elder page now names POAP KINGS from the latest verdict snapshot
-  without a session or roster read, shipped in `b4a47bd` and confirmed live on
-  2026-09-23. It no longer needs a Jamie decision.
-- GitHub deploy credentials and the production hostname were verified
-  working on 2026-09-13; see the Close the Loop receipt below. They no
-  longer need Jamie's setup action.
+- **The family's name on a general product.** Elixir Clan is for any clan
+  (2026-09-25), but it lives at `clan.poapkings.com`, signs in through
+  `elixir.poapkings.com`, and the kit's footer reads "a POAP KINGS product"
+  (`elixir-mcp/packages/ui/src/Disclaimer.tsx`). That is the whole Elixir
+  family's naming, so it is decided there, not here.
 - **npm org** for publishing `@elixir-mcp/design` (optional; the pin works).
 - Anything under "Open" below.
+
+(Resolved 2026-09-25: the poapkings.com Elder prose item and the public
+Elder page are gone with the page itself; see the entry of that date.)
 
 ## Open
 
@@ -595,3 +592,57 @@ after six pending reads and explains what to check instead of polling all night
 
 - Fourteen days of API Gateway access logs measured a one-second peak of 6 requests (p99 4). The stack-owned `$default` stage now allows 10 requests/second with a 20-request burst: above measured natural traffic, but finite if a client loops.
 - The Lambda's existing reserved concurrency of 10 was already present in source and live. A focused infrastructure test now pins the stage throttle and function ceiling together; no paid capacity or monitoring was added.
+
+## 2026-09-25 — Elixir Clan is for any clan (Jamie)
+
+Elixir Clan was bootstrapped by porting POAP KINGS' elixir-bot management
+process, and carried that clan's process as everyone's. Jamie's decisions,
+one by one:
+
+- **No web publishing.** Elixir Clan is an app a clan's members use; it
+  publishes nothing. The public "How Elder works" page (it answered for any
+  clan tag, signed in or not, with the starting rules and the removal
+  clock) and the public awards document (its publish switch, CORS header
+  and edge-cached CloudFront behaviour) are deleted (`dddd3ca`). Every
+  route under `/api/clans` needs a session; the smoke checks one is
+  refused without.
+- **Nothing runs until a leader sets a policy.** Members can still sign in
+  and see every member's statistics; no clan-management function is
+  invoked until a leader or co-leader saves a policy. Every management
+  route answers `409 no_policy`; the rail offers only the roster, Recruit,
+  Scout and the policy editor. Recruit and Scout stay open (Scout shows an
+  applicant's statistics, with a policy verdict only once there is a
+  policy).
+- **The policy decides how Elder works.** Policy schema 2 (`0db0b44`) is
+  built from categories the clan chooses to count (Clan Wars, ranked play,
+  donations, trophy road), each with its own settings and an optional
+  minimum (any one, or all). Elder is by hand, or a weighted mix of the
+  counted categories (relative weights; any category alone can carry it).
+  Removal, departure cards and Elders' inclusion in removal are switches.
+  Everything starts off; the help text says what a setting does. Weekly
+  reviews fall at war-week finishes only when Clan Wars weighs in Elder,
+  otherwise at ISO week ends, so a clan that does not war is reviewed.
+  Trophy road reads today's trophies from the roster (the record serves no
+  trophy history, so a replayed review reads today's count). Members see
+  "How it works here" on Standing, written from the policy.
+- **Awards start empty** (`aec081f`); the named starting set and the
+  POAP KINGS-only Free Pass branch are gone. Members see awards in the app
+  on Trophies; opening it writes a closed season's grants.
+- **Recruit is two formats** (`5d4ff84`): a personal note for email or a
+  message, and a public post that carries the recruiting forums' bracket
+  requirement and leaves invite links out. The pitch starts empty; there is
+  no copy until a leader writes one.
+- **POAP KINGS keeps its setup as its own versions.** It had never saved a
+  policy, awards or pitch (it ran on the starting values, which were its
+  own), so version 1 of each was seeded for it before the deploy, labelled
+  as carried over: its awards (War Champ, Iron King, Donation Champ, Rookie
+  MVP, Free Pass) and pitch exactly; its policy mapped onto the category
+  model, with its old score shape (ranked filling the war gap) replaced by
+  the closest weights (Clan Wars 55, ranked 15, donations 30: rank
+  correlation 0.994 on its last evaluation, the same 14 members under the
+  ceiling). Elixir Kings and Ship It! were never set up and now wait for a
+  leader's policy.
+- `scripts/import-elixir-bot.mjs` is deleted; tests use an invented clan;
+  a test keeps product source free of any clan's specifics (`1b531c4`).
+  Judge Fairly measures each clan against its own policy, not against
+  elixir-bot.

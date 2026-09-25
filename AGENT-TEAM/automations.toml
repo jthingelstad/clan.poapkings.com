@@ -24,7 +24,7 @@ prompt = "Follow the project instructions already loaded by Codex. Read `/Users/
 
 [[automation]]
 id = "judge-fairly"
-schedule_note = "Monday is the weekly review: compare the week with elixir-bot read-only and confirm season grants"
+schedule_note = "Monday is the weekly review: every clan with a policy is judged by its own policy; confirm season grants"
 name = "Judge Fairly"
 objective = "judge"
 objective_file = "AGENT-TEAM/judge-fairly.md"

@@ -1,23 +1,23 @@
 # Guard the Door
 
-Own the outcome: **the seams to Elixir, the public repository, the session
-cookies and the public documents hold to their stated boundaries.** An
-independent control: Run cannot waive a finding here, and this objective
-never widens a scope, a cookie, a stored field or a public document to
-make another objective's work easier.
+Own the outcome: **the seams to Elixir, the public repository and the
+session cookies hold to their stated boundaries, and nothing is
+published.** An independent control: Run cannot waive a finding here, and
+this objective never widens a scope, a cookie, a stored field or a public
+route to make another objective's work easier.
 
 ## Every run
 
 - **The scope is `cr:read`.** `/auth/login` sends `scope=cr%3Aread` and
-  `resource=https://elixir.poapkings.com/mcp` with PKCE S256 (the smoke
+  `resource=https://elixir.poapkings.com/api/v1` with PKCE S256 (the smoke
   script's read). No code path asks Elixir for more; `account:email` is
   never requested here.
 - **Cookies.** Both cookies are `__Host-`, HttpOnly, Secure, SameSite=Lax,
   Path=/; the session cookie is `<id>.<hmac>`; the login cookie binds the
   OAuth state to the browser. The signing secret reaches the Lambda only
   through `{{resolve:secretsmanager}}`.
-- **Every seam is a public door.** `services/api/src/{oauth,mcp,gate}.mjs`
-  call `/.well-known`, `/oauth/*` and `/mcp` with the person's own token
+- **Every seam is a public door.** `services/api/src/{oauth,elixir-api,gate}.mjs`
+  call `/.well-known`, `/oauth/*` and `/api/v1` with the person's own token
   and nothing else; no Elixir database, no service token, no admin route.
 - **What is stored.** `AGENTS.md` §Sessions and §What is stored are the
   whole list: sessions (token pair, gate answer, roster cache), one
@@ -25,11 +25,14 @@ make another objective's work easier.
   snapshot with evidence summaries, cards, holds, notes, awards, grants)
   plus feedback. Anything else found in the table is a finding. Tags and
   summaries, never Elixir payloads.
-- **The public documents.** `how-elder-works` and the awards document need
-  no session; the awards document answers only when the clan published it,
-  carries names and tags of grants and nothing else, and sits on its own
-  cached CloudFront behavior (GET only, no cookie forwarded). A change to
-  its shape is a contract change for poapkings.com: reviewed here.
+- **Nothing is published** (Jamie, 2026-09-25). Every route under
+  `/api/clans` answers 401 without a session (the smoke script's read);
+  there is no public page, no public document and no cached CloudFront
+  behavior that drops the cookie. A change that adds one is refused here.
+- **No clan in the code.** The guard test
+  (`services/engine/test/no-clan-specifics.test.mjs`) passes: no product
+  source names a clan, a real player, one clan's awards or website, or the
+  bot a process was first ported from.
 - **The public repo.** `git ls-files` holds no member data, no token, no
   `.env`, no ledger export; `.gitignore` covers `.env*` and the copied
   font. Test fixtures use invented values.
@@ -55,4 +58,4 @@ and a read of the distribution's behaviors against the template.
 ## Success
 
 Every read above matches `AGENTS.md`; the repo is clean of anything
-personal; the public documents publish exactly what they say.
+personal; nothing is published outside a signed-in session.
