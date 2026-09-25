@@ -906,8 +906,13 @@ agent to provision the family's keys rather than do it himself), staged as
 the NoEcho `ElixirIntegrationKey`. Every clan with a policy is evaluated
 daily at 11:00 UTC; nothing is shared with Elixir on that run.
 
-**Waiting on Jamie:** the execution role's `events:*` statement for the
-rule (`infra/IAM.md`, "The morning evaluation's rule"), then
-`--param=ScheduleEnabled=true` once. Until then everything is deployed and
-the run simply is not scheduled.
+Jamie applied the execution role's `events:*` statement the same day
+(`secure-iam.mjs` validate, apply, verify: zero Access Analyzer findings;
+rollback metadata in his private snapshot directory), and the rule was
+turned on (`ScheduleEnabled=true`): `elixir-clan-evaluate`,
+`cron(0 11 * * ? *)`, ENABLED, targeting the function with
+`{"scheduled":"evaluate"}`. POAP KINGS, the one clan with a policy, was
+put on the list by hand (its `schedule#` marker, the item its next
+evaluation writes) so the first morning run does not wait on a visit. A
+manual invoke before the key check answered `clans: 0` (nothing written).
 
