@@ -12,7 +12,7 @@ test("the default deployment smoke makes only reads that cannot create a login o
       if (path === "/nope.txt") status = 404;
       if (path === "/api/health") body = JSON.stringify({ok:true});
       if (path === "/api/me") { status = 401; body = JSON.stringify({signed_in:false}); }
-      if (path.endsWith("/awards")) { status = 404; body = JSON.stringify({error:"not_published"}); }
+      if (path.startsWith("/api/clans/")) { status = 401; body = JSON.stringify({signed_in:false}); }
       if (path === "/auth/login") {
         status = 303;
         headers.location = "https://elixir.test/oauth/authorize?scope=cr%3Aread&code_challenge_method=S256&redirect_uri=https%3A%2F%2Fclan.test%2Fauth%2Fcallback";
@@ -45,6 +45,6 @@ test("the default deployment smoke makes only reads that cannot create a login o
     "REQUEST GET /nope.txt",
     "REQUEST GET /api/health",
     "REQUEST GET /api/me",
-    "REQUEST GET /api/clans/J2RGCRVG/awards",
+    "REQUEST GET /api/clans/2PPQQRRV/awards",
   ]);
 });

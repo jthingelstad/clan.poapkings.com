@@ -803,22 +803,6 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           : null,
       };
     },
-
-    /** The public "How Elder works here" page, from the current policy. */
-    async howElderWorks(clanTag) {
-      const policy = await policyFor(clanTag);
-      // The page is public and has no session to name the clan from; the
-      // latest evaluation stamped the name clans_participation reported.
-      const snapshot = await ledger.latestVerdicts(clanTag);
-      return {
-        clan_tag: clanTag,
-        name: snapshot?.clan_name ?? null,
-        values: policy.values,
-        version: policy.version,
-        groups: GROUPS,
-        fields: FIELDS,
-      };
-    },
   };
 }
 

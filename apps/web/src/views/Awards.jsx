@@ -88,16 +88,6 @@ export function Awards({ clan }) {
             </button>
           </>
         ) : null}
-        {d.config.publish ? (
-          <>
-            {" · "}
-            <a href={`/api/clans/${clan.clan_tag.slice(1)}/awards`}>
-              published
-            </a>
-          </>
-        ) : (
-          " · not published"
-        )}
       </p>
 
       {open ? (
@@ -449,8 +439,8 @@ function OlderGrants({ grants, awardById }) {
 
 /**
  * The document editor: every award as a card (kind, name, description,
- * parameters with help text, on/off), add one, remove one, the publish
- * switch, a note, save. Validation answers come back keyed by field.
+ * parameters with help text, on/off), add one, remove one, a note, save.
+ * Validation answers come back keyed by field.
  */
 function AwardsConfig({ clan, view, onDone }) {
   const [draft, setDraft] = useState(() => structuredClone(view.config));
@@ -503,7 +493,7 @@ function AwardsConfig({ clan, view, onDone }) {
       );
       return;
     }
-    trackEvent("clan.awards_saved", draft.publish ? "published" : "private");
+    trackEvent("clan.awards_saved", `v${r.data.version}`);
     onDone();
   };
   const err = (key) =>
@@ -678,22 +668,6 @@ function AwardsConfig({ clan, view, onDone }) {
           </button>
         ))}
       </div>
-      <label
-        style={{ display: "inline-flex", gap: "8px", alignItems: "center" }}
-      >
-        <input
-          type="checkbox"
-          checked={draft.publish === true}
-          onChange={(e) =>
-            setDraft((d) => ({ ...d, publish: e.target.checked }))
-          }
-        />
-        <span>
-          Publish the awards document at{" "}
-          <code>/api/clans/{clan.clan_tag.slice(1)}/awards</code> (public JSON,
-          no sign-in; names and tags of every grant)
-        </span>
-      </label>
       <input
         className="input"
         placeholder="A note for this version (optional)"

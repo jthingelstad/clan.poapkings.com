@@ -133,24 +133,13 @@ check(
   String(me.status),
 );
 
-// The public awards document: a GET with no session answers JSON either
-// way (the document, or 404 not_published) and carries its cache header.
-const awards = await timed(`${base}/api/clans/J2RGCRVG/awards`);
-let awardsBody = {};
-try {
-  awardsBody = await awards.json();
-} catch {
-  awardsBody = {};
-}
+// Nothing under a clan answers without a session: Elixir Clan publishes
+// no public pages or documents (Jamie, 2026-09-25). The tag is invented.
+const clanRead = await timed(`${base}/api/clans/2PPQQRRV/awards`);
 check(
-  "GET /api/clans/<TAG>/awards is public JSON",
-  (awards.status === 200 && Array.isArray(awardsBody.seasons)) ||
-    (awards.status === 404 && awardsBody.error === "not_published"),
-  String(awards.status),
-);
-check(
-  "the awards document is edge-cacheable",
-  (awards.headers.get("cache-control") ?? "").includes("max-age=300"),
+  "a clan route with no session is 401",
+  clanRead.status === 401,
+  String(clanRead.status),
 );
 
 if (checks.every(Boolean)) {

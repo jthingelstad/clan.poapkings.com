@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { HOW_ELDER_WORKS, mockApi, signedIn } from "./fixtures.ts";
+import { mockApi, signedIn } from "./fixtures.ts";
 
 /** Nothing serious or critical, on every page a journey lands on. */
 async function accessible(page: Page, name: string) {
@@ -33,16 +33,6 @@ test("signed out: the landing, the way in on the bar, and a clan path sent home"
   ).toBeVisible();
   await expect(page.locator(".rail")).toHaveCount(0);
   await accessible(page, "landing");
-});
-
-test("the public page needs no sign-in", async ({ page }) => {
-  await mockApi(page, {
-    "GET /api/me": [401, { error: "signed_out" }],
-    "GET /api/clans/J2RGCRVG/how-elder-works": [200, HOW_ELDER_WORKS],
-  });
-  await page.goto("/clan/J2RGCRVG/how-elder-works");
-  await expect(page).toHaveURL(/how-elder-works$/);
-  await rendered(page);
 });
 
 test.describe("signed in", () => {

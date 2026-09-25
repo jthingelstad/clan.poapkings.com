@@ -571,27 +571,8 @@ export function createHandler({
     const m = /^\/api\/clans\/([0-9A-Za-z]{3,12})(\/.*)?$/.exec(path);
     if (!m) return null;
     const rest = m[2] ?? "";
-    // The public page needs no session.
-    if (method === "GET" && rest === "/how-elder-works" && manage) {
-      const tag = normalizeTag(m[1]);
-      if (!tag) return json(400, { error: "bad_request" });
-      return json(200, await manage.howElderWorks(tag));
-    }
-    // The public awards document (2026-09-12): no session, cacheable at
-    // the edge, for any site that wants a clan's trophy case. Only when
-    // the clan publishes; a 404 says nothing about whether the clan is
-    // here at all.
-    if (method === "GET" && rest === "/awards" && awards) {
-      const tag = normalizeTag(m[1]);
-      if (!tag) return json(400, { error: "bad_request" });
-      const doc = await awards.publicDocument(tag);
-      const headers = {
-        "cache-control": "public, max-age=300",
-        "access-control-allow-origin": "*",
-      };
-      if (!doc) return json(404, { error: "not_published" }, { headers });
-      return json(200, doc, { headers });
-    }
+    // Every clan route needs a session: Elixir Clan is an app for a
+    // clan's members and publishes nothing (Jamie, 2026-09-25).
     const ctx = await clanContext(event, m[1]);
     if (ctx.response) return ctx.response;
     const { clan, who, token } = ctx;
@@ -728,11 +709,7 @@ export function createHandler({
           });
           return json(200, { ok: true });
         }
-        // /members/<tag>/grants, NOT .../awards: CloudFront's `*` matches
-        // across slashes, so the public-document behaviour for
-        // /api/clans/*/awards (no cookie forwarded) captured this route
-        // too and every member sheet's awards panel answered 401
-        // (found live, 2026-09-13).
+        // One member's trophy case.
         const trophy = /^\/members\/([0-9A-Za-z]{3,12})\/grants$/.exec(rest);
         if (method === "GET" && trophy) {
           const ptag = normalizeTag(trophy[1]);

@@ -52,18 +52,6 @@ export const ME = {
   maintainer: false,
 };
 
-export const HOW_ELDER_WORKS = {
-  clan_tag: "#J2RGCRVG",
-  name: "POAP KINGS",
-  values: {
-    elder_management_enabled: true,
-    war_decks_required: 4,
-    ranked_battles_required: 20,
-    donations_required: 50,
-  },
-  bands: [],
-};
-
 export const ROSTER = {
   clan_tag: "#J2RGCRVG",
   member_count: 3,

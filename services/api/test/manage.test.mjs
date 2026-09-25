@@ -487,22 +487,21 @@ test("standing for members: evidence in a player's terms, no internals; private 
   );
 });
 
-test("how-elder-works is public and renders from the current policy", async () => {
+test("nothing under a clan answers without a session: no public pages or documents", async () => {
   const h = harness({ part: partClan() });
-  const r = await h.handler(req("GET", "/api/clans/J2RGCRVG/how-elder-works"));
-  assert.equal(r.statusCode, 200);
-  const body = JSON.parse(r.body);
-  assert.equal(body.clan_tag, "#J2RGCRVG");
-  // Named once an evaluation has stamped the participation read's name;
-  // null before, never a guess.
-  assert.equal(body.name, null);
-  assert.equal(body.values.tenure_min_days, 28);
-  assert.ok(body.groups.length >= 8);
-  await api(h, await leader(h), "GET", "/api/clans/J2RGCRVG/manage");
-  const named = JSON.parse(
-    (await h.handler(req("GET", "/api/clans/J2RGCRVG/how-elder-works"))).body,
-  );
-  assert.equal(named.name, "POAP KINGS");
+  for (const path of [
+    "/api/clans/J2RGCRVG/how-elder-works",
+    "/api/clans/J2RGCRVG/awards",
+    "/api/clans/J2RGCRVG/policy",
+  ])
+    assert.equal((await h.handler(req("GET", path))).statusCode, 401, path);
+  // Signed in, the old public routes are simply not routes.
+  const cookies = await leader(h);
+  for (const path of [
+    "/api/clans/J2RGCRVG/how-elder-works",
+    "/api/clans/J2RGCRVG/awards",
+  ])
+    assert.equal((await api(h, cookies, "GET", path)).status, 404, path);
 });
 
 test("scout: a pasted tag is read live, pending is passed through, and the policy answer is this app's", async () => {

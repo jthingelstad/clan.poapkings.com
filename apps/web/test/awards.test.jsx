@@ -32,7 +32,6 @@ const view = () => ({
   },
   versions: [],
   config: {
-    publish: false,
     awards: [
       {
         id: "war_champ",

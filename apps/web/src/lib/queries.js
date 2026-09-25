@@ -36,7 +36,6 @@ export const keys = {
   awards: (tag) => ["clan", tag, "awards"],
   recruit: (tag) => ["clan", tag, "recruit"],
   standing: (tag) => ["clan", tag, "standing"],
-  howElderWorks: (tag) => ["clan", tag, "how-elder-works"],
   memberNotes: (tag, player) => ["clan", tag, "member", player, "notes"],
   memberAwards: (tag, player) => ["clan", tag, "member", player, "awards"],
   maintain: ["maintain", "feedback"],
@@ -133,15 +132,6 @@ export const useStanding = (tag) =>
   useQuery({
     queryKey: keys.standing(tag),
     queryFn: answered(() => manageApi.standing(tag)),
-  });
-
-export const useHowElderWorks = (tag) =>
-  useQuery({
-    queryKey: keys.howElderWorks(tag),
-    queryFn: async () => {
-      const r = await manageApi.howElderWorks(tag);
-      return r.ok ? r.data : { missing: true };
-    },
   });
 
 export const useMyAway = (tag) =>

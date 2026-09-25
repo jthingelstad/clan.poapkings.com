@@ -381,22 +381,6 @@ Resources:
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
             ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
             OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
-          # The public awards document (2026-09-12): GET only, no cookie,
-          # no header and no query string reaches the origin, so one cached
-          # object serves everyone for the origin's max-age. Listed before
-          # /api/* because CloudFront takes the first pattern that matches;
-          # /awards/manage and the grant routes do not match this one. `*`
-          # matches ACROSS slashes: a member route that ended in /awards
-          # matched too and lost its cookie (2026-09-13), so no other route
-          # may end in /awards.
-          - PathPattern: /api/clans/*/awards
-            TargetOriginId: api
-            ViewerProtocolPolicy: https-only
-            AllowedMethods: [GET, HEAD]
-            # AWS managed CachingOptimized: honours the origin's Cache-Control.
-            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
-            ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
-            Compress: true
           - PathPattern: /api/*
             TargetOriginId: api
             ViewerProtocolPolicy: https-only

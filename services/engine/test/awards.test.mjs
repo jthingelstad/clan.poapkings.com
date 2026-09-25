@@ -290,7 +290,7 @@ test("the defaults validate; bad ids, kinds, parameters and duplicates are refus
     podium: 3,
     tiebreak: "donations",
   });
-  assert.equal(ok.values.publish, false);
+  assert.equal("publish" in ok.values, false);
 });
 
 test("every award describes its rule in one sentence under its parameters", () => {

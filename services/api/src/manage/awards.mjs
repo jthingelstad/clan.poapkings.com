@@ -2,7 +2,7 @@
  * The awards service: the clan's awards document (versioned like policy),
  * the live races and closed seasons from the record, grants written on
  * the first evaluation after a season closes, grants by hand for a
- * leaders' pick, and the public document other sites read.
+ * leaders' pick, and each member's trophy case.
  *
  * Pure engine in (evaluateAwards), ledger and Elixir out. Evaluation is on
  * demand with the signed-in person's token and cached five minutes per
@@ -12,7 +12,6 @@
 import {
   AWARD_KINDS,
   defaultAwards,
-  describeAward,
   evaluateAwards,
   validateAwards,
 } from "@elixir-clan/engine";
@@ -261,54 +260,6 @@ export function createAwardsService({
         .filter((g) => g.player_tag === playerTag)
         .map(shape)
         .sort((a, b) => b.season_id - a.season_id || a.rank - b.rank);
-    },
-
-    /**
-     * The public document, no session: the clan's awards and every grant,
-     * season by season, newest first. Only when the clan publishes.
-     */
-    async publicDocument(clanTag) {
-      const config = await configFor(clanTag);
-      if (!config.values.publish) return null;
-      const grants = (await ledger.grants(clanTag)).map(shape);
-      const seasons = new Map();
-      for (const g of grants) {
-        const s = seasons.get(g.season_id) ?? {
-          season_id: g.season_id,
-          grants: [],
-        };
-        s.grants.push(g);
-        seasons.set(g.season_id, s);
-      }
-      return {
-        contract: "1.0.0",
-        clan_tag: clanTag,
-        generated_at: new Date(now()).toISOString(),
-        config_version: config.version,
-        awards: config.values.awards
-          .filter((a) => a.enabled)
-          .map((a) => ({
-            id: a.id,
-            kind: a.kind,
-            name: a.name,
-            description: a.description,
-            rule: describeAward(a),
-            manual: a.kind === "leaders_pick",
-          })),
-        seasons: [...seasons.values()]
-          .sort((a, b) => b.season_id - a.season_id)
-          .map((s) => ({
-            season_id: s.season_id,
-            grants: s.grants.sort(
-              (a, b) => a.award_id.localeCompare(b.award_id) || a.rank - b.rank,
-            ),
-          })),
-        notes: [
-          "Grants are written when a war season closes, from Elixir's record of the clan; manual grants are a leader's and say so (manual: true).",
-          "Names are as Elixir recorded them at grant time; tags are the durable key.",
-          "Seasons are Clash Royale war seasons; a season the record did not cover in full has no computed grants.",
-        ],
-      };
     },
   };
 }

@@ -254,7 +254,6 @@ test("awards: a leader renames, retunes, adds and switches off awards; every sav
     enabled: true,
     params: { granted_by: "elders" },
   });
-  values.publish = true;
   const saved = await api(h, cookies, "POST", `${BASE}/config`, {
     values,
     note: "renamed, loosened Iron King, added a pick",
@@ -264,7 +263,6 @@ test("awards: a leader renames, retunes, adds and switches off awards; every sav
   const after = (await api(h, cookies, "GET", `${BASE}/manage?refresh=1`)).body;
   assert.equal(after.config_version, 1);
   assert.equal(after.config.awards[0].name, "Boat Captain");
-  assert.equal(after.config.publish, true);
   assert.deepEqual(after.can_grant, ["free_pass", "clanmate"]);
   assert.equal(
     after.versions[0].note,
@@ -296,62 +294,6 @@ test("awards: a leader renames, retunes, adds and switches off awards; every sav
   assert.equal(bad.body.error, "invalid_awards");
   assert.match(bad.body.errors["awards.0.name"], /1 to 40/);
   assert.match(bad.body.errors["awards.0.params.podium"], /between 1 and 3/);
-});
-
-test("awards: the public document needs no session, is off until published, and carries every grant with cache headers", async () => {
-  const h = harness({ part: partClan() });
-  const anon = await api(h, undefined, "GET", BASE);
-  assert.equal(anon.status, 404);
-  assert.equal(anon.body.error, "not_published");
-  assert.equal(anon.headers["cache-control"], "public, max-age=300");
-
-  const cookies = await signedIn(h);
-  const view = (await api(h, cookies, "GET", `${BASE}/manage`)).body;
-  await api(h, cookies, "POST", `${BASE}/grants`, {
-    award_id: "free_pass",
-    player_tag: "U8RYG9Y2U",
-    player_name: "King Levy",
-    season_id: 135,
-    note: "rotation",
-  });
-  const values = structuredClone(view.config);
-  values.publish = true;
-  await api(h, cookies, "POST", `${BASE}/config`, { values });
-
-  const doc = await api(h, undefined, "GET", BASE);
-  assert.equal(doc.status, 200);
-  assert.equal(doc.headers["access-control-allow-origin"], "*");
-  assert.equal(doc.body.contract, "1.0.0");
-  assert.equal(doc.body.clan_tag, "#J2RGCRVG");
-  assert.deepEqual(
-    doc.body.awards.map((a) => [a.id, a.manual]),
-    [
-      ["war_champ", false],
-      ["iron_king", false],
-      ["donation_champ", false],
-      ["rookie_mvp", false],
-      ["free_pass", true],
-    ],
-  );
-  assert.ok(doc.body.awards[0].rule.length > 10);
-  const s135 = doc.body.seasons.find((s) => s.season_id === 135);
-  assert.ok(
-    s135.grants.find(
-      (g) => g.award_id === "free_pass" && g.manual && g.note === "rotation",
-    ),
-  );
-  assert.ok(
-    s135.grants.find(
-      (g) =>
-        g.award_id === "war_champ" &&
-        g.rank === 1 &&
-        g.player_name === "King Thing",
-    ),
-  );
-  assert.ok(
-    !doc.body.seasons.some((s) => s.season_id === 136),
-    "nothing granted for the open season",
-  );
 });
 
 test("awards: a member's trophy case lists their grants, newest season first", async () => {

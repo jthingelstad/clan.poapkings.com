@@ -49,7 +49,6 @@ export const manageApi = {
   removeNote: (tag, noteId) => del(`${clanBase(tag)}/notes/${noteId}`),
   standing: (tag) => get(`${clanBase(tag)}/standing`),
   scout: (tag, playerTag) => post(`${clanBase(tag)}/scout`, { tag: playerTag }),
-  howElderWorks: (tag) => get(`${clanBase(tag)}/how-elder-works`),
   // Recruiting (2026-09-13): the pitch, the facts, the copy.
   recruit: (tag, refresh = false) =>
     get(`${clanBase(tag)}/recruit${refresh ? "?refresh=1" : ""}`),

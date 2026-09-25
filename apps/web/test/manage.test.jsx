@@ -3,7 +3,6 @@ import { cleanup, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "./helpers.jsx";
 import { parseClanPath } from "../src/App.jsx";
 import { Standing } from "../src/views/Standing.jsx";
-import { HowElderWorks } from "../src/views/HowElderWorks.jsx";
 import { Manage } from "../src/views/Manage.jsx";
 import { manageApi } from "../src/api.js";
 
@@ -89,11 +88,8 @@ describe("clan paths", () => {
       section: "standing",
       tab: null,
     });
-    expect(parseClanPath("/clan/J2RGCRVG/how-elder-works")).toEqual({
-      tag: "#J2RGCRVG",
-      section: "how-elder-works",
-      tab: null,
-    });
+    // Elixir Clan publishes no public pages (Jamie, 2026-09-25).
+    expect(parseClanPath("/clan/J2RGCRVG/how-elder-works")).toBeNull();
     expect(parseClanPath("/clan/J2RGCRVG/nope")).toBeNull();
   });
 });
@@ -160,60 +156,6 @@ describe("standing", () => {
     );
     await waitFor(() =>
       expect(screen.getByText(/keep standing private/)).toBeTruthy(),
-    );
-  });
-});
-
-describe("how elder works", () => {
-  test("renders the clan's numbers, in the policy's voice, without internals", async () => {
-    vi.spyOn(manageApi, "howElderWorks").mockResolvedValue({
-      ok: true,
-      status: 200,
-      data: {
-        clan_tag: "#J2RGCRVG",
-        version: 2,
-        groups: [],
-        fields: {},
-        values: {
-          elder_management_enabled: true,
-          removal_enabled: true,
-          tenure_min_days: 28,
-          floor_window_weeks: 2,
-          floor_war_decks: 1,
-          floor_ranked_battles: 5,
-          war_rate_window_weeks: 4,
-          ranked_window_weeks: 4,
-          donation_window_weeks: 4,
-          band_floor_share: 0.2,
-          band_ceiling_share: 0.3,
-          promote_qualifying_weeks: 3,
-          demote_abandoned_weeks: 2,
-          demote_outranked_weeks: 3,
-          at_risk_days: 5,
-          confirm_days: 3,
-          contribution_grace_max_days: 4,
-        },
-      },
-    });
-    renderWithProviders(<HowElderWorks tag="#J2RGCRVG" />);
-    await waitFor(() =>
-      expect(screen.getByText(/At least 28 days in the clan/)).toBeTruthy(),
-    );
-    expect(screen.getByText(/Between 20% and 30% of the roster/)).toBeTruthy();
-    expect(screen.getByText(/8 days proposes a removal/)).toBeTruthy();
-    expect(
-      screen.getByText(/war decks played over war decks asked for/i),
-    ).toBeTruthy();
-    expect(document.body.textContent).not.toMatch(
-      /finishing a day counts for more than the deck count suggests/i,
-    );
-    expect(
-      screen.getByText(/later war days that week are optional/i),
-    ).toBeTruthy();
-    // A policy is Elixir Clan's own: the public page never names one.
-    expect(screen.queryByText(/policy/i)).toBeNull();
-    expect(document.body.textContent).not.toMatch(
-      /percentile|median|swap margin/i,
     );
   });
 });

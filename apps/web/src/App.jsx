@@ -35,7 +35,6 @@ import { railItems, railKey } from "./lib/rail.js";
 import { RoleChip } from "./components/RoleChip.jsx";
 import { Clan } from "./views/Clan.jsx";
 import { Clans } from "./views/Clans.jsx";
-import { HowElderWorks } from "./views/HowElderWorks.jsx";
 import { Manage } from "./views/Manage.jsx";
 import { Standing } from "./views/Standing.jsx";
 import { Landing } from "./views/Landing.jsx";
@@ -62,7 +61,7 @@ export const clanPath = (tag) => `/clan/${String(tag).replace(/^#/, "")}`;
  *  section (roster by default) and the Manage tab. */
 export function parseClanPath(path) {
   const m =
-    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|standing|recruit|how-elder-works)(?:\/([a-z-]+))?)?\/?$/.exec(
+    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|standing|recruit)(?:\/([a-z-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
@@ -190,9 +189,6 @@ const clanRoute = createRoute({
     const navigate = useNav();
     const { pathname } = useLocation();
     const parsed = parseClanPath(pathname);
-    // The one page that needs no sign-in.
-    if (parsed?.section === "how-elder-works")
-      return <HowElderWorks tag={parsed.tag} />;
     if (!me?.ok || !parsed) return null;
     const clan = clanFromPath(pathname, me.clans);
     if (!clan) return null;
@@ -431,12 +427,9 @@ function Shell() {
     [navigate, setMe],
   );
 
-  // The one page that needs no sign-in.
-  const publicPage = parseClanPath(path)?.section === "how-elder-works";
-
   // Where a signed-in person belongs, whatever address they arrived at.
   useEffect(() => {
-    if (!me || publicPage) return;
+    if (!me) return;
     if (!me.signed_in) {
       if (path !== "/") navigate(me.expired ? "/?error=session_expired" : "/");
       return;
@@ -465,14 +458,13 @@ function Shell() {
       // remembered clan follows where you actually went.
       select(atClan.clan_tag);
     }
-  }, [me, path, navigate, select, selecting, publicPage]);
+  }, [me, path, navigate, select, selecting]);
 
   // The rail belongs to a signed-in person with somewhere to go: their
   // clan pages, or their own pages while the gate still refuses them.
   const showRail =
     Boolean(me?.signed_in) &&
     !me.unavailable &&
-    !publicPage &&
     (me.ok || path.startsWith("/you") || path.startsWith("/feedback"));
 
   return (
@@ -492,7 +484,7 @@ function Shell() {
               className={`page__inner${showRail ? "" : " page__inner--solo max-w-page"}`}
             >
               <ErrorBoundary key={path}>
-                {me?.signed_in && me.unavailable && !publicPage ? (
+                {me?.signed_in && me.unavailable ? (
                   <div
                     className="callout callout--warn mx-auto mt-10 max-w-[560px]"
                     role="alert"

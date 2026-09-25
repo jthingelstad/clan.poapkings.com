@@ -122,7 +122,6 @@ export const AWARD_KINDS = {
 export function defaultAwards(clanTag = null) {
   return {
     schema: AWARDS_SCHEMA_VERSION,
-    publish: false,
     awards: [
       {
         id: "war_champ",
@@ -185,7 +184,6 @@ const ID_RE = /^[a-z][a-z0-9_]{1,31}$/;
  */
 export function validateAwards(input = {}) {
   const errors = {};
-  const publish = input.publish === true;
   const list = Array.isArray(input.awards) ? input.awards : null;
   if (!list)
     return {
@@ -249,7 +247,7 @@ export function validateAwards(input = {}) {
   const ok = Object.keys(errors).length === 0;
   return {
     ok,
-    values: ok ? { schema: AWARDS_SCHEMA_VERSION, publish, awards } : null,
+    values: ok ? { schema: AWARDS_SCHEMA_VERSION, awards } : null,
     errors,
   };
 }
