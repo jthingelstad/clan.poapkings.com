@@ -230,7 +230,7 @@ const clanRoute = createRoute({
     if (parsed.section === "trophies")
       return <Trophies key={clan.clan_tag} clan={clan} who={who} />;
     if (parsed.section === "recruit")
-      return <Recruit key={clan.clan_tag} clan={clan} />;
+      return <Recruit key={clan.clan_tag} clan={clan} navigate={navigate} />;
     return <Clan key={clan.clan_tag} me={me} clan={clan} navigate={navigate} />;
   },
 });

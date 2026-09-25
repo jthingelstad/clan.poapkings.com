@@ -5,13 +5,18 @@
  * must not spend a live read; the recorded roster fills in while a fresh
  * read is pending), and the copy from the engine: a personal note and a
  * public post. Recruit works before a clan has a policy; the copy waits on
- * a pitch, which every clan starts without.
+ * a pitch, which every clan starts without. With the clan's own model
+ * (`model.mjs`), a leader can have the pitch drafted from the clan's facts,
+ * goals and policy, to edit and save; the draft is never saved by itself.
  */
 
 import {
   PITCH_FIELDS,
   declaredGoals,
   defaultPitch,
+  describePolicy,
+  pitchFromDraft,
+  pitchRequest,
   pitchFromGoals,
   factsFromClan,
   factsFromRoster,
@@ -26,7 +31,13 @@ export const FACTS_TTL_MS = 6 * 3600_000;
 export const REFRESH_FLOOR_MS = 10 * 60_000;
 const LEADERS = new Set(["leader", "coLeader"]);
 
-export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
+export function createRecruitService({
+  ledger,
+  mcp,
+  /** the clan's own model (`createModelService`), or null */
+  model = null,
+  now = () => Date.now(),
+}) {
   const isLeader = (who) => LEADERS.has(who.role);
 
   async function pitchFor(clanTag) {
@@ -130,6 +141,8 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
       return {
         clan_tag: clanTag,
         can_edit: isLeader(who),
+        // Leaders are told whether the clan's own model can draft.
+        model: model && isLeader(who) ? await model.summary(clanTag) : null,
         pitch: pitch.values,
         pitch_version: pitch.version,
         fields: PITCH_FIELDS,
@@ -150,6 +163,39 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
             note: v.note,
           }))
           .reverse(),
+      };
+    },
+
+    /**
+     * A pitch drafted by the clan's own model from what the clan is (the
+     * game's facts, never a member), what it is for and how it runs, for
+     * a leader to edit and save. Nothing is saved here.
+     */
+    async draft(clanTag, who, token, note = null) {
+      if (!isLeader(who)) throw new ManageError(403, "leaders_only");
+      if (!model) throw new ManageError(404, "not_found");
+      const pitch = await pitchFor(clanTag);
+      const { facts } = await factsFor(clanTag, token);
+      const policy = await ledger.currentPolicy(clanTag);
+      const request = pitchRequest({
+        clanName: facts?.name ?? null,
+        facts,
+        goals: policy ? declaredGoals(policy.values) : [],
+        posture: policy?.values?.posture ?? null,
+        howItWorks: policy ? describePolicy(policy.values) : [],
+        pitch: pitch.version > 0 ? pitch.values : null,
+        note,
+      });
+      const answer = await model.write(clanTag, who, token, request);
+      const draft = pitchFromDraft(answer.input, pitch.values, {
+        prompt: request.prompt,
+      });
+      return {
+        draft: draft.values,
+        errors: draft.errors,
+        checks: draft.checks,
+        model: answer.model,
+        usage: answer.usage,
       };
     },
 

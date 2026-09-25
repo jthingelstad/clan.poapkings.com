@@ -27,7 +27,7 @@ const FORMATS = [
   ],
 ];
 
-export function Recruit({ clan }) {
+export function Recruit({ clan, navigate }) {
   const [editing, setEditing] = useState(false);
   // A pending live read asks again after Elixir's retry_after_s: the
   // query's own refetchInterval, read off the answer (lib/queries.js).
@@ -52,6 +52,7 @@ export function Recruit({ clan }) {
       <PitchEditor
         clan={clan}
         view={d}
+        navigate={navigate}
         onDone={() => {
           setEditing(false);
           load();
@@ -269,7 +270,128 @@ function CopyCard({ channel, title, note, value }) {
   );
 }
 
-function PitchEditor({ clan, view, onDone }) {
+/** What a draft refusal means, in a leader's words. */
+const DRAFT_ERROR = {
+  no_model_key: "The clan has no model key yet.",
+  model_key_refused:
+    "Anthropic stopped accepting the clan's key. Add it again in Model.",
+  model_key_unreadable: "The clan's key needs to be added again in Model.",
+  model_unavailable:
+    "The chosen model is no longer available to this key. Pick another in Model.",
+  model_daily_limit:
+    "The clan's model has drafted as many times as it may today. Try again tomorrow.",
+};
+
+/**
+ * The clan's own model drafting the pitch: the words fill the editor, the
+ * leader edits them, and nothing is saved until they save. The clan's
+ * key lives in Manage ▸ Model.
+ */
+function DraftWithModel({ clan, model, navigate, current, onDraft }) {
+  const [ask, setAsk] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [previous, setPrevious] = useState(null);
+  const modelPath = `/clan/${clan.clan_tag.slice(1)}/manage/model`;
+  const toModel = (e) => {
+    e.preventDefault();
+    navigate?.(modelPath);
+  };
+  if (!model.set || model.refused)
+    return (
+      <div className="notice">
+        {model.refused
+          ? "Anthropic stopped accepting the clan's key, so the clan's model cannot draft this. "
+          : "The clan's own model can draft these words from what the clan is: the game's numbers, what it is for and how it runs. It runs on the clan's own Anthropic key. "}
+        <a href={modelPath} onClick={toModel}>
+          {model.refused ? "Add the key again" : "Add the clan's key"}
+        </a>
+        .
+      </div>
+    );
+  const draft = async () => {
+    setBusy(true);
+    setResult(null);
+    const r = await manageApi.draftPitch(clan.clan_tag, ask.trim() || null);
+    setBusy(false);
+    if (!r.ok) {
+      const e = r.data ?? {};
+      setResult({
+        error:
+          e.error === "model_key_owner_left"
+            ? `The clan's key was added by ${e.set_by_name}, who no longer leads the clan. Add a key of yours in Model.`
+            : (DRAFT_ERROR[e.error] ??
+              e.message ??
+              "The clan's model did not answer. Try again in a minute."),
+      });
+      return;
+    }
+    trackEvent("clan.model_drafted", "recruit_pitch");
+    setPrevious(current);
+    onDraft(r.data.draft);
+    setResult(r.data);
+  };
+  return (
+    <div className="panel">
+      <div className="panel__head">
+        <span>Draft with the clan&rsquo;s model</span>
+      </div>
+      <div className="panel__body grid gap-2">
+        <div className="flex flex-wrap gap-2">
+          <input
+            className="input flex-[1_1_280px]"
+            aria-label="What should it stress?"
+            placeholder="What should it stress? (optional)"
+            value={ask}
+            maxLength={300}
+            onChange={(e) => setAsk(e.target.value)}
+          />
+          <button type="button" className="btn" disabled={busy} onClick={draft}>
+            {busy ? "Drafting…" : "Draft it"}
+          </button>
+        </div>
+        <span className="page-head__note">
+          Uses the clan&rsquo;s Anthropic key ({model.model}). It replaces the
+          tagline, the about, the points and who you are looking for below;
+          nothing is saved until you save.
+        </span>
+        {result?.error ? (
+          <p className="field-error m-0" role="alert">
+            {result.error}
+          </p>
+        ) : null}
+        {result?.draft ? (
+          <div className="grid gap-1" role="status">
+            <span className="page-head__note">
+              Drafted by {result.model}. Read it as the clan would, then edit
+              and save.
+            </span>
+            {result.checks.map((c) => (
+              <span key={c} className="page-head__note text-[var(--warn)]">
+                {c}
+              </span>
+            ))}
+            {previous ? (
+              <button
+                type="button"
+                className="btn--text justify-self-start"
+                onClick={() => {
+                  onDraft(previous, { raw: true });
+                  setPrevious(null);
+                  setResult(null);
+                }}
+              >
+                Put back what I had
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PitchEditor({ clan, view, navigate, onDone }) {
   // A first pitch starts from a draft of the clan's goals, when it has any.
   const start =
     view.pitch_version === 0 && view.suggested ? view.suggested : view.pitch;
@@ -311,6 +433,27 @@ function PitchEditor({ clan, view, onDone }) {
             : ""}
         </span>
       </div>
+      {view.model ? (
+        <DraftWithModel
+          clan={clan}
+          model={view.model}
+          navigate={navigate}
+          current={draft}
+          onDraft={(values, { raw = false } = {}) =>
+            setDraft((d) =>
+              raw
+                ? values
+                : {
+                    ...d,
+                    tagline: values.tagline ?? "",
+                    about: values.about ?? "",
+                    points: (values.points ?? []).join("\n"),
+                    looking_for: values.looking_for ?? "",
+                  },
+            )
+          }
+        />
+      ) : null}
       {Object.entries(view.fields).map(([key, f]) => (
         <div key={key} style={{ display: "grid", gap: "4px" }}>
           <label

@@ -183,6 +183,7 @@ describe("feedback", () => {
       "board",
       "history",
       "policy",
+      "model",
       "awards",
       "scout",
       "you",
@@ -214,13 +215,15 @@ describe("feedback", () => {
       "feedback",
     ]);
     // Before a leader saves a policy nothing in clan management exists:
-    // the roster, Recruit, Scout and the policy editor, and no Away.
+    // the roster, Recruit, Scout, the policy editor and the clan's model
+    // (which Recruit uses), and no Away.
     const noPolicy = { set: false };
     expect(keys("leader", noPolicy)).toEqual([
       "clan",
       "me",
       "recruit",
       "policy",
+      "model",
       "scout",
       "you",
       "feedback",

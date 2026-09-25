@@ -7,6 +7,7 @@ import { RoleChip } from "../components/RoleChip.jsx";
 import { Policy } from "./Policy.jsx";
 import { Scout } from "./Scout.jsx";
 import { Awards } from "./Awards.jsx";
+import { Model } from "./Model.jsx";
 import { TooFew } from "../components/TooFew.jsx";
 
 const TITLES = {
@@ -15,6 +16,7 @@ const TITLES = {
   policy: "Policy",
   awards: "Awards",
   scout: "Scout",
+  model: "Model",
 };
 
 const BUCKET_LABEL = {
@@ -27,11 +29,11 @@ const BUCKET_LABEL = {
 /** Manage: leader and co-leader only (the API refuses everyone else). */
 export function Manage({ clan, tab, navigate, who }) {
   const [open, setOpen] = useState(null); // member sheet
-  // The judged board, read for every tab but the three that read their
+  // The judged board, read for every tab but the ones that read their
   // own thing.
   const { state, load, query } = useManage(
     clan.clan_tag,
-    tab !== "policy" && tab !== "scout" && tab !== "awards",
+    !["policy", "scout", "awards", "model"].includes(tab),
   );
 
   if (state.signedOut) {
@@ -73,6 +75,13 @@ export function Manage({ clan, tab, navigate, who }) {
         {head}
         {tabs}
         <Scout clan={clan} />
+      </>
+    );
+  if (tab === "model")
+    return (
+      <>
+        {head}
+        <Model clan={clan} />
       </>
     );
   if (tab === "awards")

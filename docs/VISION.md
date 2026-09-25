@@ -143,7 +143,9 @@ of what raised it, who took it and anyone's comments, and outcomes verified
 from the record; holds, Away, tiered notes; Standing with "How it works here"; awards as a catalog
 of kinds and a members' trophy case; recruiting copy in two formats; lines for members to invite their leaders and
 clanmates;
-scouting an applicant; feedback to the maintainer. See `AGENTS.md` for how.
+scouting an applicant; the clan's own model, on its own Anthropic key,
+drafting the recruiting pitch for a leader to edit; feedback to the
+maintainer. See `AGENTS.md` for how.
 
 ## Themes ahead (not yet ordered)
 
@@ -198,6 +200,11 @@ runner-up, for Jamie to take, change or refuse. Decisions go to
 - **Measure:** actions suggested and taken; members signing in and
   engaging.
 - **The family's name** on the product stays as it is for now.
+- **A clan's own model key** (round 6): added by a leader or co-leader,
+  checked with Anthropic, kept sealed and never shown again, used only by
+  leaders and only while the person who added it leads the clan, capped
+  per day, every use recorded. What the model may write is a closed list
+  of purposes, each built from clan-level facts only.
 
 ## Open
 
@@ -205,5 +212,3 @@ runner-up, for Jamie to take, change or refuse. Decisions go to
   to record attested clan facts, on the acting person's own grant, with
   what a clan shares chosen by the clan (a kick is sensitive: narrators
   have never announced kicks). A plan for the Elixir team before any code.
-- **A clan's own model key** is a secret per clan: where it is kept and who
-  may set it (a leader), before any feature uses it.

@@ -808,3 +808,41 @@ The observations were added to cr-agent-api-docs' crosswalk, where any
 caller can find them. "Season 135 is underway" was blanked the same day
 for no reason anyone found; no rule is guessed for it, so "Season N
 awards" (a Leader Message title) stays until the game says otherwise.
+
+## 2026-09-25 — Round 6: the clan's own model (Jamie)
+
+Jamie: build the runner-up, bring your own tokens, while Elixir's agents
+finish (the doors wait on them). A leader or co-leader adds the clan's
+Anthropic API key on Manage ▸ Model; the first thing it writes is the
+recruiting pitch, drafted into Recruit's editor for the leader to edit and
+save.
+
+Decided in building it (Jamie can change any):
+
+- **Where the key lives.** Sealed in the clan's table (AES-256-GCM, a key
+  derived from the app's existing session secret, bound to the clan and
+  the person who added it), in its own item outside the clan's index. A
+  KMS key would add a monthly charge and an IAM and boundary change that
+  needs Jamie; this needs neither, and a clan's key can move under KMS
+  later by sealing it again. Rotating the session secret asks every clan
+  for its key again.
+- **Who pays, and so who may use it.** The key is the account of whoever
+  added it, so it is used only while they are a leader or co-leader on
+  the roster; any leader may replace it with their own. Only leaders and
+  co-leaders use it (drafting the pitch is a leader's job), at most 20
+  times a day per clan.
+- **What it is told.** The game's numbers for the clan, what it is for,
+  how it runs (the policy as members read it), its own words and the
+  leader's note. Never a member's name or numbers, so the recruit page's
+  top trophies and donors are left out.
+- **Which model.** The first the key can reach of Sonnet 5, Opus 5.5,
+  Haiku 4.5; a leader may pick any model the key lists.
+- **The check on its words.** Links, markdown and bullets are taken out,
+  each field is clipped to its limit, the clan's website and contact are
+  never the model's, and any number the model was not given is flagged
+  for the leader before saving.
+
+Next uses, when wanted: a Leader Message in the clan's voice (through the
+chat filter), a season recap, and the weekly report once Elixir's mail
+door exists.
+

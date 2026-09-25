@@ -4,8 +4,8 @@
  * and REPORT: 146 invocations in six hours, p90 2.7 s, five of them 16 to
  * 22 s, and not one line saying where the time went).
  *
- * A request opens a trace; every Elixir call and every table operation
- * made on its behalf is timed into it (AsyncLocalStorage, so nothing is
+ * A request opens a trace; every Elixir call, every call to a clan's own
+ * model and every table operation made on its behalf is timed into it (AsyncLocalStorage, so nothing is
  * threaded through arguments); the handler closes it with ONE JSON line
  * (the route, the status, the total, each upstream call with its
  * duration and Elixir's own request_id for correlation) and a
@@ -33,6 +33,7 @@ export function withTrace(meta, fn) {
     started: Date.now(),
     meta,
     elixir: [],
+    model: [],
     store: [],
     notes: [],
     cold: coldStart,
@@ -95,11 +96,39 @@ export async function timedStore(op, fn) {
   }
 }
 
+/**
+ * Time one call to a clan's own model (Anthropic, on the clan's key) into
+ * the trace: the call, its time, its status and the tokens it spent.
+ * Never the key, the prompt or the answer.
+ */
+export async function timedModel(label, fn) {
+  const t = current();
+  const started = Date.now();
+  const result = await fn();
+  const entry = {
+    call: label,
+    ms: Date.now() - started,
+    ok: result?.ok !== false,
+    ...(result?.status ? { status: result.status } : {}),
+    ...(result?.code ? { code: result.code } : {}),
+    ...(result?.usage
+      ? {
+          input_tokens: result.usage.input_tokens,
+          output_tokens: result.usage.output_tokens,
+        }
+      : {}),
+  };
+  if (t) t.model.push(entry);
+  return result;
+}
+
 /** Close the trace: the summary the handler logs and stamps. */
 export function summarize(trace, status) {
   const ms = Date.now() - trace.started;
   const elixirMs = trace.elixir.reduce((s, c) => s + c.ms, 0);
   const storeMs = trace.store.reduce((s, c) => s + c.ms, 0);
+  const models = trace.model ?? [];
+  const modelMs = models.reduce((s, c) => s + c.ms, 0);
   return {
     at: new Date().toISOString(),
     level: ms >= SLOW_REQUEST_MS || status >= 500 ? "warn" : "info",
@@ -110,18 +139,27 @@ export function summarize(trace, status) {
     elixir_calls: trace.elixir.length,
     store_ms: storeMs,
     store_ops: trace.store.length,
+    ...(models.length ? { model_ms: modelMs, model_calls: models.length } : {}),
     ...(trace.cold ? { cold: true } : {}),
     ...(trace.elixir.length ? { elixir: trace.elixir } : {}),
+    ...(models.length ? { model: models } : {}),
     ...(trace.notes.length ? { notes: trace.notes } : {}),
   };
 }
 
 /** The Server-Timing header: total, Elixir, the table, the rest. */
 export function serverTiming(summary) {
-  const own = Math.max(0, summary.ms - summary.elixir_ms - summary.store_ms);
+  const modelMs = summary.model_ms ?? 0;
+  const own = Math.max(
+    0,
+    summary.ms - summary.elixir_ms - summary.store_ms - modelMs,
+  );
   return [
     `total;dur=${summary.ms}`,
     `elixir;dur=${summary.elixir_ms};desc="${summary.elixir_calls} calls"`,
+    ...(summary.model_calls
+      ? [`model;dur=${modelMs};desc="${summary.model_calls} calls"`]
+      : []),
     `store;dur=${summary.store_ms};desc="${summary.store_ops} ops"`,
     `own;dur=${own}`,
     ...(summary.cold ? ["cold"] : []),

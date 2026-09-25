@@ -72,6 +72,8 @@ export function createHandler({
   awards = null,
   scout = null,
   recruit = null,
+  /** the clan's own model: its key and its uses (`manage/model.mjs`) */
+  model = null,
   feedback = null,
   /** Verified player tags of the product's maintainer(s): MaintainerTags. */
   maintainerTags = [],
@@ -619,6 +621,33 @@ export function createHandler({
               body.note ?? null,
             ),
           );
+      }
+      // A leader drafts the pitch with the clan's own model.
+      if (recruit && method === "POST" && rest === "/recruit/draft")
+        return json(
+          200,
+          await recruit.draft(tag, who, token, body.note ?? null),
+        );
+      // The clan's own model: leaders add, change and remove its key. It
+      // works for any clan, with or without a policy (Recruit does).
+      if (model && rest === "/model") {
+        if (method === "GET")
+          return json(200, await model.status(tag, who, token));
+        if (method === "PUT" && body.key)
+          return json(
+            200,
+            await model.setKey(tag, who, {
+              key: body.key,
+              model: body.model ?? null,
+            }),
+          );
+        if (method === "PUT" && body.model)
+          return json(200, await model.setModel(tag, who, body.model));
+        if (method === "DELETE") {
+          await model.removeKey(tag, who);
+          return json(200, { ok: true });
+        }
+        return json(400, { error: "bad_request" });
       }
       if (!manage) return json(404, { error: "not_found" });
       if (method === "GET" && rest === "/manage")

@@ -35,6 +35,7 @@ export const keys = {
   policy: (tag) => ["clan", tag, "policy"],
   awards: (tag) => ["clan", tag, "awards"],
   recruit: (tag) => ["clan", tag, "recruit"],
+  model: (tag) => ["clan", tag, "model"],
   standing: (tag) => ["clan", tag, "standing"],
   trophies: (tag) => ["clan", tag, "trophies"],
   actions: (tag) => ["clan", tag, "actions"],
@@ -115,6 +116,10 @@ export const useRecruit = (tag) =>
       return s ? Math.min(60, s) * 1000 : false;
     },
   });
+
+/** The clan's own model: its key (never the key itself) and its uses. */
+export const useModel = (tag) =>
+  useGated(keys.model(tag), () => manageApi.model(tag));
 
 export const useHistory = (tag) =>
   useQuery({

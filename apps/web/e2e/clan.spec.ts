@@ -94,7 +94,7 @@ test.describe("signed in", () => {
     await expect(rail.getByRole("link", { name: /^Board/ })).toHaveCount(0);
   });
 
-  test("a clan with no policy yet: only the roster, Recruit, Scout and the policy editor", async ({
+  test("a clan with no policy yet: only the roster, Recruit, Scout, the policy editor and the clan's model", async ({
     page,
   }) => {
     await mockApi(page, signedIn({}, { policy: { set: false } }));
@@ -103,6 +103,7 @@ test.describe("signed in", () => {
     await expect(rail.getByRole("link", { name: /^Policy/ })).toBeVisible();
     await expect(rail.getByRole("link", { name: /^Scout/ })).toBeVisible();
     await expect(rail.getByRole("link", { name: /^Recruit/ })).toBeVisible();
+    await expect(rail.getByRole("link", { name: /^Model/ })).toBeVisible();
     for (const name of [
       /^Actions/,
       /^Board/,

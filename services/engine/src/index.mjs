@@ -10,3 +10,4 @@ export * from "./actions.mjs";
 export * from "./goals.mjs";
 export * from "./member.mjs";
 export * from "./chat.mjs";
+export * from "./words.mjs";

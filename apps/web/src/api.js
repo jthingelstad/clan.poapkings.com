@@ -62,6 +62,12 @@ export const manageApi = {
     get(`${clanBase(tag)}/recruit${refresh ? "?refresh=1" : ""}`),
   savePitch: (tag, values, note) =>
     post(`${clanBase(tag)}/recruit`, { values, note }),
+  // The clan's own model (2026-09-25): its key, and a draft of the pitch.
+  draftPitch: (tag, note) => post(`${clanBase(tag)}/recruit/draft`, { note }),
+  model: (tag) => get(`${clanBase(tag)}/model`),
+  setModelKey: (tag, key) => put(`${clanBase(tag)}/model`, { key }),
+  chooseModel: (tag, model) => put(`${clanBase(tag)}/model`, { model }),
+  removeModelKey: (tag) => del(`${clanBase(tag)}/model`),
   // Away: the member's own word (2026-09-12).
   myAway: (tag) => get(`${clanBase(tag)}/me/away`),
   setAway: (tag, body) => put(`${clanBase(tag)}/me/away`, body),

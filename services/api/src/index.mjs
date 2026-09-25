@@ -5,9 +5,15 @@ import { createElixirApiClient } from "./elixir-api.mjs";
 import { createOAuthClient } from "./oauth.mjs";
 import { createDynamoStore } from "./store.mjs";
 import { createDynamoLedger } from "./manage/ledger.mjs";
-import { createManageService, fetchParticipation } from "./manage/service.mjs";
+import {
+  createManageService,
+  fetchParticipation,
+  fetchRoster,
+} from "./manage/service.mjs";
 import { createAwardsService } from "./manage/awards.mjs";
 import { createRecruitService } from "./manage/recruit.mjs";
+import { createModelService } from "./manage/model.mjs";
+import { createAnthropicClient } from "./anthropic.mjs";
 import { createScout } from "./manage/scout.mjs";
 import { createFeedbackService } from "./feedback.mjs";
 import { createSnsNotifier } from "./notify.mjs";
@@ -34,8 +40,18 @@ const ledger = createDynamoLedger({
   region: process.env.AWS_REGION,
 });
 
+// The clan's own model, on the clan's own Anthropic key (never ours). Its
+// key is sealed under a key derived from the app's secret.
+const model = createModelService({
+  ledger,
+  anthropic: createAnthropicClient(),
+  secret: env("SESSION_SECRET"),
+  rosterFor: (token, clanTag) => fetchRoster(mcp, token, clanTag),
+});
+
 export const handler = createHandler({
   mcp,
+  model,
   manage: createManageService({ ledger, mcp }),
   awards: createAwardsService({
     ledger,
@@ -43,7 +59,7 @@ export const handler = createHandler({
       fetchParticipation(mcp, token, clanTag),
   }),
   scout: createScout({ mcp }),
-  recruit: createRecruitService({ ledger, mcp }),
+  recruit: createRecruitService({ ledger, mcp, model }),
   feedback: createFeedbackService({
     ledger,
     notify: createSnsNotifier({

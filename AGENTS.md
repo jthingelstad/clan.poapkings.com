@@ -54,12 +54,14 @@ chosen: `docs/VISION.md`. Read it before proposing a feature.
 apps/web/          React 19 + Vite SPA on Elixir's kit (TanStack Router + Query,
                    Tailwind v4 over Elixir's tokens): /, /clans, /clan/<TAG>,
                    /clan/<TAG>/actions, /clan/<TAG>/standing, /clan/<TAG>/trophies,
-                   /clan/<TAG>/recruit, /clan/<TAG>/manage/{board,history,policy,awards,scout},
+                   /clan/<TAG>/recruit, /clan/<TAG>/manage/{board,history,policy,awards,scout,model},
                    /you, /you/away, /feedback, /maintain/feedback, /refused/<reason>
 services/engine/   the management engine, PURE: policy schema, facts, standing,
-                   evaluate, render, awards, recruit. No I/O, no clock. Golden tests in test/.
+                   evaluate, render, awards, recruit, chat, words. No I/O, no clock.
+                   Golden tests in test/.
 services/api/      Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*,
-                   /api/clans/<TAG>/* (manage/ = ledger, service, awards, recruit, scout)
+                   /api/clans/<TAG>/* (manage/ = ledger, service, awards, recruit,
+                   scout, model); anthropic.mjs (a clan's own key, never ours)
 scripts/           feedback.mjs (the Close-the-Loop owner's read of the queue),
                    actions.mjs (actions and their logs, read-only, for review)
 infra/             one CloudFormation stack + scripts (bootstrap, deploy, smoke)
@@ -300,7 +302,49 @@ edited copy still carries them. Every piece is editable before copying and
 resets to the clan's words. `GET /api/clans/<TAG>/recruit` for every
 member; `POST` for leaders. Live reads are first-party and spend no
 person's Elixir quota; the cache still caps them at one per clan per six
-hours.
+hours. A leader can have the pitch drafted by the clan's own model (below):
+`POST /api/clans/<TAG>/recruit/draft` with an optional note answers a
+draft for the editor, never saved by itself.
+
+## The clan's own model (2026-09-25)
+
+Bring your own tokens (VISION, principle 8): Elixir Clan funds no model.
+A leader or co-leader adds the clan's **Anthropic API key** on Manage ▸
+Model (`/clan/<TAG>/manage/model`, `GET|PUT|DELETE /api/clans/<TAG>/model`),
+for any clan, with or without a policy, like Recruit. Then the clan's
+model may write **words, never judgments**:
+
+- **What it may write** is a closed list (`PURPOSES` in
+  `services/engine/src/words.mjs`): today `recruit_pitch`. Each purpose's
+  request is built in the engine from clan-level facts only (the game's
+  numbers for the clan, its goals and posture, `describePolicy`, its own
+  words, the leader's note), never a member's name or numbers, and its
+  answer is one forced tool call, checked there (`pitchFromDraft`: links,
+  markdown and bullets out, each field clipped, the clan's website and
+  contact kept, a number the model was not given flagged). A person edits
+  and saves; nothing a model writes is saved or sent by itself.
+- **The key** (`services/api/src/manage/model.mjs`) is checked with
+  Anthropic's model list before it is kept (spends nothing; an Admin key is
+  refused), sealed with AES-256-GCM under a key derived (HKDF) from the
+  app's `session_secret` for this use only and bound to the clan and the
+  person who added it, and kept in its own item `model_key#<clan>`
+  **outside the ByClan index**, so no listing of a clan carries it. Nobody
+  sees it again: the page shows `sk-ant-…` and its last four, who added it
+  and when. Rotating `session_secret` makes kept keys unreadable; the page
+  then asks for the key again. No IAM, KMS key or secret was added for it.
+- **Who and how much**: only leaders and co-leaders see, set or use it; it
+  is used only while the person who added it is still a leader or
+  co-leader on the roster (their Anthropic account pays; another leader
+  may replace it with theirs); at most `USES_PER_DAY` (20) uses a day per
+  clan; a key Anthropic stops accepting is marked and not used again until
+  added again. The model is the first of `MODEL_PREFERENCE` the key
+  reaches (Sonnet 5, then Opus 5.5, then Haiku 4.5), and a leader may pick
+  any model the key lists.
+- **Every use is recorded** (`model_call#<clan>#<at>#<id>`, 90 days, TTL):
+  who, what for, the model, ok or the error, the tokens. The page lists
+  today's count, the month's uses and tokens, and the last ten. The
+  request's log line carries the call's time, status and tokens
+  (`timedModel` in `trace.mjs`), never the key, the prompt or the answer.
 
 ## Feedback (2026-09-12)
 
@@ -450,8 +494,8 @@ link is its own copy.
 ## Roles in Manage
 
 From the roster, as the gate resolves them. Leader and co-leader: Manage
-(board, history, policy, awards, scout), the leaders' actions, holds, leader
-notes, and every note. Elder: the elders' actions, elder notes (write and
+(board, history, policy, awards, scout, the clan's model), the leaders'
+actions, holds, leader notes, and every note. Elder: the elders' actions, elder notes (write and
 read), awards (read; grant what elders may), scout. Everyone in the clan,
 once there is an active policy: Actions (their own), Standing ("How it works
 here" and their own line, plus where everyone stands when Elder is ranked
@@ -464,11 +508,13 @@ The `elixir-clan` table gains, per clan, through the `ByClan` index:
 the member count at the latest read (`clan_size#`), policy versions, the latest verdict snapshot (evidence summaries only,
 overwritten each evaluation), actions (`card#`, kept: this ledger is how a
 leave is told from a kick) and each action's log (`action_log#`), holds,
-and notes (tiered `leader` / `elder`). Tags and
-summaries, never Elixir payloads. `ledger.deleteClan` removes the set; call
-it when a clan's last verified leader disconnects. Evaluation is on demand
-with the signed-in person's token, cached five minutes per clan; no
-background job and no stored credential.
+and notes (tiered `leader` / `elder`), and the uses of the clan's model
+(`model_call#`, 90 days). Tags and summaries, never Elixir payloads. The
+clan's sealed model key (`model_key#`) is the one clan item outside the
+index. `ledger.deleteClan` removes the set, the key included; call it when
+a clan's last verified leader disconnects. Evaluation is on demand with the
+signed-in person's token, cached five minutes per clan; no background job
+and no stored Elixir credential.
 
 ## Elixir JSON API operations this app depends on
 
@@ -538,8 +584,11 @@ Elixir's requested interval (Scout stops after six attempts). The page shows
 
 `services/api/src/trace.mjs` (2026-09-12, after slow pages and a log group
 holding only START/END/REPORT). Every request runs inside a trace; every
-Elixir call (`elixir-api.mjs`, `oauth.mjs`) and every table operation (`store.mjs`,
-`ledger.mjs`) is timed into it. The handler ends the request with:
+Elixir call (`elixir-api.mjs`, `oauth.mjs`), every call to a clan's own
+model (`anthropic.mjs`: `model_ms`/`model_calls` and `model: [{ call, ms,
+ok, status|code, input_tokens, output_tokens }]`, and `model` in
+Server-Timing) and every table operation (`store.mjs`, `ledger.mjs`) is
+timed into it. The handler ends the request with:
 
 - **one JSON line** in `/aws/lambda/elixir-clan-api`: `http` (the route with
   ids and tags as `*`), `status`, `ms`, `elixir_ms`/`elixir_calls`,
@@ -592,6 +641,7 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.copy_in_game` | (none), or `leader_message` for a Leader Message field |
 | `clan.invite_copied` | `leaders` \| `clanmates` \| `link` |
 | `clan.recruit_copied`, `clan.recruit_saved` | `personal` \| `post`; `v<n>` |
+| `clan.model_key_set`, `clan.model_key_removed`, `clan.model_drafted` | (none); (none); the purpose (`recruit_pitch`) |
 | `web.api_timeout`, `web.api_network`, `web.api_bad_response`, `web.api_slow` (over 3 s) | the route key, ids as `*` |
 
 No server-side events: Elixir's go through its email relay with an API

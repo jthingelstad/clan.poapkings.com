@@ -24,6 +24,13 @@
  *   recruit#<clan>#v<n>      one immutable pitch: the clan's own recruiting words
  *   recruit_facts#<clan>     the last live read of the clan (facts only,
  *                            no member list), a few hours
+ *   model_key#<clan>         the clan's own Anthropic key, SEALED (see
+ *                            manage/model.mjs), who added it, the model;
+ *                            outside the ByClan index on purpose, so no
+ *                            listing of a clan's items ever carries it
+ *   model_call#<clan>#<at>#<id>
+ *                            one use of the clan's model: who, what for,
+ *                            the model, the tokens; 90 days (TTL)
  *   awards#<clan>            the pointer: { version }
  *   awards#<clan>#v<n>       one immutable awards document: the clan's
  *                            awards (kind, name, parameters)
@@ -385,6 +392,32 @@ function ledgerOver(io) {
         ...facts,
       });
     },
+    // ---- the clan's own model ------------------------------------------
+    async modelKey(clanTag) {
+      const item = await io.get(`model_key#${clanTag}`);
+      return item ? stripKeys(item) : null;
+    },
+    async saveModelKey(clanTag, item) {
+      // No gsi1pk: the sealed key is never in a listing of the clan.
+      await io.put({ ...item, pk: `model_key#${clanTag}` });
+    },
+    async removeModelKey(clanTag) {
+      await remove(`model_key#${clanTag}`);
+    },
+    async modelCalls(clanTag, prefix = "") {
+      return (await io.listByPrefix(clanTag, `model_call#${prefix}`)).map(
+        stripKeys,
+      );
+    },
+    async addModelCall(clanTag, call) {
+      const id = newId();
+      await io.put({
+        pk: `model_call#${clanTag}#${call.at}#${id}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: `model_call#${call.at}#${id}`,
+        ...call,
+      });
+    },
     // ---- feedback: one partition, the queue ---------------------------
     async feedback() {
       return (await io.listByPartition(FEEDBACK_PARTITION, "")).map(stripKeys);
@@ -409,6 +442,7 @@ function ledgerOver(io) {
       await remove(`policy#${clanTag}`);
       await remove(`awards#${clanTag}`);
       await remove(`recruit#${clanTag}`);
+      await remove(`model_key#${clanTag}`);
       return all.length;
     },
   };
