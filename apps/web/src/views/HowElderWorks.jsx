@@ -41,9 +41,10 @@ export function HowElderWorks({ tag }) {
           </p>
           <h2 className="panel-title">How standing is measured</h2>
           <p>
-            Everyone is compared with the others on three things: war decks over
-            the last {v.war_rate_window_weeks} war weeks (finishing a day counts
-            for more than the deck count suggests), ranked battles over{" "}
+            Everyone is compared with the others on three things: war decks
+            played over war decks asked for across the last{" "}
+            {v.war_rate_window_weeks} war weeks (four are asked per required war
+            day through the boat&rsquo;s finish), ranked battles over{" "}
             {v.ranked_window_weeks} weeks, and the {v.donation_window_weeks}
             -week donation average. War is the primary path; ranked fills part
             of the gap war leaves; donations are the lighter half.

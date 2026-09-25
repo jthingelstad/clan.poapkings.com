@@ -135,16 +135,19 @@ remembered between runs.
   and demote machines (`replayMachines`) run over that trail. "Three
   qualifying reviews" is computed from history every time.
 - **Windows are in weeks**: the floor over the last N closed ISO weeks
-  (ranked) and N closed war weeks (war days); the war rate over the last N
-  closed war weeks; ranked and donations over N closed ISO weeks. At a
-  boundary, that is exactly the policy's days.
+  (ranked) and N closed war weeks (war decks); the war rate is weekly decks
+  played over decks asked across the last N closed war weeks; ranked and
+  donations use N closed ISO weeks. At a boundary, that is exactly the
+  policy's weeks.
 - **An early finish makes later war days optional**: outside Colosseum,
-  `finish_war_day` is the number of days the clan asked members to play.
-  Playing a later day still adds credit; skipping it never lowers the floor,
-  war rate or perfect-attendance result. Colosseum always asks for all four.
-- **War fidelity**: a war week with polled days is exact; one without is
-  `weekly` (its total spread over the days that saw a battle); a null week
-  is `unknown`. Every fact says which.
+  `finish_war_day` sets the number of required days and therefore the decks
+  asked (four per day). The race's weekly `decksUsed` is the decks played;
+  decks after the finish still add credit without adding to the ask, while
+  skipping those days never lowers the floor, war rate or perfect-attendance
+  result. Colosseum always asks for all four days.
+- **War fidelity**: the race's weekly `decksUsed` total is `weekly`; a null
+  week is `unknown`. No battle is attributed to a war day. Every fact says
+  which.
 - **Fail closed**: `judgment_status` per dimension is `ready`, `held` (no
   war record or no closed review yet), `unknown` (tenure predates the
   record: `tenure_known: false`), `off` (the policy switched it off) or

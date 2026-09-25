@@ -179,7 +179,7 @@ describe("how elder works", () => {
           removal_enabled: true,
           tenure_min_days: 28,
           floor_window_weeks: 2,
-          floor_war_days: 1,
+          floor_war_decks: 1,
           floor_ranked_battles: 5,
           war_rate_window_weeks: 4,
           ranked_window_weeks: 4,
@@ -201,6 +201,12 @@ describe("how elder works", () => {
     );
     expect(screen.getByText(/Between 20% and 30% of the roster/)).toBeTruthy();
     expect(screen.getByText(/8 days proposes a removal/)).toBeTruthy();
+    expect(
+      screen.getByText(/war decks played over war decks asked for/i),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(
+      /finishing a day counts for more than the deck count suggests/i,
+    );
     expect(
       screen.getByText(/later war days that week are optional/i),
     ).toBeTruthy();

@@ -1,5 +1,5 @@
 /**
- * One story per request: the line, the EMF line, the Server-Timing header.
+ * One story per request: the log line and the Server-Timing header.
  * A log group holding only START/END/REPORT told nobody where 20 seconds
  * went; this is what says it.
  */
@@ -25,7 +25,7 @@ import { member, participation, NOW } from "../../engine/test/fixture.mjs";
 import { serverTiming, summarize, timedElixir } from "../src/trace.mjs";
 import { routeKey } from "../src/handler.mjs";
 
-/** The logger the handler is given: the story and the metric, captured. */
+/** The logger the handler is given: the request story, captured. */
 function capturing() {
   const lines = [];
   return {
@@ -43,7 +43,7 @@ const capture = async (fn, cap) => {
   return { r, lines: [...cap.lines] };
 };
 
-test("every request ends with one JSON line naming the route, the status, the time, and each Elixir call with its request_id; plus EMF and Server-Timing", async () => {
+test("every request ends with one JSON line naming the route, the status, the time, and each Elixir call with its request_id; plus Server-Timing", async () => {
   const now = () => NOW.getTime();
   const part = participation(
     [member("#20JJJ2CCRU", { name: "King Thing", role: "leader" })],

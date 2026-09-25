@@ -580,6 +580,7 @@ after six pending reads and explains what to check instead of polling all night
 - Participation is judged on the race's own weekly `decksUsed`, never on which day a battle fell: a day holds at most four decks, so 16 decks is every war day in full and 12 by a day-3 finish is every day asked for. Each clan's race rolls its days in the half hour before 10:00Z at its own slot, and the API tags no battle with a day, so any per-day attribution was fragile; weekly decks remove the question.
 - War rate = decks played / decks asked (4 x war days up to the finish; Colosseum 4 days), capped at 1; post-finish decks count as played and are never asked for. The floor is `floor_war_decks`; Perfect attendance asks `decks_per_day` x days up to the finish per week, `allowed_misses` is days' worth of decks. `full_day_bonus` is retired.
 - Saved policy versions read through `fromLegacy`: `floor_war_days` N becomes `floor_war_decks` N (never stricter); `full_day_bonus` is dropped.
+- The public Elder explanation and the product contract now describe weekly decks played over decks asked; neither carries the retired claim that finishing a day earns bonus credit.
 - Also today: war days after an early finish are optional; departures skip rejoiners; a clan policy is Elixir Clan's own (no POAP KINGS provenance anywhere; other clans' starting pitch and awards are neutral).
 
 ## 2026-09-24 — The slow-request alarm reads Lambda Duration; no custom metrics
