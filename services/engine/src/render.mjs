@@ -19,7 +19,7 @@ import {
   ranksElder,
   setMinimums,
 } from "./policy.mjs";
-import { POSTURES, declaredGoals, goalsInSentence } from "./goals.mjs";
+import { declaredGoals, goalsInSentence } from "./goals.mjs";
 import { CHAT_MAX, WELCOME_MAX, chatSafe, clipChat } from "./chat.mjs";
 
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -324,14 +324,10 @@ export function describePolicy(policy) {
     sections.push({
       key: "about",
       title: "About this clan",
-      lines: [
-        `This clan is about ${goalsInSentence(goals)}.`,
-        ...(POSTURES[policy.posture]
-          ? [
-              `${POSTURES[policy.posture].label}. ${POSTURES[policy.posture].about}`,
-            ]
-          : []),
-      ],
+      // What it is for, and no posture: a posture's words describe where
+      // a starting point put the numbers, and the clan's own numbers,
+      // below, are what hold.
+      lines: [`This clan is about ${goalsInSentence(goals)}.`],
     });
   const window = (c) =>
     c === "war"

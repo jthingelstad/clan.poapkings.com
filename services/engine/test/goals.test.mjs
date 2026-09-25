@@ -72,14 +72,17 @@ test("presets are goals and a posture, nothing else", () => {
   }
 });
 
-test("How it works here opens with what the clan is for", () => {
+test("How it works here opens with what the clan is for, and no posture words that could contradict its own numbers", () => {
   const v = policyFromGoals(["war", "donations"], "standard");
   const about = describePolicy(v)[0];
   assert.equal(about.key, "about");
   assert.deepEqual(about.lines, [
     "This clan is about Clan Wars and donations.",
-    "Standard. Show up most weeks; inactive members make room after two weeks.",
   ]);
+  assert.doesNotMatch(
+    JSON.stringify(describePolicy(v)),
+    /two weeks|Standard\./,
+  );
   assert.equal(
     goalsInSentence(["donations", "together"]),
     "donations and playing together",
