@@ -951,9 +951,13 @@ decline, and the page re-reads with an evaluation after a decision; the
 member is still on the roster until Elixir's next poll, so the removal
 was raised again. Now a completed action holds the same action for that
 member until its outcome window passes (48 hours unless the policy says
-otherwise), or until the outcome is flagged. The duplicate left open on
-the live ledger is withdrawn by the next evaluation, saying a leader
-already decided it.
+otherwise), or until the outcome is flagged. The same read found a
+second gap: reconciliation walked only today's members, so an open
+removal, promotion or demotion for someone who had left stayed open
+forever (elixir-bot has the same bug: its R377). Such an action is now
+withdrawn, "They are no longer in the clan." The duplicate left open on
+the live ledger (the member was kicked at 17:23 Central) closes that way
+on the next evaluation.
 
 Jamie also asked for numbers people can say ("take a look at action
 37"), then for each action's own address, sent to each other, as the

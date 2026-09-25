@@ -703,6 +703,27 @@ test("a declined card blocks re-nomination until the cooldown lapses; a complete
   );
 });
 
+test("reconcile: an open action about someone no longer in the clan is withdrawn; other kinds are left to their own rules", () => {
+  const others = Array.from({ length: 11 }, (_, i) => member(`#O${i}`));
+  const v = evaluate({
+    participation: participation(others),
+    policy,
+    now: NOW,
+  });
+  const { withdraw } = reconcileCards(v, [
+    { card_id: "gone", player_tag: "#GONE", type: "removal" },
+    { card_id: "gone2", player_tag: "#GONE", type: "promotion" },
+    { card_id: "dep", player_tag: "#GONE", type: "departure" },
+  ]);
+  assert.deepEqual(
+    withdraw.map((w) => [w.card.card_id, w.reason]),
+    [
+      ["gone", "They are no longer in the clan."],
+      ["gone2", "They are no longer in the clan."],
+    ],
+  );
+});
+
 test("reconcile: raise for actionable verdicts without an open card, withdraw open cards no longer supported", () => {
   const others = Array.from({ length: 10 }, (_, i) => member(`#O${i}`));
   const idle = member("#IDLE", {

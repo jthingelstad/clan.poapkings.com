@@ -437,6 +437,13 @@ export function reconcileCards(verdicts, openCards) {
       }
     }
   }
+  // An open action about someone no longer in the clan closes itself: the
+  // loop above walks only today's members, so a second removal raised
+  // before a kick showed would otherwise stay open forever (2026-09-25).
+  const here = new Set(verdicts.members.map((m) => m.player_tag));
+  for (const card of openCards)
+    if (CARD_TYPES.includes(card.type) && !here.has(card.player_tag))
+      withdraw.push({ card, reason: "They are no longer in the clan." });
   return { raise, withdraw };
 }
 

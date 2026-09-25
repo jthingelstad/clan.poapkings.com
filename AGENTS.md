@@ -203,7 +203,9 @@ only when the policy counts trophy road, each member's trophies today from
   outcome window (`outcome_window_hours`) passes, unless its outcome was
   flagged first: a kick shows in the record only at Elixir's next roster
   poll, and without the hold the page's re-read after "Complete" raised
-  the removal again (2026-09-25). Outcomes of completed promotions, demotions and removals are verified
+  the removal again (2026-09-25). An open promotion, demotion or removal
+  about someone no longer in the clan is withdrawn ("They are no longer
+  in the clan."). Outcomes of completed promotions, demotions and removals are verified
   from the record on the next evaluation (removal: membership closed →
   `member_kicked`; promotion or demotion: the role moved) or flagged after
   `outcome_window_hours`. See §Actions for who may take each and its log.
