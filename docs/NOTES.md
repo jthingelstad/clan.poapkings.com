@@ -178,10 +178,8 @@ Elder page are gone with the page itself; see the entry of that date.)
 
 ## Open
 
-- The gate asks `GET /api/v1/me` twice on every check (`initialize`, then
-  `elixir_my_players`). `/me` already carries the principal and the players
-  with `claim_status`, so the client could answer both from one request with
-  nothing asked of Elixir. Not needed yet.
+(Closed 2026-09-25: the gate now asks `GET /api/v1/me` once per check;
+`/me` carries the principal and the players.)
 
 ## 2026-09-12 — Awards: elixir-bot's season awards as a catalog of kinds
 

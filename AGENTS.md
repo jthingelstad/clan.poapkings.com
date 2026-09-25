@@ -85,8 +85,8 @@ and registration, `connections`, `verify`). Do not restate it here.
 
 ## The gate, in order (`services/api/src/gate.mjs`)
 
-`GET /api/v1/me` (the principal block and the players; the client answers
-`initialize` and then `elixir_my_players` from it, one request each); the
+`GET /api/v1/me` (the principal block and the players, in one request:
+the gate reads both from `initialize`'s answer); the
 first refusal wins and each has its own page
 (`apps/web/src/views/Refused.jsx`):
 

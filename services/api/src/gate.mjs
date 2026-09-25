@@ -14,7 +14,8 @@
  * verified claims, each with the tag the person acts as there. Two
  * verified tags in one clan are one clan, acting as the higher role.
  * Nothing unverified ever selects a clan; nothing stored here decides a
- * role. Reads only: `initialize` and `elixir_my_players`.
+ * role. Reads only: `initialize` (`GET /api/v1/me`, which carries the
+ * players too), and `elixir_my_players` only from a door that does not.
  */
 
 import { roleLabel, roleRank } from "./roles.mjs";
@@ -97,7 +98,11 @@ export async function runGate({ mcp, token }) {
     };
   }
 
-  const mine = await mcp.callTool(token, "elixir_my_players", {});
+  // `/me` already carries the players: one request, not two. A door
+  // that answers without them is asked for them.
+  const mine = Array.isArray(init.body?.players)
+    ? { ok: true, body: { players: init.body.players } }
+    : await mcp.callTool(token, "elixir_my_players", {});
   if (!mine.ok) return { ok: false, error: mine.error, status: mine.status };
 
   const players = Array.isArray(mine.body?.players) ? mine.body.players : [];

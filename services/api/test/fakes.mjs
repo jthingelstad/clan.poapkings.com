@@ -89,7 +89,7 @@ export function fakeMcp({
         if (!tokenOk(token)) return refused();
         return {
           ok: true,
-          body: {},
+          body: { principal: state.principal, players: state.players },
           version: "1.7.0+tools.abc",
           principal: state.principal,
         };

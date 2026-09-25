@@ -46,9 +46,10 @@ test("callback: happy path exchanges with the stored verifier, runs the gate onc
   assert.equal(exchange.code, "eac_x");
   assert.equal(exchange.redirectUri, "https://clan.test/auth/callback");
   assert.ok(exchange.codeVerifier);
+  // One request to Elixir: /me carries the principal and the players.
   assert.deepEqual(
     h.mcp.calls.map((c) => c[0]),
-    ["initialize", "elixir_my_players"],
+    ["initialize"],
   );
   // The login item is single use.
   assert.equal(
@@ -66,7 +67,7 @@ test("callback: happy path exchanges with the stored verifier, runs the gate onc
   assert.equal(body.selected.name, "Example Clan");
   assert.equal(body.selected.player_tag, "#20QQL8CCRU");
   assert.equal(body.clans.length, 1);
-  assert.equal(h.mcp.calls.length, 2);
+  assert.equal(h.mcp.calls.length, 1);
 });
 
 test("callback: a state that does not match the login cookie is refused", async () => {
@@ -157,9 +158,9 @@ test("me: re-runs the gate after its cache window, and ?refresh=1 within the flo
   const { sessionCookie } = await signIn(h);
   const cookies = cookieHeader(sessionCookie);
   await h.handler(req("GET", "/api/me", { cookies }));
-  assert.equal(h.mcp.calls.length, 2);
+  assert.equal(h.mcp.calls.length, 1);
   await h.handler(req("GET", "/api/me", { cookies, query: { refresh: "1" } }));
-  assert.equal(h.mcp.calls.length, 2, "refresh inside the floor is free");
+  assert.equal(h.mcp.calls.length, 1, "refresh inside the floor is free");
   h.clock.t += GATE_TTL_MS + 1;
   // The person verified in the meantime.
   h.mcp.state.players = [player()];
@@ -167,7 +168,7 @@ test("me: re-runs the gate after its cache window, and ?refresh=1 within the flo
     (await h.handler(req("GET", "/api/me", { cookies }))).body,
   );
   assert.equal(me.ok, true);
-  assert.equal(h.mcp.calls.length, 4);
+  assert.equal(h.mcp.calls.length, 2);
 });
 
 test("me: no cookie, a forged cookie, and an unknown session all read as signed out", async () => {
