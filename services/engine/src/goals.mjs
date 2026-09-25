@@ -154,6 +154,8 @@ export function policyFromGoals(goals = [], posture = "standard") {
   v.away_suggestions_enabled = true;
   v.departures_enabled = true;
   v.welcome_enabled = true;
+  v.announce_awards_enabled = true;
+  v.announce_rules_enabled = true;
   v.members_see_standing = true;
 
   const checked = validate(v);

@@ -79,6 +79,87 @@ export function CopyLine({ text }) {
   );
 }
 
+/** The game's limits on a Clan Leader Message (observed in the game). */
+const LIMIT = { title: 24, body: 180 };
+
+/** One field of a Clan Leader Message: editable, counted, copyable. */
+function MessageField({ label, value, onChange, max, rows = 1 }) {
+  const [done, setDone] = useState(false);
+  const over = value.length > max;
+  return (
+    <div className="grid gap-1">
+      <div className="flex items-center gap-2">
+        <span className="label">{label}</span>
+        <span className={`page-head__note ${over ? "text-[var(--bad)]" : ""}`}>
+          {value.length}/{max}
+        </span>
+        <button
+          type="button"
+          className="btn btn--sm ml-auto"
+          aria-label={`Copy the ${label.toLowerCase()}`}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(value);
+              trackEvent("clan.copy_in_game", "leader_message");
+              setDone(true);
+              setTimeout(() => setDone(false), 1500);
+            } catch {
+              // The text is on screen to select by hand.
+            }
+          }}
+        >
+          <Icon name={done ? "check" : "copy"} size={14} />
+        </button>
+      </div>
+      {rows > 1 ? (
+        <textarea
+          className="input"
+          aria-label={label}
+          rows={rows}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <input
+          className="input"
+          aria-label={label}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** A Clan Leader Message ready to send in the game: a title and a message,
+ *  each within the game's limit, edited before copying. */
+export function LeaderMessage({ message }) {
+  const [title, setTitle] = useState(message?.title ?? "");
+  const [body, setBody] = useState(message?.body ?? "");
+  return (
+    <div className="grid gap-2 rounded-lg border border-[var(--line-soft)] bg-[var(--ground-sunken)] p-2.5">
+      <div className="page-head__note">
+        Clan Leader Message: in the game, Clan → the leader message button; only
+        leaders and co-leaders can send one, and it stays in every
+        member&rsquo;s Inbox.
+      </div>
+      <MessageField
+        label="Title"
+        value={title}
+        onChange={setTitle}
+        max={LIMIT.title}
+      />
+      <MessageField
+        label="Message"
+        value={body}
+        onChange={setBody}
+        max={LIMIT.body}
+        rows={3}
+      />
+    </div>
+  );
+}
+
 /** Who wrote a log entry. */
 function By({ by }) {
   if (!by || by.system) return <span>Elixir Clan</span>;
@@ -224,6 +305,8 @@ export function ActionCard({
           <span>
             <span className="yours">★</span> You
           </span>
+        ) : !action.player_tag ? (
+          <span>The clan</span>
         ) : (
           <>
             <span>{action.player_name ?? action.player_tag}</span>
@@ -280,10 +363,32 @@ export function ActionCard({
             to be away? Mark it and your inactivity clock pauses
             {ev.away_max_days ? ` (up to ${ev.away_max_days} days)` : ""}.
           </div>
+        ) : action.type === "awards_announcement" ? (
+          <div>
+            Season {ev.season_id} is closed and its awards are granted. Tell the
+            clan with a Clan Leader Message, then mark it sent.
+          </div>
+        ) : action.type === "rules_announcement" ? (
+          <div>
+            {ev.changes?.length
+              ? `Policy version ${ev.version} changed: ${ev.changes.join(", ")}.`
+              : `Policy version ${ev.version}: the clan's first.`}{" "}
+            Tell the clan with a Clan Leader Message, then mark it sent.
+          </div>
         ) : (
           <div>{ev.rationale?.headline}</div>
         )}
+        {open && (action.type === "promotion" || action.type === "demotion") ? (
+          <div className="page-head__note">
+            In the game: {action.type === "promotion" ? "promote" : "demote"}{" "}
+            {action.player_name ?? action.player_tag}, send this Clan Leader
+            Message, then mark it complete. They go together.
+          </div>
+        ) : null}
         {action.copy && open ? <CopyLine text={action.copy} /> : null}
+        {action.message && open ? (
+          <LeaderMessage message={action.message} />
+        ) : null}
         {LEADER_TYPES.has(action.type) && ev.facts?.length ? (
           <ul className="m-0 pl-[18px] text-[13.5px] text-[var(--ink-body)]">
             {ev.facts.map((f) => (
@@ -360,6 +465,27 @@ export function ActionCard({
                 onClick={() => decide("declined")}
               >
                 I&rsquo;m not away
+              </button>
+            </div>
+          ) : action.type === "awards_announcement" ||
+            action.type === "rules_announcement" ? (
+            <div className="flex flex-wrap gap-2">
+              <NoteInput value={note} onChange={setNote} />
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={busy}
+                onClick={() => decide("done")}
+              >
+                Sent
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy}
+                onClick={() => decide("declined")}
+              >
+                Skip
               </button>
             </div>
           ) : action.type === "welcome" ? (

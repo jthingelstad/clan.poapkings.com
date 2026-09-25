@@ -8,6 +8,8 @@ const ORDER = [
   "removal",
   "promotion",
   "demotion",
+  "awards_announcement",
+  "rules_announcement",
   "welcome",
   "away",
 ];

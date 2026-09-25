@@ -106,6 +106,11 @@ export const GROUPS = [
     why: "A leave and a kick look the same in the roster: leaders can be asked which it was, so the clan's history says. A newcomer can be welcomed: elders and leaders get the action, with a line for clan chat.",
   },
   {
+    key: "messages",
+    title: "Messages to the clan",
+    why: "A Clan Leader Message is a title and a message only leaders and co-leaders can send; it lands in every member's Inbox and stays. Promotions and demotions always come with theirs. These add announcements, ready to send.",
+  },
+  {
     key: "actions",
     title: "Actions",
     why: "How the actions leaders take behave after a decision.",
@@ -571,6 +576,24 @@ export const FIELDS = {
     type: "boolean",
     default: false,
     why: "When a member joins, elders and leaders get an action to welcome them, with a line to paste in clan chat. It closes itself after a few days.",
+  },
+
+  // ---- messages to the clan ---------------------------------------------------------
+  announce_awards_enabled: {
+    group: "messages",
+    label: "Announce each season's awards",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "When a season closes and its awards are granted, leaders get an action with a Clan Leader Message naming the winners.",
+  },
+  announce_rules_enabled: {
+    group: "messages",
+    label: "Tell the clan when the rules change",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "When a new policy version is saved, leaders get an action with a Clan Leader Message saying what changed (or, the first time, how the clan runs).",
   },
 
   // ---- actions ----------------------------------------------------------------------

@@ -362,6 +362,26 @@ they leave or after a week) and `away_suggestions_enabled` (a member or
 elder at risk is asked; marking away completes it, playing again
 withdraws it).
 
+**Words into the game.** An action that ends in words says where they go
+(`ACTION_TYPES[type].channel`): a **clan chat** line (welcome, removal; for
+anyone the action is for; 200 characters, no "&" or "+digits") or a **Clan
+Leader Message** (`leaderMessage` in `render.mjs`: a title of at most 24
+characters and a message of about 180, as observed in the game, since
+nothing about in-game messages is in the API; leaders and co-leaders only;
+it lands in every member's Inbox and stays). Promotions and demotions carry
+their own Leader Message, one per person: promoting and announcing are one
+atomic action, as clans have always done them (Jamie, 2026-09-25). Two
+announcements are policy switches, off to start: `announce_awards_enabled`
+(a season whose computed grants were just written raises "announce the
+season's awards", once per season, naming the winners) and
+`announce_rules_enabled` (a saved version raises "tell the clan how it
+runs": how it runs the first time, what changed after; a newer version
+withdraws the open one). A decline needs a reason only for actions that
+judge a member (`JUDGING_TYPES`); completing a message action logs
+`channel` so the log says it was sent. The action store
+(`services/api/src/manage/actions.mjs`) raises, withdraws, logs and shapes
+actions for both the manage and the awards service.
+
 **Every action keeps its own log** (Jamie: "for the agent team to review
 per action to improve the system"): append-only entries
 (`action_log#<clan>#<card id>#<entry id>`, one item each, ordered by time
@@ -525,7 +545,7 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.scout` | `answered` \| `pending` |
 | `clan.away_set`, `clan.away_cleared` | (none) |
 | `clan.feedback_sent`, `clan.feedback_answered` | the category; the status |
-| `clan.copy_in_game` | (none) |
+| `clan.copy_in_game` | (none), or `leader_message` for a Leader Message field |
 | `clan.recruit_copied`, `clan.recruit_saved` | `personal` \| `post`; `v<n>` |
 | `web.api_timeout`, `web.api_network`, `web.api_bad_response`, `web.api_slow` (over 3 s) | the route key, ids as `*` |
 

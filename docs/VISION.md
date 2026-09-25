@@ -135,7 +135,9 @@ Sign in with Elixir; the roster with roles and statistics; the clan's
 versioned policy, started from what the clan is for (goals and a posture,
 or a preset) and tuned from there (categories, minimums, Elder by hand or
 by a weighted mix, the inactivity clock, departures, welcomes); actions for leaders, elders and members
-(assigned or open to a role, completed or declined), each with its own log
+(assigned or open to a role, completed or declined), with the words for the
+game ready (a clan chat line, or a Clan Leader Message for leaders), each
+with its own log
 of what raised it, who took it and anyone's comments, and outcomes verified
 from the record; holds, Away, tiered notes; Standing with "How it works here"; awards as a catalog
 of kinds and a members' trophy case; recruiting copy in two formats;

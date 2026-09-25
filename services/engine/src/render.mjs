@@ -435,3 +435,82 @@ export function inGameCopy(kind, { name, days_idle = null, phrase = "" } = {}) {
   const safe = text.replace(/[&]/g, "and").replace(/\+(?=\d)/g, "");
   return safe.length > 200 ? `${safe.slice(0, 197).trimEnd()}...` : safe;
 }
+
+/**
+ * A Clan Leader Message (Jamie, 2026-09-25): the game's title-and-message
+ * mail a leader or co-leader sends to every member's Inbox, durable where
+ * clan chat is not. The game takes a title of at most 24 characters and a
+ * message of about 180 (observed in the game; nothing in the API), so both
+ * are held under that. Whether it uses clan chat's filter is not observed,
+ * so the same care is taken: no "&" between words, no "+" before digits.
+ */
+export const LEADER_MESSAGE = { title: 24, body: 180 };
+
+const filterSafe = (text) =>
+  String(text ?? "")
+    .replace(/\s*&\s*/g, " and ")
+    .replace(/\+(?=\d)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const clip = (text, max) =>
+  text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+
+/** Join items into a line that fits, saying how many did not. */
+function fitList(items, max, sep = "; ") {
+  const out = [];
+  for (const item of items) {
+    const next = [...out, item].join(sep);
+    const rest = items.length - out.length - 1;
+    if (next.length + (rest ? ` and ${rest} more.`.length : 1) > max) break;
+    out.push(item);
+  }
+  const left = items.length - out.length;
+  return `${out.join(sep)}${left ? ` and ${left} more.` : "."}`;
+}
+
+/**
+ * The title and message for a leader-message action:
+ *  - promotion / demotion: carried by the action itself, one per person
+ *    (promoting and announcing are one step, as clans have done them);
+ *  - awards: a closed season's winners;
+ *  - rules: how the clan runs (first version) or what changed.
+ */
+export function leaderMessage(kind, data = {}) {
+  const name = filterSafe(data.name ?? "a member");
+  let title;
+  let body;
+  if (kind === "promotion") {
+    title = "Congrats, new Elder!";
+    body = `${name} is now an Elder${data.phrase ? `: ${filterSafe(data.phrase)}` : ""}. Thank you for showing up for the clan.`;
+  } else if (kind === "demotion") {
+    title = "Elder update";
+    body = `${name} moves from Elder back to Member for now. Keep playing and it can come back.`;
+  } else if (kind === "awards") {
+    title = `Season ${data.season_id} awards`;
+    const lines = (data.awards ?? []).map(
+      (a) => `${filterSafe(a.name)}: ${a.winners.map(filterSafe).join(", ")}`,
+    );
+    body = lines.length
+      ? fitList(lines, LEADER_MESSAGE.body - " Well played!".length)
+      : "The season is closed.";
+    if (body.length + " Well played!".length <= LEADER_MESSAGE.body)
+      body += " Well played!";
+  } else if (kind === "rules") {
+    if (data.first) {
+      title = "How our clan runs";
+      body = `We now run the clan with Elixir Clan${data.goals ? `: ${filterSafe(data.goals)}` : ""}. Sign in with Elixir to see how it works and where you stand.`;
+    } else {
+      title = "Our clan rules changed";
+      body = `We changed ${fitList(
+        (data.changes ?? []).map((c) => filterSafe(c)),
+        120,
+        ", ",
+      ).replace(/\.$/, "")}. See How it works here in Elixir Clan.`;
+    }
+  } else return null;
+  return {
+    title: clip(filterSafe(title), LEADER_MESSAGE.title),
+    body: clip(filterSafe(body), LEADER_MESSAGE.body),
+  };
+}

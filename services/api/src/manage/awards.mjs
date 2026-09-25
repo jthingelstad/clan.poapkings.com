@@ -26,7 +26,9 @@ import {
   noteClanSize,
   tooFewMembers,
 } from "./service.mjs";
-import { MIN_MEMBERS } from "@elixir-clan/engine";
+import { MIN_MEMBERS, leaderMessage } from "@elixir-clan/engine";
+import { createActionStore } from "./actions.mjs";
+import { newId } from "./ledger.mjs";
 
 const LEADERS = new Set(["leader", "coLeader"]);
 const ELDER_PLUS = new Set(["leader", "coLeader", "elder"]);
@@ -37,6 +39,67 @@ export function createAwardsService({
   now = () => Date.now(),
 }) {
   const isLeader = (who) => LEADERS.has(who.role);
+  const { raiseAction } = createActionStore({ ledger, now });
+
+  /**
+   * When the policy asks for it, a season whose computed grants were just
+   * written raises "announce the season's awards" for leaders, with a Clan
+   * Leader Message naming the winners. One per season.
+   */
+  async function announceSeason(clanTag, grantsDue) {
+    const policy = await ledger.currentPolicy(clanTag);
+    if (!policy?.values?.announce_awards_enabled) return;
+    const bySeason = new Map();
+    for (const g of grantsDue) {
+      const list = bySeason.get(g.season_id) ?? [];
+      list.push(g);
+      bySeason.set(g.season_id, list);
+    }
+    const cards = await ledger.cards(clanTag);
+    for (const [season_id, grants] of bySeason) {
+      if (
+        cards.some(
+          (c) =>
+            c.type === "awards_announcement" &&
+            c.evidence?.season_id === season_id,
+        )
+      )
+        continue;
+      const byAward = new Map();
+      for (const g of [...grants].sort(
+        (a, b) => (a.rank ?? 1) - (b.rank ?? 1),
+      )) {
+        const list = byAward.get(g.name) ?? [];
+        list.push(g.player_name ?? g.player_tag);
+        byAward.set(g.name, list);
+      }
+      const awards = [...byAward].map(([name, winners]) => ({
+        name,
+        winners,
+      }));
+      const message = leaderMessage("awards", { season_id, awards });
+      await raiseAction(
+        clanTag,
+        {
+          card_id: newId(),
+          clan_tag: clanTag,
+          player_tag: null,
+          player_name: null,
+          role_at_raise: null,
+          type: "awards_announcement",
+          status: "proposed",
+          raised_at: new Date(now()).toISOString(),
+          policy_version: policy.version,
+          evidence: { season_id, awards, message },
+        },
+        cards,
+        {
+          text: `Season ${season_id} closed: ${grants.length} award${grants.length === 1 ? "" : "s"} granted.`,
+          detail: { clauses: ["announce_awards_enabled"] },
+        },
+      );
+    }
+  }
 
   /** Nothing in clan management runs before a policy is saved, nor while
    *  the clan is below MIN_MEMBERS. An evaluation passes `size: false`
@@ -102,6 +165,8 @@ export function createAwardsService({
     const granted_at = new Date(t).toISOString();
     for (const g of result.grants_due)
       await ledger.putGrant(clanTag, { ...g, granted_at });
+    if (result.grants_due.length)
+      await announceSeason(clanTag, result.grants_due);
     // The snapshot the pages read; grants_due is consumed, not kept.
     const snapshot = { ...result, grants_due: [] };
     await ledger.saveAwardsSnapshot(clanTag, snapshot);

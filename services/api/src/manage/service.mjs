@@ -34,17 +34,17 @@ import {
   FIELDS,
   GROUPS,
   MIN_MEMBERS,
-  ACTION_TYPES,
-  SYSTEM,
   audienceOf,
   awayCandidates,
   canAct,
-  logEntry,
-  priorActions,
-  reconstructedLog,
+  JUDGING_TYPES,
+  leaderMessage,
+  goalsInSentence,
+  declaredGoals,
   welcomesFrom,
 } from "@elixir-clan/engine";
 import { newId } from "./ledger.mjs";
+import { createActionStore } from "./actions.mjs";
 
 export const EVALUATION_TTL_MS = 5 * 60_000;
 export const PARTICIPATION_WEEKS = 8;
@@ -192,6 +192,55 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     return policy;
   }
 
+  /**
+   * When the policy asks for it, a new version raises "tell the clan how it
+   * runs" for leaders, with a Clan Leader Message ready: how the clan runs
+   * for the first version, what changed after. One is open at a time; a
+   * newer version replaces it.
+   */
+  async function announceRules(clanTag, saved, changes) {
+    const cards = await ledger.cards(clanTag);
+    const open = cards.filter(
+      (c) => c.type === "rules_announcement" && c.status === "proposed",
+    );
+    for (const c of open)
+      await withdrawAction(clanTag, c, `Version ${saved.version} was saved.`);
+    if (!saved.values.announce_rules_enabled) return;
+    if (changes && changes.length === 0) return;
+    const goals = declaredGoals(saved.values);
+    const message = leaderMessage("rules", {
+      first: !changes,
+      goals: goals.length ? goalsInSentence(goals) : null,
+      changes: (changes ?? []).map((c) => c.label),
+    });
+    await raiseAction(
+      clanTag,
+      {
+        card_id: newId(),
+        clan_tag: clanTag,
+        player_tag: null,
+        player_name: null,
+        role_at_raise: null,
+        type: "rules_announcement",
+        status: "proposed",
+        raised_at: new Date(now()).toISOString(),
+        policy_version: saved.version,
+        evidence: {
+          version: saved.version,
+          changes: (changes ?? []).map((c) => c.label),
+          message,
+        },
+      },
+      cards,
+      {
+        text: changes
+          ? `Policy version ${saved.version} changed ${changes.length} setting${changes.length === 1 ? "" : "s"}.`
+          : `Policy version ${saved.version}: the clan's first.`,
+        detail: { clauses: ["announce_rules_enabled"] },
+      },
+    );
+  }
+
   /** The clan's member count now: one roster read (noted), else the last
    *  noted count when Elixir cannot answer. */
   async function currentSize(clanTag, token) {
@@ -204,103 +253,15 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     return (await ledger.clanSize(clanTag))?.members ?? null;
   }
 
-  // ---- actions and their logs ----------------------------------------
-  const person = (who) => ({
-    tag: who.player_tag,
-    name: who.name ?? null,
-    role: who.role,
-  });
-  /** Append one entry to an action's log. */
-  const logAction = (
-    clanTag,
-    card_id,
-    kind,
-    { by = SYSTEM, text = null, detail = null } = {},
-  ) =>
-    ledger.appendActionLog(clanTag, {
-      card_id,
-      ...logEntry(kind, {
-        at: new Date(now()).toISOString(),
-        by,
-        text,
-        detail,
-      }),
-    });
-  /** Raise an action, logging what raised it and the member's earlier
-   *  actions of the same kind. */
-  async function raiseAction(clanTag, card, cards, { text, detail = {} }) {
-    const action = { ...card, audience: audienceOf(card) };
-    await ledger.putCard(clanTag, action);
-    await logAction(clanTag, action.card_id, "raised", {
-      text,
-      detail: {
-        policy_version: action.policy_version ?? null,
-        ...detail,
-        prior: priorActions(cards, {
-          player_tag: action.player_tag,
-          type: action.type,
-          before: action.raised_at,
-        }),
-      },
-    });
-    return action;
-  }
-  /** Withdraw an open action, saying why. */
-  async function withdrawAction(clanTag, card, reason) {
-    await ledger.putCard(clanTag, {
-      ...card,
-      status: "withdrawn",
-      withdrawn_at: new Date(now()).toISOString(),
-      withdraw_reason: reason,
-    });
-    await logAction(clanTag, card.card_id, "withdrawn", { text: reason });
-  }
-  /** An action's log: the stored entries, with what an action raised
-   *  before logs were kept reconstructed from its own fields. */
-  function logOf(card, stored) {
-    const order = (a, b) =>
-      a.at < b.at
-        ? -1
-        : a.at > b.at
-          ? 1
-          : String(a.seq ?? "").localeCompare(String(b.seq ?? ""));
-    const entries = [...(stored ?? [])].sort(order);
-    if (entries.some((e) => e.kind === "raised")) return entries;
-    const have = new Set(entries.map((e) => e.kind));
-    return [
-      ...reconstructedLog(card).filter((e) => !have.has(e.kind)),
-      ...entries,
-    ].sort(order);
-  }
-  /** The paste-ready clan-chat line an action carries, if any. */
-  const copyFor = (c) =>
-    c.type === "departure" || c.type === "away"
-      ? null
-      : c.type === "welcome"
-        ? inGameCopy("welcome", { name: c.player_name })
-        : inGameCopy(c.type, {
-            name: c.player_name,
-            days_idle: c.evidence?.days_idle ?? null,
-            phrase: c.evidence?.phrase ?? "",
-          });
-  /** An action as a person reads it, with its log. */
-  const shapeAction = (c, stored, who) => ({
-    ...c,
-    audience: audienceOf(c),
-    label: ACTION_TYPES[c.type]?.label ?? c.type,
-    copy: copyFor(c),
-    can_act: c.status === "proposed" && (!who || canAct(c, who)),
-    log: logOf(c, stored),
-  });
-  const logsByCard = async (clanTag) => {
-    const byCard = new Map();
-    for (const e of await ledger.actionLogs(clanTag)) {
-      const list = byCard.get(e.card_id) ?? [];
-      list.push(e);
-      byCard.set(e.card_id, list);
-    }
-    return byCard;
-  };
+  // ---- actions and their logs (shared with the awards service) --------
+  const {
+    person,
+    logAction,
+    raiseAction,
+    withdrawAction,
+    shapeAction,
+    logsByCard,
+  } = createActionStore({ ledger, now });
 
   /** Tag -> trophies today, when the policy counts trophy road. */
   const trophiesFrom = (roster) =>
@@ -880,7 +841,9 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         by_name: who.name ?? null,
         note,
       });
-      return { ...saved, changes: policyDiff(before, checked.values) };
+      const changes = policyDiff(before, checked.values);
+      await announceRules(clanTag, saved, prior.set ? changes : null);
+      return { ...saved, changes };
     },
 
     /** What the last four reviews would say under a draft policy, beside the current one. */
@@ -1117,11 +1080,12 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         status = "done";
       } else if (status !== "done" && status !== "declined")
         throw new ManageError(400, "bad_status");
-      // A leader's decline says why; a welcome or an away may just be no.
+      // Declining a judgment on a member says why; anything else may just
+      // be no.
       if (
         status === "declined" &&
         !DECLINE_REASONS.includes(reason) &&
-        !(audienceOf(card).kind !== "leaders" && reason === null)
+        !(!JUDGING_TYPES.has(card.type) && reason === null)
       )
         throw new ManageError(400, "bad_reason");
       const decided_at = new Date(now()).toISOString();
@@ -1152,6 +1116,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           : {}),
       };
       await ledger.putCard(clanTag, decided);
+      const channel = shapeAction(card, [], who).channel;
       await logAction(
         clanTag,
         card.card_id,
@@ -1162,6 +1127,8 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           detail: {
             reason: decided.decline_reason,
             classification: decided.outcome?.classification ?? null,
+            // Completing a leader-message action says the message was sent.
+            ...(status === "done" && channel ? { channel } : {}),
           },
         },
       );

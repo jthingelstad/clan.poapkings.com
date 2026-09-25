@@ -224,3 +224,39 @@ test("in-game copy is plain, filter-safe, and names nobody's rules", () => {
     assert.doesNotMatch(l, /war days|donate|how Elder works/i);
   }
 });
+
+test("a Clan Leader Message fits the game: a title of 24 and a message of 180, filter-safe", async () => {
+  const { leaderMessage, LEADER_MESSAGE } = await import("../src/render.mjs");
+  assert.deepEqual(LEADER_MESSAGE, { title: 24, body: 180 });
+  const long = "N".repeat(40);
+  const winners = Array.from({ length: 30 }, (_, i) => `Player${i}`);
+  const all = [
+    leaderMessage("promotion", { name: long, phrase: "x ".repeat(200) }),
+    leaderMessage("demotion", { name: "A&B +5" }),
+    leaderMessage("awards", {
+      season_id: 1234,
+      awards: [
+        { name: "Season Champion", winners: winners.slice(0, 3) },
+        { name: "Ever Present", winners },
+        { name: "Top Donor", winners: winners.slice(3, 6) },
+      ],
+    }),
+    leaderMessage("rules", { first: true, goals: "Clan Wars and donations" }),
+    leaderMessage("rules", {
+      changes: Array.from({ length: 30 }, (_, i) => `Setting ${i}`),
+    }),
+  ];
+  for (const m of all) {
+    assert.ok(m.title.length <= 24, m.title);
+    assert.ok(m.body.length <= 180, m.body);
+    assert.doesNotMatch(`${m.title} ${m.body}`, /&|\+\d/);
+  }
+  assert.match(all[1].body, /^A and B 5 moves from Elder/);
+  assert.match(all[2].body, /and \d+ more\.$|Well played!$/);
+  assert.equal(all[3].title, "How our clan runs");
+  assert.match(
+    all[4].body,
+    /and \d+ more\. See How it works here|See How it works here/,
+  );
+  assert.equal(leaderMessage("nonsense", {}), null);
+});

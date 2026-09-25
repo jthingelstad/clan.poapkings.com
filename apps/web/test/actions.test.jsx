@@ -159,3 +159,94 @@ describe("actions", () => {
     );
   });
 });
+
+describe("clan leader messages", () => {
+  test("a promotion comes with its Clan Leader Message, counted against the game's limits and copyable", async () => {
+    vi.spyOn(manageApi, "actions").mockResolvedValue(
+      view({
+        open: [
+          {
+            ...removal,
+            card_id: "p1",
+            type: "promotion",
+            label: "Promote to Elder",
+            channel: "leader_message",
+            copy: null,
+            message: {
+              title: "Congrats, new Elder!",
+              body: "Sleepy is now an Elder. Thank you for showing up for the clan.",
+            },
+            log: [],
+          },
+        ],
+      }),
+    );
+    const write = vi.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    renderWithProviders(
+      <Actions
+        clan={clan}
+        who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText("20/24")).toBeTruthy());
+    expect(
+      screen.getByText(/promote Sleepy, send this Clan Leader Message/),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "A title that runs far too long" },
+    });
+    expect(screen.getByText("30/24")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Copy the message" }));
+    await waitFor(() =>
+      expect(write).toHaveBeenCalledWith(
+        "Sleepy is now an Elder. Thank you for showing up for the clan.",
+      ),
+    );
+  });
+
+  test("an announcement is marked sent without a reason", async () => {
+    vi.spyOn(manageApi, "actions").mockResolvedValue(
+      view({
+        open: [
+          {
+            card_id: "r1",
+            type: "rules_announcement",
+            label: "Tell the clan how it runs",
+            status: "proposed",
+            can_act: true,
+            audience: { kind: "leaders" },
+            player_tag: null,
+            raised_at: "2026-09-12T20:00:00Z",
+            channel: "leader_message",
+            copy: null,
+            message: {
+              title: "How our clan runs",
+              body: "We now run the clan with Elixir Clan.",
+            },
+            evidence: { version: 1, changes: [] },
+            log: [],
+          },
+        ],
+      }),
+    );
+    const decide = vi
+      .spyOn(manageApi, "decideAction")
+      .mockResolvedValue({ ok: true, status: 200, data: {} });
+    renderWithProviders(
+      <Actions
+        clan={clan}
+        who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText("The clan")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Sent" }));
+    await waitFor(() =>
+      expect(decide).toHaveBeenCalledWith("#2PQRJ8LV", "r1", {
+        status: "done",
+        reason: null,
+        note: null,
+      }),
+    );
+  });
+});

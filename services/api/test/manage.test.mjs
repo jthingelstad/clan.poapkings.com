@@ -1358,3 +1358,101 @@ test("actions: an action from before logs were kept gets its log reconstructed f
   assert.ok(legacy.log.every((e) => e.detail?.reconstructed === true));
   assert.equal(legacy.log[0].text, "12 battle-free days.");
 });
+
+// ---- Clan Leader Messages (Jamie, 2026-09-25) ---------------------------------
+
+test("leader messages: a promotion carries its own Clan Leader Message, within the game's limits", async () => {
+  const h = harness({ part: partClan() });
+  const cookies = await leader(h);
+  const view = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions");
+  const withMessage = view.body.open.filter(
+    (a) => a.channel === "leader_message",
+  );
+  assert.ok(
+    withMessage.length >= 1,
+    JSON.stringify(view.body.open.map((a) => a.type)),
+  );
+  for (const a of withMessage) {
+    assert.ok(["promotion", "demotion"].includes(a.type), a.type);
+    assert.ok(a.message.title.length <= 24, a.message.title);
+    assert.ok(a.message.body.length <= 180, a.message.body);
+    assert.match(a.message.body, new RegExp(a.player_name));
+    assert.equal(a.copy, null);
+  }
+  const removal = view.body.open.find((a) => a.type === "removal");
+  assert.equal(removal.channel, "clan_chat");
+  assert.equal(removal.message, null);
+});
+
+test("leader messages: saving a policy tells the clan how it runs, and a newer version replaces the open one", async () => {
+  const h = harness({ part: partClan(), policy: null });
+  const cookies = await leader(h);
+  const v1 = await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/policy", {
+    values: { ...EXAMPLE_POLICY, announce_rules_enabled: true },
+  });
+  assert.equal(v1.status, 200, JSON.stringify(v1.body));
+  const first = (
+    await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions")
+  ).body.open.find((a) => a.type === "rules_announcement");
+  assert.equal(first.label, "Tell the clan how it runs");
+  assert.equal(first.message.title, "How our clan runs");
+  assert.ok(first.message.body.length <= 180);
+  await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/policy", {
+    values: {
+      ...EXAMPLE_POLICY,
+      announce_rules_enabled: true,
+      at_risk_days: 6,
+    },
+  });
+  const cards = await h.ledger.cards("#2PQRJ8LV");
+  const rules = cards.filter((c) => c.type === "rules_announcement");
+  assert.deepEqual(rules.map((c) => c.status).sort(), [
+    "proposed",
+    "withdrawn",
+  ]);
+  const open = rules.find((c) => c.status === "proposed");
+  assert.equal(open.evidence.message.title, "Our clan rules changed");
+  assert.match(open.evidence.message.body, /At risk/);
+  // Sent: completing needs no reason, and the log says where it went.
+  const done = await api(
+    h,
+    cookies,
+    "POST",
+    `/api/clans/2PQRJ8LV/actions/${open.card_id}/decide`,
+    { status: "done" },
+  );
+  assert.equal(done.status, 200);
+  const log = await h.ledger.actionLog("#2PQRJ8LV", open.card_id);
+  assert.equal(log.at(-1).detail.channel, "leader_message");
+  // Declining an announcement needs no reason either.
+  await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/policy", {
+    values: {
+      ...EXAMPLE_POLICY,
+      announce_rules_enabled: true,
+      at_risk_days: 5,
+    },
+  });
+  const next = (await h.ledger.cards("#2PQRJ8LV")).find(
+    (c) => c.type === "rules_announcement" && c.status === "proposed",
+  );
+  const skip = await api(
+    h,
+    cookies,
+    "POST",
+    `/api/clans/2PQRJ8LV/actions/${next.card_id}/decide`,
+    { status: "declined" },
+  );
+  assert.equal(skip.status, 200);
+  // A promotion, which judges a member, still needs a reason to decline.
+  const promotion = (
+    await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions")
+  ).body.open.find((a) => a.type === "removal");
+  const noReason = await api(
+    h,
+    cookies,
+    "POST",
+    `/api/clans/2PQRJ8LV/actions/${promotion.card_id}/decide`,
+    { status: "declined" },
+  );
+  assert.equal(noReason.status, 400);
+});

@@ -416,3 +416,30 @@ test("awards: below 10 members nothing is judged or granted, and the trophy case
   assert.equal(pick.status, 409);
   assert.equal(pick.body.error, "too_few_members");
 });
+
+test("awards: when a season's awards are granted, leaders get a Clan Leader Message naming the winners, once", async () => {
+  const h = harness({
+    part: partClan(),
+    policy: { ...EXAMPLE_POLICY, announce_awards_enabled: true },
+  });
+  const cookies = await signedIn(h);
+  await api(h, cookies, "GET", `${BASE}/manage`);
+  const announcements = (await h.ledger.cards("#2PQRJ8LV")).filter(
+    (c) => c.type === "awards_announcement",
+  );
+  assert.equal(announcements.length, 1);
+  const a = announcements[0];
+  assert.equal(a.evidence.season_id, 135);
+  assert.equal(a.evidence.message.title, "Season 135 awards");
+  assert.ok(a.evidence.message.body.length <= 180);
+  assert.match(a.evidence.message.body, /Season Champion: Ada/);
+  assert.deepEqual(a.audience, { kind: "leaders" });
+  h.clock.t += 10 * 60_000;
+  await api(h, cookies, "GET", `${BASE}/manage?refresh=1`);
+  assert.equal(
+    (await h.ledger.cards("#2PQRJ8LV")).filter(
+      (c) => c.type === "awards_announcement",
+    ).length,
+    1,
+  );
+});

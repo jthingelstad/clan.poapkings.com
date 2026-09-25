@@ -748,3 +748,23 @@ request logs and analytics mask action ids as they did card ids.
   message (leaders and co-leaders only). Its length limits are not in the
   game's API or our reference; to be read in the game before copy is sized.
 
+## 2026-09-25 — Round 3: say it in the game (Jamie)
+
+- **Clan Leader Messages** (Jamie measured them in the game: a title of 24
+  characters, a message of about 180; nothing in the API; recorded in the
+  game reference, `cr-agent-api-docs` `6f8383d`) are actions for leaders
+  and co-leaders only.
+- **Promotions and demotions each carry their own Leader Message**, one per
+  person, in the same action: promoting and announcing are atomic, as clans
+  have done them. (Not a weekly group message: Jamie's revision.)
+- **Two announcements, policy switches off to start** (the goal presets turn
+  them on): the season's awards when a season closes and its computed
+  grants are written, and the rules when a policy version is saved (how the
+  clan runs the first time, what changed after).
+- Every action that ends in words says its channel (clan chat or Leader
+  Message) and carries the words, editable before copying, counted against
+  the game's limits and kept filter-safe (whether the Leader Message has
+  chat's filter is not yet observed). Welcome and removal keep their clan
+  chat line. Completing a message action logs that it was sent; once
+  Elixir's door 3 exists it can also become a `clan_message` fact.
+

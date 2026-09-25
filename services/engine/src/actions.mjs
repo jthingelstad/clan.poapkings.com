@@ -18,17 +18,50 @@ const ELDER_PLUS = new Set(["elder", "coLeader", "leader"]);
 const DAY_MS = 86400_000;
 
 /** Every kind of action: its label and who may take it. */
+/** Every kind of action: its label, who may take it, and where its words
+ *  go in the game, if anywhere: clan chat (anyone the action is for) or a
+ *  Clan Leader Message (leaders and co-leaders only; see render.mjs). */
 export const ACTION_TYPES = {
-  promotion: { label: "Promote to Elder", audience: "leaders" },
-  demotion: { label: "Demote to Member", audience: "leaders" },
-  removal: { label: "Remove from the clan", audience: "leaders" },
+  promotion: {
+    label: "Promote to Elder",
+    audience: "leaders",
+    channel: "leader_message",
+  },
+  demotion: {
+    label: "Demote to Member",
+    audience: "leaders",
+    channel: "leader_message",
+  },
+  removal: {
+    label: "Remove from the clan",
+    audience: "leaders",
+    channel: "clan_chat",
+  },
   departure: {
     label: "Departure: kicked, left, or ignore?",
     audience: "leaders",
+    channel: null,
   },
-  welcome: { label: "Welcome a newcomer", audience: "elders" },
-  away: { label: "Going to be away?", audience: "member" },
+  welcome: {
+    label: "Welcome a newcomer",
+    audience: "elders",
+    channel: "clan_chat",
+  },
+  away: { label: "Going to be away?", audience: "member", channel: null },
+  awards_announcement: {
+    label: "Announce the season's awards",
+    audience: "leaders",
+    channel: "leader_message",
+  },
+  rules_announcement: {
+    label: "Tell the clan how it runs",
+    audience: "leaders",
+    channel: "leader_message",
+  },
 };
+
+/** Actions that judge a member: a decline says why, from the list. */
+export const JUDGING_TYPES = new Set(["promotion", "demotion", "removal"]);
 
 /** Who an action is for: stored on newer actions; derived for older ones. */
 export function audienceOf(action) {
