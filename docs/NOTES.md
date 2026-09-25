@@ -587,3 +587,8 @@ after six pending reads and explains what to check instead of polling all night
 
 - The `ElixirClan` EMF line never reached CloudWatch from production: the handler called `log.metric?.(emf(summary))`, and the production logger (`console`) has no `metric`, so the namespace held no datapoints for the week before (414 invocations) and `elixir-clan-slow-requests` watched nothing. Found in the Elixir hosting and cost review.
 - Fixed the Elixir family's way (Jamie, 2026-09-24: no one reads CloudWatch by hand, so a custom metric exists only to back an alarm, and no dashboard): the alarm now reads the API Lambda's own `Duration` p90 (free, the request's time) and the EMF line is gone. The request-story JSON line and `Server-Timing` are unchanged; Logs Insights reads the per-route numbers from the story line.
+
+## 2026-09-25 — Cost-neutral API traffic ceiling
+
+- Fourteen days of API Gateway access logs measured a one-second peak of 6 requests (p99 4). The stack-owned `$default` stage now allows 10 requests/second with a 20-request burst: above measured natural traffic, but finite if a client loops.
+- The Lambda's existing reserved concurrency of 10 was already present in source and live. A focused infrastructure test now pins the stage throttle and function ceiling together; no paid capacity or monitoring was added.

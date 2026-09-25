@@ -218,6 +218,12 @@ Resources:
       ApiId: !Ref Api
       StageName: $default
       AutoDeploy: true
+      # Fourteen days of access logs peaked at 6 requests/second. These
+      # ceilings preserve natural bursts while bounding runaway clients.
+      DefaultRouteSettings:
+        DetailedMetricsEnabled: false
+        ThrottlingRateLimit: 10
+        ThrottlingBurstLimit: 20
       AccessLogSettings:
         DestinationArn: !GetAtt ApiAccessLogGroup.Arn
         # No viewer address: CloudFront is the caller, so it would be an
