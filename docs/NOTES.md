@@ -181,9 +181,10 @@ member; no policy version was saved.
 
 ## Open
 
-- The gate reads `elixir_my_players` on every check; a `verified` beside
-  `claim_status` in the principal block would make it one read. Not needed
-  yet, so not asked of Elixir.
+- The gate asks `GET /api/v1/me` twice on every check (`initialize`, then
+  `elixir_my_players`). `/me` already carries the principal and the players
+  with `claim_status`, so the client could answer both from one request with
+  nothing asked of Elixir. Not needed yet.
 
 ## 2026-09-12 — Awards: elixir-bot's season awards as a catalog of kinds
 
