@@ -123,8 +123,8 @@ clan Elixir only watches rather than records works with less.
   and in-game chat is not in the API.
 - Not a clan's public website. A clan may keep one; Elixir Clan does not
   publish.
-- Not a ladder or deck coach: one player's season and matchups are Elixir
-  Ladder's.
+- Not a ladder or deck coach: one player's season and matchups are not a
+  clan's (an Elixir Ladder is a concept only, with no plans to build it).
 - Not an account system: Elixir is.
 - Not a rules language: policies are a fixed catalog of settings, on
   purpose.
@@ -132,8 +132,9 @@ clan Elixir only watches rather than records works with less.
 ## What it does today
 
 Sign in with Elixir; the roster with roles and statistics; the clan's
-versioned policy (categories, minimums, Elder by hand or by a weighted mix,
-the inactivity clock, departures); actions for leaders, elders and members
+versioned policy, started from what the clan is for (goals and a posture,
+or a preset) and tuned from there (categories, minimums, Elder by hand or
+by a weighted mix, the inactivity clock, departures, welcomes); actions for leaders, elders and members
 (assigned or open to a role, completed or declined), each with its own log
 of what raised it, who took it and anyone's comments, and outcomes verified
 from the record; holds, Away, tiered notes; Standing with "How it works here"; awards as a catalog
@@ -157,7 +158,9 @@ scouting an applicant; feedback to the maintainer. See `AGENTS.md` for how.
 5. **Telling Elixir what the clan did.** Attested clan facts written back to
    Elixir (kick or leave, promotions, awards, away), so the family's other
    products (the Discord narrator above all) know what the clan knows, with
-   the clan choosing what leaves it.
+   the clan choosing what leaves it. The same door serves Elixir Drop (a new
+   personal record on the Timeline and in Discord); proposed in
+   `docs/plans/elixir-doors.md`.
 6. **Beyond war.** The facts other kinds of clan need: presence by the
    game's last-seen, battles played with clanmates, donations received,
    trophies over time. Requests to Elixir first.

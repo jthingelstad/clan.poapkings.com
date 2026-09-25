@@ -3,6 +3,7 @@ import { manageApi } from "../api.js";
 import { keys, useInvalidate, usePolicy } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 import { TooFew } from "../components/TooFew.jsx";
+import { PRESETS, declaredGoals, policyFromGoals } from "@elixir-clan/engine";
 
 /** Whether a group or field applies under the draft (engine `applies`). */
 const applies = (when, values) =>
@@ -111,6 +112,55 @@ export function Policy({ clan }) {
           </span>
         </div>
       )}
+      {view.can_edit ? (
+        <section className="panel">
+          <div className="panel__head">Start from what the clan is for</div>
+          <div className="panel__body grid gap-3">
+            <p className="page__lede m-0">
+              Pick a starting point and every setting below is filled from it,
+              yours to change before you save. Or tick what the clan is for
+              under the first heading and fill from that.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  className="btn btn--sm"
+                  onClick={() => {
+                    setDraft(policyFromGoals(p.goals, p.posture));
+                    setPreview(null);
+                    trackEvent("clan.policy_preset", p.key);
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="btn btn--sm btn--quiet"
+                disabled={declaredGoals(draft).length === 0}
+                onClick={() => {
+                  setDraft(
+                    policyFromGoals(declaredGoals(draft), draft.posture),
+                  );
+                  setPreview(null);
+                  trackEvent("clan.policy_preset", "goals");
+                }}
+              >
+                Fill from the goals below
+              </button>
+            </div>
+            {view.set ? (
+              <p className="page-head__note m-0">
+                Filling replaces every setting in the draft; the count of
+                changed fields and the preview show what would move before you
+                save.
+              </p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
       {view.groups.map((g) => {
         if (!applies(g.when, draft)) return null;
         const fields = Object.entries(view.fields).filter(

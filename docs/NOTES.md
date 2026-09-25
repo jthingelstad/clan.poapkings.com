@@ -708,3 +708,25 @@ Also: outcome verification now covers only promotions, demotions and
 removals (a welcome or an away has no record change to wait for), and
 request logs and analytics mask action ids as they did card ids.
 
+## 2026-09-25 — Separate backends, doors into Elixir; round 2: what the clan is for (Jamie)
+
+- **Elixir Clan keeps its own backend and storage** (Jamie agreed): it
+  reads Elixir through the public JSON API on a person's grant, and what it
+  needs beyond that becomes a small first-party door in Elixir, not a
+  shared database. `docs/plans/elixir-doors.md` proposes three to the
+  Elixir team: a first-party read grant with no person present (scheduled
+  evaluation), mail to a person (the weekly clan report, actions waiting),
+  and facts people attested written back (Clan's departures, role changes,
+  awards, away; Elixir Drop's personal records), so the Timeline, the events
+  feed, future email and elixir-mcp-discord know them. Only facts cross,
+  never judgments, each with its provenance.
+- **Elixir Ladder is a concept, not a plan.** Elixir Drop is real, and is the
+  other app the write-back door serves.
+- **Round 2 built:** a policy starts from what the clan is for. Goals (Clan
+  Wars, climbing, donations, playing together) and a posture (relaxed,
+  standard, strict) are declared in the policy and fill every setting as a
+  starting point; presets are goals plus a posture ("a war clan": wars and
+  donations, strict; "a social clan": playing together, relaxed, Elders by
+  hand). How it works here opens with them; a leader's first recruiting
+  pitch starts from a draft of them. Goals judge nothing on their own.
+

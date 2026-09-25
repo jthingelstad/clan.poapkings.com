@@ -233,3 +233,31 @@ test("recruit: a leader saves a pitch as a new version and the copy follows; bad
     "members read the clan's pitch",
   );
 });
+
+test("recruit: a leader writing the first pitch starts from a draft of the clan's goals; a member gets none", async () => {
+  const { policyFromGoals } = await import("@elixir-clan/engine");
+  const ledger = seedVersion(
+    createMemoryLedger(),
+    "policy",
+    "#2PQRJ8LV",
+    policyFromGoals(["war", "donations"], "standard"),
+  );
+  const lead = harness({ ledger });
+  const lc = await signedIn(lead);
+  const view = await api(lead, lc, "GET", PATH);
+  assert.equal(view.body.pitch_version, 0);
+  assert.equal(view.body.copy, null);
+  assert.equal(view.body.suggested.tagline, "Clan Wars and donations");
+  assert.deepEqual(view.body.suggested.points, [
+    "Clan Wars every week",
+    "Generous donations, every week",
+  ]);
+  const member = harness({
+    players: [
+      player({ player_tag: "#8QCV", name: "Amy", clan_role: "member" }),
+    ],
+    ledger,
+  });
+  const mc = await signedIn(member);
+  assert.equal((await api(member, mc, "GET", PATH)).body.suggested, null);
+});

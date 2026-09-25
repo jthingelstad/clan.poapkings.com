@@ -218,6 +218,17 @@ every management route answers `409 no_policy`, `/api/me` carries
 `policy: { set: false }`, and the rail offers only the roster, Recruit,
 Scout and (to leaders) the policy editor, whose first save is version 1.
 
+**What the clan is for** (2026-09-25, `services/engine/src/goals.mjs`): the
+policy's first group declares goals (`goal_war`, `goal_climbing`,
+`goal_donations`, `goal_together`) and a `posture` (relaxed, standard,
+strict). They judge nothing: `policyFromGoals(goals, posture)` fills every
+setting as a starting point to tune (the editor's presets, "a war clan",
+"a social clan" and so on, are goals plus a posture), "How it works here"
+opens with them, and a leader writing the first recruiting pitch starts
+from `pitchFromGoals`. A goal the game cannot measure (playing together)
+is declared, never counted. The web app imports the engine for this, so
+presets are computed in one place.
+
 **The smallest clan a policy engages with is `MIN_MEMBERS` = 10** (Jamie,
 2026-09-25: a clan takes no part in Clan Wars below 10, and a policy has
 nothing to judge at 1, 3 or 5). Below it no policy can be created or
@@ -509,7 +520,7 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.signin_started` | `landing` \| `chrome` (the link clicked) |
 | `clan.action_decided`, `clan.action_commented` | `<type>:<status or classification>` e.g. `removal:done`, `departure:leave`; the type |
 | `clan.hold_set`, `clan.note_added` | `until` \| `open`; `leader` \| `elder` |
-| `clan.policy_previewed`, `clan.policy_saved` | (none); `v<n>` |
+| `clan.policy_previewed`, `clan.policy_saved`, `clan.policy_preset` | (none); `v<n>`; the preset key or `goals` |
 | `clan.awards_saved`, `clan.award_granted` | `v<n>`; the award kind |
 | `clan.scout` | `answered` \| `pending` |
 | `clan.away_set`, `clan.away_cleared` | (none) |

@@ -19,6 +19,7 @@ import {
   ranksElder,
   setMinimums,
 } from "./policy.mjs";
+import { POSTURES, declaredGoals, goalsInSentence } from "./goals.mjs";
 
 const pct = (x) => `${Math.round(x * 100)}%`;
 const n = (x) =>
@@ -317,6 +318,20 @@ export function describePolicy(policy) {
   const counted = countedCategories(policy);
   const weights = elderWeights(policy);
   const minimums = setMinimums(policy);
+  const goals = declaredGoals(policy);
+  if (goals.length)
+    sections.push({
+      key: "about",
+      title: "About this clan",
+      lines: [
+        `This clan is about ${goalsInSentence(goals)}.`,
+        ...(POSTURES[policy.posture]
+          ? [
+              `${POSTURES[policy.posture].label}. ${POSTURES[policy.posture].about}`,
+            ]
+          : []),
+      ],
+    });
   const window = (c) =>
     c === "war"
       ? `war decks played over war decks asked for across the last ${plural(policy.war_window_weeks, "war week")} (four a war day up to the clan's finish; Colosseum asks every day)`

@@ -10,7 +10,9 @@
 
 import {
   PITCH_FIELDS,
+  declaredGoals,
   defaultPitch,
+  pitchFromGoals,
   factsFromClan,
   factsFromRoster,
   recruitCopy,
@@ -111,8 +113,19 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
           refresh: refresh && isLeader(who),
         },
       );
-      // No copy until a leader has written the clan's words.
+      // No copy until a leader has written the clan's words; a leader
+      // writing the first pitch starts from a draft of the clan's goals.
       const copy = pitch.version > 0 ? recruitCopy(pitch.values, facts) : null;
+      const policy =
+        pitch.version === 0 && isLeader(who)
+          ? await ledger.currentPolicy(clanTag)
+          : null;
+      const suggested = policy
+        ? pitchFromGoals(
+            declaredGoals(policy.values),
+            policy.values.posture ?? "standard",
+          )
+        : null;
       const versions = await ledger.pitchVersions(clanTag);
       return {
         clan_tag: clanTag,
@@ -125,6 +138,7 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
         facts_cached: cached,
         pending,
         copy,
+        suggested,
         problems: copy
           ? validateCopy(copy, facts?.required_trophies ?? null)
           : [],

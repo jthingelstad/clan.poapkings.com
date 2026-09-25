@@ -42,6 +42,11 @@ const RANKING = [{ elder_mode: "categories" }];
 
 export const GROUPS = [
   {
+    key: "about",
+    title: "What this clan is for",
+    why: "What the clan is about and how strict it is. Choosing them can fill every setting below as a starting point to tune; they also open How it works here and the recruiting pitch. On their own they judge nothing.",
+  },
+  {
     key: "war",
     title: "Clan Wars",
     why: "War decks played in the River Race, from each war week's own deck count. A member is asked for four decks a war day up to the clan's finish, and all four days in Colosseum; decks played after the finish count and are never asked for.",
@@ -119,6 +124,53 @@ const weightWhy =
 
 /** @type {Record<string, {group:string,label:string,unit:string,type:"integer"|"number"|"boolean"|"enum",min?:number,max?:number,options?:Array<{value:string,label:string}>,default:any,why:string,when?:Array<Record<string, any>>}>} */
 export const FIELDS = {
+  // ---- what the clan is for (declared; the settings below are what count)
+  goal_war: {
+    group: "about",
+    label: "Clan Wars",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "We fight the River Race together.",
+  },
+  goal_climbing: {
+    group: "about",
+    label: "Climbing",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "We push Trophy Road and Path of Legends.",
+  },
+  goal_donations: {
+    group: "about",
+    label: "Donations",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "We level each other's cards.",
+  },
+  goal_together: {
+    group: "about",
+    label: "Playing together",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "We play with people we like, when we like. Not measured: the game does not say who plays with whom in the clan.",
+  },
+  posture: {
+    group: "about",
+    label: "How strict",
+    unit: "posture",
+    type: "enum",
+    options: [
+      { value: "relaxed", label: "Relaxed: real life first" },
+      { value: "standard", label: "Standard: show up most weeks" },
+      { value: "strict", label: "Strict: every week counts" },
+    ],
+    default: "standard",
+    why: "Sets how high the minimums and how short the clocks start when the settings are filled from the goals.",
+  },
+
   // ---- categories -------------------------------------------------------
   war_enabled: {
     group: "war",

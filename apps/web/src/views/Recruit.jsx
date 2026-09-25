@@ -270,11 +270,14 @@ function CopyCard({ channel, title, note, value }) {
 }
 
 function PitchEditor({ clan, view, onDone }) {
+  // A first pitch starts from a draft of the clan's goals, when it has any.
+  const start =
+    view.pitch_version === 0 && view.suggested ? view.suggested : view.pitch;
   const [draft, setDraft] = useState(() => ({
-    ...view.pitch,
-    points: (view.pitch.points ?? []).join("\n"),
-    website_url: view.pitch.website_url ?? "",
-    contact: view.pitch.contact ?? "",
+    ...start,
+    points: (start.points ?? []).join("\n"),
+    website_url: start.website_url ?? "",
+    contact: start.contact ?? "",
   }));
   const [errors, setErrors] = useState({});
   const [note, setNote] = useState("");
@@ -303,6 +306,9 @@ function PitchEditor({ clan, view, onDone }) {
         <span className="page-head__note">
           Your words; the numbers come from the game. Every save is a new
           version.
+          {view.pitch_version === 0 && view.suggested
+            ? " This first draft comes from what the clan is for: make it yours."
+            : ""}
         </span>
       </div>
       {Object.entries(view.fields).map(([key, f]) => (
