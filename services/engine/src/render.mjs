@@ -20,6 +20,7 @@ import {
   setMinimums,
 } from "./policy.mjs";
 import { POSTURES, declaredGoals, goalsInSentence } from "./goals.mjs";
+import { CHAT_MAX, WELCOME_MAX, chatSafe, clipChat } from "./chat.mjs";
 
 const pct = (x) => `${Math.round(x * 100)}%`;
 const n = (x) =>
@@ -416,9 +417,9 @@ export function describePolicy(policy) {
 
 /**
  * Paste-ready in-game copy for a card or a timeline moment: plain
- * sentences a leader can drop in clan chat as they are or edit first.
- * Clan chat clips at 200 characters and the game's filter censors "&" and
- * "+" followed by digits, so neither appears here.
+ * sentences a leader can drop in clan chat as they are or edit first,
+ * through the game's filter rules (`chat.mjs`: a hyphenated name is written
+ * with a space) and clipped at a sentence: 200 characters, a welcome 120.
  */
 export function inGameCopy(kind, { name, days_idle = null, phrase = "" } = {}) {
   const who = String(name ?? "a member")
@@ -432,8 +433,7 @@ export function inGameCopy(kind, { name, days_idle = null, phrase = "" } = {}) {
     farewell: `Thanks for your time with us ${who}, good luck out there.`,
   }[kind];
   if (!text) return null;
-  const safe = text.replace(/[&]/g, "and").replace(/\+(?=\d)/g, "");
-  return safe.length > 200 ? `${safe.slice(0, 197).trimEnd()}...` : safe;
+  return clipChat(chatSafe(text), kind === "welcome" ? WELCOME_MAX : CHAT_MAX);
 }
 
 /**
@@ -442,19 +442,12 @@ export function inGameCopy(kind, { name, days_idle = null, phrase = "" } = {}) {
  * clan chat is not. The game takes a title of at most 24 characters and a
  * message of about 180 (observed in the game; nothing in the API), so both
  * are held under that. Whether it uses clan chat's filter is not observed,
- * so the same care is taken: no "&" between words, no "+" before digits.
+ * so it gets the same rules (`chat.mjs`).
  */
 export const LEADER_MESSAGE = { title: 24, body: 180 };
 
-const filterSafe = (text) =>
-  String(text ?? "")
-    .replace(/\s*&\s*/g, " and ")
-    .replace(/\+(?=\d)/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const clip = (text, max) =>
-  text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+const filterSafe = chatSafe;
+const clip = clipChat;
 
 /** Join items into a line that fits, saying how many did not. */
 function fitList(items, max, sep = "; ") {
@@ -519,8 +512,8 @@ export function leaderMessage(kind, data = {}) {
  * Lines that bring people in (round 5, 2026-09-25), for clan chat: a member
  * inviting their leaders to set the clan up, and anyone inviting clanmates
  * once it is. Plain, filter-safe, within clan chat's 200 characters, and
- * without a link (the chat's filter is wary of links; the page offers the
- * link to copy separately for Discord or a message).
+ * without a link (chat is plain text and the filter is wary of links; the
+ * page offers the link to copy separately for Discord or a message).
  */
 export function inviteCopy(kind, { clanName = null } = {}) {
   const clan = clanName ? filterSafe(clanName) : "our clan";
@@ -529,5 +522,5 @@ export function inviteCopy(kind, { clanName = null } = {}) {
     clanmates: `I check where I stand in ${clan} on Elixir Clan. Sign in with Elixir to see yours and how the clan runs.`,
   }[kind];
   if (!text) return null;
-  return clip(filterSafe(text), 200);
+  return clip(filterSafe(text), CHAT_MAX);
 }

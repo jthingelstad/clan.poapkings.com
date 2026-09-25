@@ -791,3 +791,20 @@ already get "How our clan runs" as a Leader Message on the first save.
 Jamie: Elixir's current effort is wrapping up, so the doors can start
 soon, as their own work in elixir-mcp.
 
+## 2026-09-25 — The game's chat filter, learned (Jamie)
+
+Jamie: the older clan bot has hard-won learnings about what words are safe
+for clan chat, and Elixir Clan should learn from them. It had two rules
+this app lacked, each found from a real line the game blanked: a hyphen
+joining word-parts reads as a handle and the whole token goes (a member's
+hyphenated name, 2026-07-20), and "phone" reads as contact-sharing and
+takes the word before it along (2026-08-03). It also kept chat to plain
+words (no links, Discord formatting, mentions or emoji shortcodes), avoided
+blocked slang ("edging"), kept scores and ranks out of member-facing lines,
+clipped at a sentence and kept a welcome to 120 characters. All of it is
+now `services/engine/src/chat.mjs`, used by every in-game line the engine
+writes, and a leader editing a Leader Message is warned by the same rules.
+The observations were added to cr-agent-api-docs' crosswalk, where any
+caller can find them. "Season 135 is underway" was blanked the same day
+for no reason anyone found; no rule is guessed for it, so "Season N
+awards" (a Leader Message title) stays until the game says otherwise.

@@ -1,4 +1,5 @@
 import { Fresh, Icon, ago } from "elixir-mcp/packages/ui/src/index.ts";
+import { LEADER_MESSAGE, chatWarnings } from "@elixir-clan/engine";
 import { useState } from "react";
 import { manageApi } from "../api.js";
 import { trackEvent } from "../analytics.js";
@@ -80,13 +81,14 @@ export function CopyLine({ text, event = "clan.copy_in_game", value }) {
   );
 }
 
-/** The game's limits on a Clan Leader Message (observed in the game). */
-const LIMIT = { title: 24, body: 180 };
-
-/** One field of a Clan Leader Message: editable, counted, copyable. */
+/** One field of a Clan Leader Message: editable, counted, copyable, and
+ *  warned when an edit holds what the game's filter blanks. */
 function MessageField({ label, value, onChange, max, rows = 1 }) {
   const [done, setDone] = useState(false);
   const over = value.length > max;
+  const warnings = chatWarnings(value, max).filter(
+    (w) => !w.startsWith("longer"),
+  );
   return (
     <div className="grid gap-1">
       <div className="flex items-center gap-2">
@@ -128,6 +130,11 @@ function MessageField({ label, value, onChange, max, rows = 1 }) {
           onChange={(e) => onChange(e.target.value)}
         />
       )}
+      {warnings.length ? (
+        <div className="page-head__note text-[var(--warn)]" role="status">
+          The game may blank or garble this: {warnings.join("; ")}.
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -148,13 +155,13 @@ export function LeaderMessage({ message }) {
         label="Title"
         value={title}
         onChange={setTitle}
-        max={LIMIT.title}
+        max={LEADER_MESSAGE.title}
       />
       <MessageField
         label="Message"
         value={body}
         onChange={setBody}
-        max={LIMIT.body}
+        max={LEADER_MESSAGE.body}
         rows={3}
       />
     </div>

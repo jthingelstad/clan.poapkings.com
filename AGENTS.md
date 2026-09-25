@@ -336,8 +336,9 @@ away on `/you/away`; it is a hold of kind `away`, the clock pauses, leaders
 see it on the board and can clear it, a leader's own hold is not the
 member's to move. The **membership timeline** in History (joins, leaves,
 role changes from `clans_roster.recent_events`). **Paste-ready in-game
-copy** on cards and timeline rows (`inGameCopy`: plain sentences, 200
-characters, no "&" or "+digits", the game's filter), naming nobody's rules.
+copy** on cards and timeline rows (`inGameCopy`: plain sentences through
+the game's filter rules, 200 characters, a welcome 120), naming nobody's
+rules.
 The rail is Elixir's console rail, groups and all.
 
 Not features here, by decision (Jamie): premise-fingerprint re-nomination,
@@ -364,7 +365,7 @@ withdraws it).
 
 **Words into the game.** An action that ends in words says where they go
 (`ACTION_TYPES[type].channel`): a **clan chat** line (welcome, removal; for
-anyone the action is for; 200 characters, no "&" or "+digits") or a **Clan
+anyone the action is for; 200 characters) or a **Clan
 Leader Message** (`leaderMessage` in `render.mjs`: a title of at most 24
 characters and a message of about 180, as observed in the game, since
 nothing about in-game messages is in the API; leaders and co-leaders only;
@@ -381,6 +382,21 @@ judge a member (`JUDGING_TYPES`); completing a message action logs
 `channel` so the log says it was sent. The action store
 (`services/api/src/manage/actions.mjs`) raises, withdraws, logs and shapes
 actions for both the manage and the awards service.
+
+**The game's chat filter** (`services/engine/src/chat.mjs`) is one module
+every in-game line goes through, chat and Leader Message alike: the
+game silently blanks innocent text, often with the words beside it, and
+each rule was learned from a real message that came out censored (the
+dated observations are in cr-agent-api-docs' `wiki-api-crosswalk.md`).
+`chatSafe` rewrites what it can ("&" → "and", "+" before digits dropped, a
+hyphen joining word-parts, member names included, → a space, "phone" →
+"device"); `clipChat` clips at a whole sentence, else a word and "...";
+`chatWarnings` tells a leader editing a Leader Message what the game would
+blank or garble (those, links, Discord formatting, emoji shortcodes,
+blocked slang, and scores or ranks members never see). A new observation
+goes into the crosswalk first, then here, with a test. An unexplained
+blank ("Season 135 is underway", 2026-08-03) has no rule: a guess encoded
+as a rule is superstition.
 
 **Every action keeps its own log** (Jamie: "for the agent team to review
 per action to improve the system"): append-only entries
