@@ -660,3 +660,29 @@ latest roster or participation read, kept as one number per clan
 (`clan_size#<clan>`), so the gate costs no Elixir read. Recruit and Scout
 staying open below 10 is this session's call, easy to flip.
 
+## 2026-09-25 — The vision, agreed (Jamie)
+
+`docs/VISION.md` is the page every proposal is weighed against; each round
+of the build loop brings one recommendation with a runner-up. Jamie's
+answers on the draft:
+
+- **"Cards" become "actions".** What Elixir Clan suggests a member, elder or
+  leader do is an action, assigned to you or available to your role (any
+  leader, any elder), completed or declined. The product's words follow;
+  `card` stays in code and storage until renamed on purpose.
+- **Reaching people:** email, through Elixir (which already sends and holds
+  the address): a weekly clan report and the actions waiting for you. A
+  webhook may come later.
+- **Models:** never funded by us. A clan may bring its own Anthropic key to
+  have words written (reports, recruiting copy), never judgments; open until
+  a feature needs it, and the key is a per-clan secret to design first.
+- **Arrival:** only through Elixir, and member-first: a verified member can
+  use Elixir Clan without a leader acting, and can suggest it to them.
+- **Measure:** actions suggested and taken; members signing in and engaging.
+- **Write-back (Jamie's question):** what the clan did (a kick confirmed, a
+  promotion made, an award granted, a member away) should reach Elixir, so
+  the family's other products, elixir-mcp-discord above all now that
+  elixir-bot is being retired, know it. Principle 6 now says so: facts
+  attested by a person go back; judgments never do. It needs an Elixir
+  contract first (a plan for that team).
+
