@@ -51,6 +51,11 @@ function harness({
         },
       ]),
       member_count: 47,
+      type: "inviteOnly",
+      description: "in-game description",
+      clan_score: 130694,
+      clan_war_trophies: 3100,
+      scores_observed_at: "2026-09-12T17:58:00.000Z",
     },
   });
   const state = {
@@ -137,6 +142,12 @@ test("recruit: a pending live read is passed through with the recorded roster st
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.facts.source, "recorded");
   assert.equal(r.body.facts.members, 47);
+  // What the record already has stands in; the floor waits for the live read.
+  assert.equal(r.body.facts.clan_score, 130694);
+  assert.equal(r.body.facts.war_trophies, 3100);
+  assert.equal(r.body.facts.type, "inviteOnly");
+  assert.equal(r.body.facts.description, "in-game description");
+  assert.equal(r.body.facts.required_trophies, null);
   assert.equal(r.body.pending.retry_after_s, 30);
   assert.doesNotMatch(r.body.copy.discord, /Required Trophies/);
   assert.deepEqual(r.body.problems, []);

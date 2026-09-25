@@ -226,12 +226,14 @@ leader's words, versioned like policy: `recruit#<clan>#v<n>`; tagline,
 about, up to six points, who we want, website, how to get in; POAP KINGS
 starts with its own words from `prompts/lanes/recruiting.md`, while another
 clan starts with plain copy that names and promises nothing for it) and **facts** from one live
-read of `/clans/{tag}` through Elixir's `live_fetch` (required trophies,
-members and open slots, clan score, war trophies, donations a week, top
-trophies and donors), cached six hours in `recruit_facts#<clan>` so a
-member's page open never spends a live read; a pending read is passed
-through with the recorded roster standing in; a leader's "read again" is
-floored at ten minutes. `recruitCopy` writes the five channels (message,
+read of the clan (`GET /api/v1/clans/{tag}/live`, `live_fetch`'s result for
+`/clans/{tag}`: required trophies, members and open slots, clan score, war
+trophies, donations a week, top trophies and donors), cached six hours in
+`recruit_facts#<clan>` so a member's page open never spends a live read; a
+pending read is passed through with the recorded roster standing in (its
+type, description, clan score and war trophies when the record has them;
+no join floor, donations a week or location until the live read lands); a
+leader's "read again" is floored at ten minutes. `recruitCopy` writes the five channels (message,
 social, email, Discord, Reddit) deterministically; `validateCopy` keeps the
 bot's rules (Discord title line ends `Required Trophies: [N]`, Reddit title
 carries `[N]` for r/RoyaleRecruit, no invite link in the Reddit body, plain

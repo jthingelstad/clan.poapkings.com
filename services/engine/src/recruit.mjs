@@ -172,7 +172,13 @@ export function factsFromClan(payload) {
   };
 }
 
-/** The same facts from Elixir's recorded roster (no floor, no score). */
+/**
+ * The same facts from Elixir's recorded roster while the live read is
+ * pending. The record carries the clan's type, description, clan score and
+ * war trophies as its last roster poll saw them (`clans_roster`), and they
+ * are used when present; it carries no join floor, no donations a week and
+ * no location name, so those stay null until the live read lands.
+ */
 export function factsFromRoster(roster) {
   if (!roster) return null;
   const members = roster.members ?? [];
@@ -185,16 +191,16 @@ export function factsFromRoster(roster) {
   return {
     name: roster.name ?? null,
     tag: roster.clan_tag ?? null,
-    type: null,
-    description: null,
+    type: roster.type ?? null,
+    description: roster.description ?? null,
     members: roster.member_count ?? members.length,
     open_slots: Math.max(
       0,
       ROSTER_CAP - (roster.member_count ?? members.length),
     ),
     required_trophies: null,
-    clan_score: null,
-    war_trophies: null,
+    clan_score: roster.clan_score ?? null,
+    war_trophies: roster.clan_war_trophies ?? null,
     donations_per_week: null,
     location: null,
     top_trophies: top("trophies"),

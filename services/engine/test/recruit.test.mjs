@@ -49,6 +49,39 @@ test("facts come from the game's numbers only; the roster gives fewer", () => {
   assert.equal(r.required_trophies, null);
   assert.equal(r.source, "recorded");
   assert.equal(r.top_donors[0].value, 5);
+  // A roster without the recorded scores leaves them null, never zero.
+  assert.equal(r.clan_score, null);
+  assert.equal(r.war_trophies, null);
+  assert.equal(r.type, null);
+  assert.equal(r.description, null);
+});
+
+test("a pending live read uses what the record already has: type, description, clan score, war trophies", () => {
+  const r = factsFromRoster({
+    clan_tag: "#J2RGCRVG",
+    name: "POAP KINGS",
+    type: "inviteOnly",
+    description: "in-game description",
+    clan_score: 61234,
+    clan_war_trophies: 3210,
+    scores_observed_at: "2026-09-25T09:00:00.000Z",
+    member_count: 47,
+    members: [],
+  });
+  assert.equal(r.source, "recorded");
+  assert.equal(r.type, "inviteOnly");
+  assert.equal(r.description, "in-game description");
+  assert.equal(r.clan_score, 61234);
+  assert.equal(r.war_trophies, 3210);
+  // The record has no join floor, donations a week or location name.
+  assert.equal(r.required_trophies, null);
+  assert.equal(r.donations_per_week, null);
+  assert.equal(r.location, null);
+  const pitch = validatePitch(defaultPitch("#J2RGCRVG")).values;
+  const copy = recruitCopy(pitch, r);
+  assert.deepEqual(validateCopy(copy, null), []);
+  assert.match(copy.discord, /3,210 war trophies, clan score 61,234/);
+  assert.doesNotMatch(copy.discord, /Required Trophies/);
 });
 
 test("the default pitch and every channel pass the bot's validator", () => {
