@@ -12,13 +12,13 @@ afterEach(() => {
 });
 
 const poap = {
-  clan_tag: "#J2RGCRVG",
-  name: "POAP KINGS",
-  acting_as: "#20JJJ2CCRU",
-  acting_as_name: "King Thing",
+  clan_tag: "#2PQRJ8LV",
+  name: "Example Clan",
+  acting_as: "#20QQL8CCRU",
+  acting_as_name: "Ada",
   role: "leader",
   role_label: "Leader",
-  your_tags: ["#20JJJ2CCRU"],
+  your_tags: ["#20QQL8CCRU"],
 };
 
 test("the board shows every held or unknown reason, including simultaneous dimensions", async () => {
@@ -73,24 +73,24 @@ test("the board shows every held or unknown reason, including simultaneous dimen
 
 describe("clan paths", () => {
   test("parse the tag, the section and the manage tab", () => {
-    expect(parseClanPath("/clan/J2RGCRVG")).toEqual({
-      tag: "#J2RGCRVG",
+    expect(parseClanPath("/clan/2PQRJ8LV")).toEqual({
+      tag: "#2PQRJ8LV",
       section: "roster",
       tab: null,
     });
-    expect(parseClanPath("/clan/j2rgcrvg/manage/board")).toEqual({
-      tag: "#J2RGCRVG",
+    expect(parseClanPath("/clan/2pqrj8lv/manage/board")).toEqual({
+      tag: "#2PQRJ8LV",
       section: "manage",
       tab: "board",
     });
-    expect(parseClanPath("/clan/J2RGCRVG/standing")).toEqual({
-      tag: "#J2RGCRVG",
+    expect(parseClanPath("/clan/2PQRJ8LV/standing")).toEqual({
+      tag: "#2PQRJ8LV",
       section: "standing",
       tab: null,
     });
     // Elixir Clan publishes no public pages (Jamie, 2026-09-25).
-    expect(parseClanPath("/clan/J2RGCRVG/how-elder-works")).toBeNull();
-    expect(parseClanPath("/clan/J2RGCRVG/nope")).toBeNull();
+    expect(parseClanPath("/clan/2PQRJ8LV/how-elder-works")).toBeNull();
+    expect(parseClanPath("/clan/2PQRJ8LV/nope")).toBeNull();
   });
 });
 
@@ -113,8 +113,8 @@ describe("standing", () => {
         freshness_seconds: 60,
         rows: [
           {
-            player_tag: "#20JJJ2CCRU",
-            name: "King Thing",
+            player_tag: "#20QQL8CCRU",
+            name: "Ada",
             role: "member",
             status: "rising",
             evidence: "100% war decks over 4 war weeks, ~200 donations a week",
@@ -140,7 +140,7 @@ describe("standing", () => {
     renderWithProviders(
       <Standing
         clan={poap}
-        who={{ player_tag: "#20JJJ2CCRU", role: "member" }}
+        who={{ player_tag: "#20QQL8CCRU", role: "member" }}
       />,
     );
     await waitFor(() => expect(screen.getByText("Amy")).toBeTruthy());

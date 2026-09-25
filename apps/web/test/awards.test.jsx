@@ -9,9 +9,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const poap = { clan_tag: "#J2RGCRVG", name: "POAP KINGS", role: "leader" };
+const poap = { clan_tag: "#2PQRJ8LV", name: "Example Clan", role: "leader" };
 const view = () => ({
-  clan_tag: "#J2RGCRVG",
+  clan_tag: "#2PQRJ8LV",
   can_edit: true,
   can_grant: ["clan_honour"],
   evaluated_at: "2026-09-12T20:00:00Z",
@@ -19,8 +19,8 @@ const view = () => ({
   freshness_seconds: 120,
   config_version: 0,
   members: [
-    { player_tag: "#20JJJ2CCRU", name: "King Thing", role: "leader" },
-    { player_tag: "#U8RYG9Y2U", name: "King Levy", role: "coLeader" },
+    { player_tag: "#20QQL8CCRU", name: "Ada", role: "leader" },
+    { player_tag: "#UQ8LP2R9C", name: "Ben", role: "coLeader" },
   ],
   kinds: {
     season_points_podium: {
@@ -58,8 +58,8 @@ const view = () => ({
       kind: "season_points_podium",
       name: "Season Champion",
       rank: 1,
-      player_tag: "#20JJJ2CCRU",
-      player_name: "King Thing",
+      player_tag: "#20QQL8CCRU",
+      player_name: "Ada",
       metric_value: 16000,
       metric_unit: "points",
       manual: false,
@@ -81,8 +81,8 @@ const view = () => ({
           rule: "r",
           rows: [
             {
-              player_tag: "#U8RYG9Y2U",
-              name: "King Levy",
+              player_tag: "#UQ8LP2R9C",
+              name: "Ben",
               points: 1600,
               donations: 100,
               rank: 1,
@@ -117,8 +117,8 @@ const view = () => ({
           rule: "r",
           rows: [
             {
-              player_tag: "#20JJJ2CCRU",
-              name: "King Thing",
+              player_tag: "#20QQL8CCRU",
+              name: "Ada",
               points: 16000,
               donations: 200,
               rank: 1,
@@ -160,7 +160,7 @@ describe("awards", () => {
       screen.getByRole("button", { name: "Grant Clan Honour for season 135" }),
     );
     fireEvent.change(screen.getByLabelText("Member"), {
-      target: { value: "#U8RYG9Y2U" },
+      target: { value: "#UQ8LP2R9C" },
     });
     fireEvent.change(screen.getByPlaceholderText(/Why/), {
       target: { value: "rotation" },
@@ -169,8 +169,8 @@ describe("awards", () => {
     await waitFor(() => expect(grant).toHaveBeenCalled());
     expect(grant.mock.calls[0][1]).toEqual({
       award_id: "clan_honour",
-      player_tag: "#U8RYG9Y2U",
-      player_name: "King Levy",
+      player_tag: "#UQ8LP2R9C",
+      player_name: "Ben",
       season_id: 135,
       note: "rotation",
     });
@@ -230,7 +230,7 @@ describe("trophies", () => {
       ok: true,
       status: 200,
       data: {
-        clan_tag: "#J2RGCRVG",
+        clan_tag: "#2PQRJ8LV",
         awards: [
           {
             id: "season_champ",
@@ -269,7 +269,7 @@ describe("trophies", () => {
     });
     renderWithProviders(
       <Trophies
-        clan={{ clan_tag: "#J2RGCRVG", name: "A clan" }}
+        clan={{ clan_tag: "#2PQRJ8LV", name: "A clan" }}
         who={{ player_tag: "#2PQ", role: "member" }}
       />,
     );

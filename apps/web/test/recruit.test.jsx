@@ -10,9 +10,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const poap = { clan_tag: "#J2RGCRVG", name: "Example Clan", role: "member" };
+const poap = { clan_tag: "#2PQRJ8LV", name: "Example Clan", role: "member" };
 const view = (extra = {}) => ({
-  clan_tag: "#J2RGCRVG",
+  clan_tag: "#2PQRJ8LV",
   can_edit: false,
   pitch: {
     tagline: "Steady wars, friendly chat",
@@ -26,7 +26,7 @@ const view = (extra = {}) => ({
   fields: {},
   facts: {
     name: "Example Clan",
-    tag: "#J2RGCRVG",
+    tag: "#2PQRJ8LV",
     type: "inviteOnly",
     members: 47,
     open_slots: 3,
@@ -44,7 +44,7 @@ const view = (extra = {}) => ({
   copy: {
     personal: { subject: "Join Example Clan", body: "Body." },
     post: {
-      title: "Example Clan #J2RGCRVG - Steady wars [5000]",
+      title: "Example Clan #2PQRJ8LV - Steady wars [5000]",
       body: "About us.\n\nRequired Trophies: [5000]",
     },
   },
@@ -67,7 +67,7 @@ describe("recruit", () => {
     expect(screen.getByText(/5,000 trophies · invite only/)).toBeTruthy();
     expect(screen.getByText("Steady wars, friendly chat")).toBeTruthy();
     const post = screen.getByLabelText("Public post");
-    expect(post.value).toMatch(/^Title: Example Clan #J2RGCRVG - .* \[5000\]/);
+    expect(post.value).toMatch(/^Title: Example Clan #2PQRJ8LV - .* \[5000\]/);
     expect(post.value).toMatch(/Required Trophies: \[5000\]/);
     expect(screen.getByLabelText("Personal note").value).toMatch(
       /^Subject: Join Example Clan/,
@@ -139,10 +139,10 @@ describe("recruit", () => {
   test("the rail offers Recruit to every member", () => {
     const me = {
       ok: true,
-      selected: { clan_tag: "#J2RGCRVG", role: "member" },
+      selected: { clan_tag: "#2PQRJ8LV", role: "member" },
       clans: [{}],
     };
     expect(railItems(me).map((r) => r.key)).toContain("recruit");
-    expect(railKey("/clan/J2RGCRVG/recruit")).toBe("recruit");
+    expect(railKey("/clan/2PQRJ8LV/recruit")).toBe("recruit");
   });
 });

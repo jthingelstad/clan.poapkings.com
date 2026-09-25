@@ -17,19 +17,19 @@ import { clanFromPath, clanPath } from "../src/App.jsx";
 afterEach(cleanup);
 
 const poap = {
-  clan_tag: "#J2RGCRVG",
-  name: "POAP KINGS",
-  acting_as: "#20JJJ2CCRU",
-  acting_as_name: "King Thing",
+  clan_tag: "#2PQRJ8LV",
+  name: "Example Clan",
+  acting_as: "#20QQL8CCRU",
+  acting_as_name: "Ada",
   role: "leader",
   role_label: "Leader",
-  your_tags: ["#20JJJ2CCRU"],
+  your_tags: ["#20QQL8CCRU"],
 };
 const other = {
   clan_tag: "#PYLQ2",
   name: "Elsewhere",
   acting_as: "#8QCV",
-  acting_as_name: "Big Thing",
+  acting_as_name: "Ada's other",
   role: "member",
   role_label: "Member",
   your_tags: ["#8QCV"],
@@ -39,30 +39,30 @@ const me = {
   ok: true,
   principal: {
     kind: "person",
-    subject: { type: "player", tag: "#20JJJ2CCRU", name: "King Thing" },
+    subject: { type: "player", tag: "#20QQL8CCRU", name: "Ada" },
   },
-  primary: { player_tag: "#20JJJ2CCRU", name: "King Thing" },
+  primary: { player_tag: "#20QQL8CCRU", name: "Ada" },
   identities: [
     {
-      player_tag: "#20JJJ2CCRU",
-      name: "King Thing",
+      player_tag: "#20QQL8CCRU",
+      name: "Ada",
       is_primary: true,
       relationship: "primary",
       claim_status: "verified",
-      clan_tag: "#J2RGCRVG",
+      clan_tag: "#2PQRJ8LV",
       role: "leader",
       role_label: "Leader",
     },
   ],
   clans: [poap],
   selected: {
-    clan_tag: "#J2RGCRVG",
-    name: "POAP KINGS",
-    player_tag: "#20JJJ2CCRU",
-    player_name: "King Thing",
+    clan_tag: "#2PQRJ8LV",
+    name: "Example Clan",
+    player_tag: "#20QQL8CCRU",
+    player_name: "Ada",
     role: "leader",
     role_label: "Leader",
-    your_tags: ["#20JJJ2CCRU"],
+    your_tags: ["#20QQL8CCRU"],
   },
 };
 
@@ -72,17 +72,15 @@ describe("the clan page", () => {
       <ClanHeader
         clan={poap}
         roster={{
-          name: "POAP KINGS",
+          name: "Example Clan",
           meta: { freshness_seconds: 120, as_of: "2026-09-12T18:00:00Z" },
         }}
       />,
     );
-    const chip = screen
-      .getByText("King Thing", { exact: false })
-      .closest(".chip");
-    expect(chip.textContent).toContain("King Thing");
+    const chip = screen.getByText("Ada", { exact: false }).closest(".chip");
+    expect(chip.textContent).toContain("Ada");
     expect(within(chip).getByText("Leader")).toBeTruthy();
-    expect(chip.textContent).toContain("POAP KINGS");
+    expect(chip.textContent).toContain("Example Clan");
     expect(screen.getByText(/as of 2m ago/)).toBeTruthy();
   });
 
@@ -90,8 +88,8 @@ describe("the clan page", () => {
     const now = Date.parse("2026-09-12T18:00:00Z");
     const members = [
       {
-        player_tag: "#20JJJ2CCRU",
-        name: "King Thing",
+        player_tag: "#20QQL8CCRU",
+        name: "Ada",
         role: "leader",
         role_label: "Leader",
         trophies: 8000,
@@ -142,7 +140,7 @@ describe("the clan page", () => {
     ]);
     const you = container.querySelector("tr[data-you='true']");
     expect(you.textContent).toContain("★");
-    expect(you.textContent).toContain("King Thing");
+    expect(you.textContent).toContain("Ada");
     expect(container.querySelectorAll("tr[data-you='true']").length).toBe(1);
     expect(screen.getByText("Co-leader")).toBeTruthy();
     expect(screen.queryByText("coLeader")).toBeNull();
@@ -238,7 +236,7 @@ describe("choosing a clan", () => {
       />,
     );
     const button = screen.getByRole("button", { expanded: false });
-    expect(button.textContent).toContain("King Thing");
+    expect(button.textContent).toContain("Ada");
     fireEvent.click(button);
     expect(screen.getByRole("menuitem", { name: /Elsewhere/ })).toBeTruthy();
     expect(
@@ -263,7 +261,7 @@ describe("choosing a clan", () => {
         ...me.identities,
         {
           player_tag: "#8QCV",
-          name: "Big Thing",
+          name: "Ada's other",
           is_primary: false,
           relationship: "alt",
           claim_status: "verified",
@@ -289,7 +287,7 @@ describe("choosing a clan", () => {
     );
     const cards = screen.getAllByRole("button");
     expect(cards.map((c) => c.getAttribute("data-clan"))).toEqual([
-      "#J2RGCRVG",
+      "#2PQRJ8LV",
       "#PYLQ2",
     ]);
     expect(cards[0].getAttribute("aria-current")).toBe("true");
@@ -306,9 +304,9 @@ describe("choosing a clan", () => {
   });
 
   test("clan paths carry the tag without its #, and only your clans resolve", () => {
-    expect(clanPath("#J2RGCRVG")).toBe("/clan/J2RGCRVG");
-    expect(clanFromPath("/clan/J2RGCRVG", [poap, other])).toBe(poap);
-    expect(clanFromPath("/clan/j2rgcrvg/", [poap])).toBe(poap);
+    expect(clanPath("#2PQRJ8LV")).toBe("/clan/2PQRJ8LV");
+    expect(clanFromPath("/clan/2PQRJ8LV", [poap, other])).toBe(poap);
+    expect(clanFromPath("/clan/2pqrj8lv/", [poap])).toBe(poap);
     expect(clanFromPath("/clan/PYLQ2", [poap])).toBeNull();
     expect(clanFromPath("/clan", [poap])).toBeNull();
     expect(clanFromPath("/clans", [poap])).toBeNull();
@@ -317,15 +315,15 @@ describe("choosing a clan", () => {
   test("the roster marks every one of your tags in a clan", () => {
     const members = [
       {
-        player_tag: "#20JJJ2CCRU",
-        name: "King Thing",
+        player_tag: "#20QQL8CCRU",
+        name: "Ada",
         role: "member",
         role_label: "Member",
         you: true,
       },
       {
         player_tag: "#8QCV",
-        name: "Big Thing",
+        name: "Ada's other",
         role: "coLeader",
         role_label: "Co-leader",
         you: true,

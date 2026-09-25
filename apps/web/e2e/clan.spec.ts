@@ -26,7 +26,7 @@ test("signed out: the landing, the way in on the bar, and a clan path sent home"
   page,
 }) => {
   await mockApi(page, { "GET /api/me": [401, { error: "signed_out" }] });
-  await page.goto("/clan/J2RGCRVG");
+  await page.goto("/clan/2PQRJ8LV");
   await expect(page).toHaveURL(/\/$/);
   await expect(
     page.getByRole("link", { name: "Sign in with Elixir" }).first(),
@@ -55,13 +55,13 @@ test.describe("signed in", () => {
     await accessible(page, "chooser");
 
     // Picking one is remembered and lands on its page.
-    await page.getByText("POAP KINGS").first().click();
-    await expect(page).toHaveURL(/\/clan\/J2RGCRVG$/);
-    await expect(page.getByText("King Levy")).toBeVisible();
+    await page.getByText("Example Clan").first().click();
+    await expect(page).toHaveURL(/\/clan\/2PQRJ8LV$/);
+    await expect(page.getByText("Ben")).toBeVisible();
     await expect(page.getByText("Co-leader").first()).toBeVisible();
     // The rail now carries the clan: Manage for a leader, the tag aside.
     await expect(rail.getByRole("link", { name: /^Inbox/ })).toBeVisible();
-    await expect(rail).toContainText("#J2RGCRVG");
+    await expect(rail).toContainText("#2PQRJ8LV");
     await rendered(page);
     await accessible(page, "clan page");
 
@@ -86,10 +86,10 @@ test.describe("signed in", () => {
   test("arriving at another of your clans by URL selects it", async ({
     page,
   }) => {
-    await page.goto("/clan/GJ09RJP8");
-    await expect(page).toHaveURL(/\/clan\/GJ09RJP8$/);
+    await page.goto("/clan/GQ08RJPL");
+    await expect(page).toHaveURL(/\/clan\/GQ08RJPL$/);
     const rail = page.locator(".rail");
-    await expect(rail).toContainText("Elixir Kings");
+    await expect(rail).toContainText("Second Clan");
     // A member: no Manage group.
     await expect(rail.getByRole("link", { name: /^Inbox/ })).toHaveCount(0);
   });
@@ -97,7 +97,7 @@ test.describe("signed in", () => {
   test("@narrow the rail is a disclosure above the content", async ({
     page,
   }) => {
-    await page.goto("/clan/J2RGCRVG");
+    await page.goto("/clan/2PQRJ8LV");
     const toggle = page.locator(".rail__toggle");
     await expect(toggle).toBeVisible();
     await expect(toggle).toContainText("Clan");

@@ -60,7 +60,7 @@ function harness({
   part,
   policy = EXAMPLE_POLICY,
   ledger = policy
-    ? ledgerWithPolicy(createMemoryLedger(), "#J2RGCRVG", policy)
+    ? ledgerWithPolicy(createMemoryLedger(), "#2PQRJ8LV", policy)
     : createMemoryLedger(),
   ...rest
 } = {}) {
@@ -96,11 +96,11 @@ const idle = member("#8QCV", {
   lastBattleDaysAgo: 20,
   war: [0, 0, 0, 0, 0, 0],
 });
-const king = member("#20JJJ2CCRU", { name: "King Thing", role: "leader" });
+const king = member("#20QQL8CCRU", { name: "Ada", role: "leader" });
 const partClan = () =>
   participation([king, ...others, idle], {
-    clan_tag: "#J2RGCRVG",
-    name: "POAP KINGS",
+    clan_tag: "#2PQRJ8LV",
+    name: "Example Clan",
   });
 
 async function leader(h) {
@@ -123,7 +123,7 @@ const api = async (h, cookies, method, path, body) => {
 test("manage: a leader opens Manage; one participation read, cards raised, cached for minutes", async () => {
   const h = harness({ part: partClan() });
   const cookies = await leader(h);
-  const r = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const r = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   assert.equal(r.status, 200);
   assert.equal(r.body.cached, false);
   assert.equal(r.body.policy_version, 1);
@@ -138,7 +138,7 @@ test("manage: a leader opens Manage; one participation read, cards raised, cache
     h.mcp.calls.filter((c) => c[0] === "clans_participation").length,
     1,
   );
-  const again = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const again = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   assert.equal(again.body.cached, true);
   assert.equal(
     h.mcp.calls.filter((c) => c[0] === "clans_participation").length,
@@ -154,12 +154,12 @@ test("manage: the board explains held judgments from an existing cached snapshot
   const h = harness({
     part: participation(
       [king, member("#HELD", { war: [null, null, null, null, null, null] })],
-      { clan_tag: "#J2RGCRVG" },
+      { clan_tag: "#2PQRJ8LV" },
     ),
   });
   const cookies = await leader(h);
-  await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
-  const r = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
+  const r = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   assert.equal(r.body.cached, true);
   const held = r.body.board.find((m) => m.player_tag === "#HELD");
   assert.equal(held.judgment.promotion, "held");
@@ -179,7 +179,7 @@ test("manage: a member is refused; a foreign clan is refused", async () => {
   });
   const cookies = await leader(h);
   assert.equal(
-    (await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage")).status,
+    (await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage")).status,
     403,
   );
   assert.equal(
@@ -191,13 +191,13 @@ test("manage: a member is refused; a foreign clan is refused", async () => {
 test("cards: decide freezes; a second decision is refused; declined blocks re-nomination for the cooldown", async () => {
   const h = harness({ part: partClan() });
   const cookies = await leader(h);
-  const first = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const first = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   const card = first.body.inbox.find((c) => c.type === "removal");
   const bad = await api(
     h,
     cookies,
     "POST",
-    `/api/clans/J2RGCRVG/cards/${card.card_id}/decide`,
+    `/api/clans/2PQRJ8LV/cards/${card.card_id}/decide`,
     { status: "declined" },
   );
   assert.equal(bad.status, 400);
@@ -205,17 +205,17 @@ test("cards: decide freezes; a second decision is refused; declined blocks re-no
     h,
     cookies,
     "POST",
-    `/api/clans/J2RGCRVG/cards/${card.card_id}/decide`,
+    `/api/clans/2PQRJ8LV/cards/${card.card_id}/decide`,
     { status: "declined", reason: "not_now" },
   );
   assert.equal(declined.status, 200);
-  assert.equal(declined.body.decided_by, "#20JJJ2CCRU");
-  assert.equal(declined.body.decided_by_name, "King Thing");
+  assert.equal(declined.body.decided_by, "#20QQL8CCRU");
+  assert.equal(declined.body.decided_by_name, "Ada");
   const twice = await api(
     h,
     cookies,
     "POST",
-    `/api/clans/J2RGCRVG/cards/${card.card_id}/decide`,
+    `/api/clans/2PQRJ8LV/cards/${card.card_id}/decide`,
     { status: "done" },
   );
   assert.equal(twice.status, 409);
@@ -223,7 +223,7 @@ test("cards: decide freezes; a second decision is refused; declined blocks re-no
     h,
     cookies,
     "GET",
-    "/api/clans/J2RGCRVG/manage?refresh=1",
+    "/api/clans/2PQRJ8LV/manage?refresh=1",
   );
   assert.equal(
     next.body.inbox.filter((c) => c.type === "removal").length,
@@ -231,20 +231,20 @@ test("cards: decide freezes; a second decision is refused; declined blocks re-no
     "inside the cooldown, no new card",
   );
   h.clock.t += 8 * DAY;
-  const later = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const later = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   assert.equal(
     later.body.inbox.filter((c) => c.type === "removal").length,
     1,
     "re-nominated after the cooldown",
   );
-  const hist = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  const hist = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/history");
   assert.equal(hist.body.cards[0].status, "declined");
 });
 
 test("cards: auto-withdraw when the member plays; done removal verified when the membership closes", async () => {
   const h = harness({ part: partClan() });
   const cookies = await leader(h);
-  const first = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const first = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   const card = first.body.inbox.find((c) => c.type === "removal");
   // The member played: the card is withdrawn with the reason.
   const played = participation(
@@ -257,19 +257,19 @@ test("cards: auto-withdraw when the member plays; done removal verified when the
         war: [0, 0, 0, 0, 0, 0],
       }),
     ],
-    { clan_tag: "#J2RGCRVG" },
+    { clan_tag: "#2PQRJ8LV" },
   );
   h.mcp.callTool = ((orig) => (token, name, args) =>
     name === "clans_participation"
       ? Promise.resolve({ ok: true, body: played })
       : orig(token, name, args))(h.mcp.callTool);
   h.clock.t += 6 * 60_000;
-  const second = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const second = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   assert.equal(
     second.body.inbox.length,
     second.body.inbox.filter((c) => c.card_id !== card.card_id).length,
   );
-  const hist = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  const hist = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/history");
   const w = hist.body.cards.find((c) => c.card_id === card.card_id);
   assert.equal(w.status, "withdrawn");
   assert.match(w.withdraw_reason, /played/);
@@ -278,23 +278,23 @@ test("cards: auto-withdraw when the member plays; done removal verified when the
 test("cards: a done removal is verified when the record no longer lists the member; otherwise flagged after the window", async () => {
   const h = harness({ part: partClan() });
   const cookies = await leader(h);
-  const first = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const first = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   const card = first.body.inbox.find((c) => c.type === "removal");
   await api(
     h,
     cookies,
     "POST",
-    `/api/clans/J2RGCRVG/cards/${card.card_id}/decide`,
+    `/api/clans/2PQRJ8LV/cards/${card.card_id}/decide`,
     { status: "done" },
   );
-  const gone = participation([king, ...others], { clan_tag: "#J2RGCRVG" });
+  const gone = participation([king, ...others], { clan_tag: "#2PQRJ8LV" });
   h.mcp.callTool = ((orig) => (token, name, args) =>
     name === "clans_participation"
       ? Promise.resolve({ ok: true, body: gone })
       : orig(token, name, args))(h.mcp.callTool);
   h.clock.t += 6 * 3600_000;
-  await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
-  const hist = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
+  const hist = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/history");
   const done = hist.body.cards.find((c) => c.card_id === card.card_id);
   assert.equal(done.outcome.classification, "member_kicked");
   assert.equal(done.outcome.delay_hours, 6);
@@ -302,18 +302,18 @@ test("cards: a done removal is verified when the record no longer lists the memb
   // A done card with no change inside the window is flagged, not reversed.
   const h2 = harness({ part: partClan() });
   const c2 = await leader(h2);
-  const f2 = await api(h2, c2, "GET", "/api/clans/J2RGCRVG/manage");
+  const f2 = await api(h2, c2, "GET", "/api/clans/2PQRJ8LV/manage");
   const card2 = f2.body.inbox.find((c) => c.type === "removal");
   await api(
     h2,
     c2,
     "POST",
-    `/api/clans/J2RGCRVG/cards/${card2.card_id}/decide`,
+    `/api/clans/2PQRJ8LV/cards/${card2.card_id}/decide`,
     { status: "done" },
   );
   h2.clock.t += 49 * 3600_000;
-  await api(h2, c2, "GET", "/api/clans/J2RGCRVG/manage");
-  const h2hist = await api(h2, c2, "GET", "/api/clans/J2RGCRVG/history");
+  await api(h2, c2, "GET", "/api/clans/2PQRJ8LV/manage");
+  const h2hist = await api(h2, c2, "GET", "/api/clans/2PQRJ8LV/history");
   assert.ok(
     h2hist.body.cards.find((c) => c.card_id === card2.card_id).outcome
       .flagged_at,
@@ -323,26 +323,26 @@ test("cards: a done removal is verified when the record no longer lists the memb
 test("holds pause the clock and show on the member; a member cannot set one", async () => {
   const h = harness({ part: partClan() });
   const cookies = await leader(h);
-  const set = await api(h, cookies, "PUT", "/api/clans/J2RGCRVG/holds/8QCV", {
+  const set = await api(h, cookies, "PUT", "/api/clans/2PQRJ8LV/holds/8QCV", {
     until: new Date(NOW.getTime() + 3 * DAY).toISOString(),
     note: "away",
   });
   assert.equal(set.status, 200);
-  assert.equal(set.body.by, "#20JJJ2CCRU");
-  assert.equal(set.body.by_name, "King Thing");
+  assert.equal(set.body.by, "#20QQL8CCRU");
+  assert.equal(set.body.by_name, "Ada");
   const view = await api(
     h,
     cookies,
     "GET",
-    "/api/clans/J2RGCRVG/manage?refresh=1",
+    "/api/clans/2PQRJ8LV/manage?refresh=1",
   );
   const row = view.body.board.find((m) => m.player_tag === "#8QCV");
   assert.equal(row.removal.shielded, "hold");
   // History names the held member and the leader who set it, whether the
   // row was stamped (by_name) or is named from the ledger (player_name).
-  const history = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  const history = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/history");
   const hold = history.body.holds.find((x) => x.player_tag === "#8QCV");
-  assert.equal(hold.by_name, "King Thing");
+  assert.equal(hold.by_name, "Ada");
   assert.equal(hold.player_name, row.name);
   assert.equal(row.bucket, "held");
   assert.equal(
@@ -350,7 +350,7 @@ test("holds pause the clock and show on the member; a member cannot set one", as
     0,
   );
   assert.equal(
-    (await api(h, cookies, "DELETE", "/api/clans/J2RGCRVG/holds/8QCV")).status,
+    (await api(h, cookies, "DELETE", "/api/clans/2PQRJ8LV/holds/8QCV")).status,
     200,
   );
 });
@@ -359,7 +359,7 @@ test("notes: elders write and read elder notes; leaders write leader notes and r
   // One clan ledger, three people.
   const ledger = ledgerWithPolicy(
     createMemoryLedger(),
-    "#J2RGCRVG",
+    "#2PQRJ8LV",
     EXAMPLE_POLICY,
   );
   const he = harness({
@@ -372,7 +372,7 @@ test("notes: elders write and read elder notes; leaders write leader notes and r
     he,
     eCookies,
     "POST",
-    "/api/clans/J2RGCRVG/members/2PP/notes",
+    "/api/clans/2PQRJ8LV/members/2PP/notes",
     { text: "Great in war." },
   );
   assert.equal(eNote.status, 200);
@@ -383,7 +383,7 @@ test("notes: elders write and read elder notes; leaders write leader notes and r
     hl,
     lCookies,
     "POST",
-    "/api/clans/J2RGCRVG/members/2PP/notes",
+    "/api/clans/2PQRJ8LV/members/2PP/notes",
     { text: "Talked about elder." },
   );
   assert.equal(lNote.body.tier, "leader");
@@ -391,7 +391,7 @@ test("notes: elders write and read elder notes; leaders write leader notes and r
     hl,
     lCookies,
     "GET",
-    "/api/clans/J2RGCRVG/members/2PP/notes",
+    "/api/clans/2PQRJ8LV/members/2PP/notes",
   );
   assert.deepEqual(leaderSees.body.notes.map((n) => n.tier).sort(), [
     "elder",
@@ -401,7 +401,7 @@ test("notes: elders write and read elder notes; leaders write leader notes and r
     he,
     eCookies,
     "GET",
-    "/api/clans/J2RGCRVG/members/2PP/notes",
+    "/api/clans/2PQRJ8LV/members/2PP/notes",
   );
   assert.deepEqual(
     elderSees.body.notes.map((n) => n.tier),
@@ -414,12 +414,12 @@ test("notes: elders write and read elder notes; leaders write leader notes and r
   });
   const mCookies = await leader(hm);
   assert.equal(
-    (await api(hm, mCookies, "GET", "/api/clans/J2RGCRVG/members/2PP/notes"))
+    (await api(hm, mCookies, "GET", "/api/clans/2PQRJ8LV/members/2PP/notes"))
       .status,
     403,
   );
   assert.equal(
-    (await api(hm, mCookies, "GET", "/api/clans/J2RGCRVG/manage")).status,
+    (await api(hm, mCookies, "GET", "/api/clans/2PQRJ8LV/manage")).status,
     403,
   );
 });
@@ -427,13 +427,13 @@ test("notes: elders write and read elder notes; leaders write leader notes and r
 test("policy: versions are immutable, validated in a leader's words, previewable before save", async () => {
   const h = harness({ part: partClan(), policy: null });
   const cookies = await leader(h);
-  const view = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/policy");
+  const view = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/policy");
   assert.equal(view.body.current.version, 0);
   assert.equal(view.body.set, false);
   assert.equal(view.body.can_edit, true);
   assert.ok(view.body.fields.at_risk_days.why);
   assert.equal(view.body.current.values.elder_mode, "manual");
-  const bad = await api(h, cookies, "POST", "/api/clans/J2RGCRVG/policy", {
+  const bad = await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/policy", {
     values: { band_ceiling_share: 0.1 },
   });
   assert.equal(bad.status, 400);
@@ -446,7 +446,7 @@ test("policy: versions are immutable, validated in a leader's words, previewable
     h,
     cookies,
     "POST",
-    "/api/clans/J2RGCRVG/policy/preview",
+    "/api/clans/2PQRJ8LV/policy/preview",
     { values: EXAMPLE_POLICY },
   );
   assert.equal(first.status, 200);
@@ -455,7 +455,7 @@ test("policy: versions are immutable, validated in a leader's words, previewable
     first.body.draft.members.find((m) => m.player_tag === "#8QCV").removal,
     "recommended",
   );
-  const v1 = await api(h, cookies, "POST", "/api/clans/J2RGCRVG/policy", {
+  const v1 = await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/policy", {
     values: EXAMPLE_POLICY,
     note: "our rules",
   });
@@ -465,7 +465,7 @@ test("policy: versions are immutable, validated in a leader's words, previewable
     h,
     cookies,
     "POST",
-    "/api/clans/J2RGCRVG/policy/preview",
+    "/api/clans/2PQRJ8LV/policy/preview",
     { values: draft },
   );
   assert.equal(preview.status, 200);
@@ -481,23 +481,23 @@ test("policy: versions are immutable, validated in a leader's words, previewable
     preview.body.changes.map((c) => c.key),
     ["at_risk_days", "confirm_days"],
   );
-  const saved = await api(h, cookies, "POST", "/api/clans/J2RGCRVG/policy", {
+  const saved = await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/policy", {
     values: draft,
     note: "more rope",
   });
   assert.equal(saved.body.version, 2);
-  const saved2 = await api(h, cookies, "POST", "/api/clans/J2RGCRVG/policy", {
+  const saved2 = await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/policy", {
     values: { ...draft, at_risk_days: 6 },
   });
   assert.equal(saved2.body.version, 3);
-  const versions = (await api(h, cookies, "GET", "/api/clans/J2RGCRVG/policy"))
+  const versions = (await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/policy"))
     .body.versions;
   assert.deepEqual(
     versions.map((v) => v.version),
     [3, 2, 1],
   );
   // A new version invalidates the cached evaluation.
-  const view2 = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const view2 = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   assert.equal(view2.body.policy_version, 3);
   assert.equal(view2.body.cached, false);
 });
@@ -506,13 +506,13 @@ test("before a leader saves a policy, no clan management runs: the roster, the p
   const h = harness({ part: partClan(), policy: null });
   const cookies = await leader(h);
   for (const [method, path, body] of [
-    ["GET", "/api/clans/J2RGCRVG/manage"],
-    ["GET", "/api/clans/J2RGCRVG/history"],
-    ["GET", "/api/clans/J2RGCRVG/standing"],
-    ["PUT", "/api/clans/J2RGCRVG/holds/2PP", { until: null }],
-    ["GET", "/api/clans/J2RGCRVG/members/2PP/notes"],
-    ["POST", "/api/clans/J2RGCRVG/members/2PP/notes", { text: "hi" }],
-    ["POST", "/api/clans/J2RGCRVG/cards/abc/decide", { status: "done" }],
+    ["GET", "/api/clans/2PQRJ8LV/manage"],
+    ["GET", "/api/clans/2PQRJ8LV/history"],
+    ["GET", "/api/clans/2PQRJ8LV/standing"],
+    ["PUT", "/api/clans/2PQRJ8LV/holds/2PP", { until: null }],
+    ["GET", "/api/clans/2PQRJ8LV/members/2PP/notes"],
+    ["POST", "/api/clans/2PQRJ8LV/members/2PP/notes", { text: "hi" }],
+    ["POST", "/api/clans/2PQRJ8LV/cards/abc/decide", { status: "done" }],
   ]) {
     const r = await api(h, cookies, method, path, body);
     assert.equal(r.status, 409, `${method} ${path}`);
@@ -523,15 +523,15 @@ test("before a leader saves a policy, no clan management runs: the roster, the p
     h.mcp.calls.filter((c) => c[0] === "clans_participation").length,
     0,
   );
-  assert.equal(await h.ledger.latestVerdicts("#J2RGCRVG"), null);
-  const away = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/me/away");
+  assert.equal(await h.ledger.latestVerdicts("#2PQRJ8LV"), null);
+  const away = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/me/away");
   assert.deepEqual(away.body, { allowed: false, max_days: 0, hold: null });
   assert.equal(
-    (await api(h, cookies, "GET", "/api/clans/J2RGCRVG/policy")).status,
+    (await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/policy")).status,
     200,
   );
   assert.equal(
-    (await api(h, cookies, "GET", "/api/roster?clan=J2RGCRVG")).status,
+    (await api(h, cookies, "GET", "/api/roster?clan=2PQRJ8LV")).status,
     200,
   );
   // The chrome learns there is no policy, and the Inbox counts nothing.
@@ -545,7 +545,7 @@ test("standing for members: evidence in a player's terms, no internals; private 
     part: partClan(),
   });
   const cookies = await leader(h);
-  const s = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/standing");
+  const s = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/standing");
   assert.equal(s.status, 200);
   assert.ok(s.body.rows.length > 0);
   assert.ok(!/\b(score|percentile|rank|slot)\b/i.test(JSON.stringify(s.body)));
@@ -560,10 +560,10 @@ test("standing for members: evidence in a player's terms, no internals; private 
   // how the clan runs and their own line.
   const hl = harness({ part: partClan(), ledger: h.ledger });
   const lc = await leader(hl);
-  await api(hl, lc, "POST", "/api/clans/J2RGCRVG/policy", {
+  await api(hl, lc, "POST", "/api/clans/2PQRJ8LV/policy", {
     values: { ...EXAMPLE_POLICY, members_see_standing: false },
   });
-  const priv = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/standing");
+  const priv = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/standing");
   assert.equal(priv.status, 200);
   assert.equal(priv.body.rows, null);
   assert.ok(priv.body.how.length > 0);
@@ -571,10 +571,10 @@ test("standing for members: evidence in a player's terms, no internals; private 
   // A clan whose leaders choose Elders and track no inactivity evaluates
   // nothing for Standing: it is the rules alone.
   const calls = h.mcp.calls.length;
-  await api(hl, lc, "POST", "/api/clans/J2RGCRVG/policy", {
+  await api(hl, lc, "POST", "/api/clans/2PQRJ8LV/policy", {
     values: { elder_mode: "manual" },
   });
-  const manual = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/standing");
+  const manual = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/standing");
   assert.deepEqual(manual.body.how, [
     { key: "elder", title: "Elder", lines: ["Leaders choose Elders."] },
   ]);
@@ -589,16 +589,16 @@ test("standing for members: evidence in a player's terms, no internals; private 
 test("nothing under a clan answers without a session: no public pages or documents", async () => {
   const h = harness({ part: partClan() });
   for (const path of [
-    "/api/clans/J2RGCRVG/how-elder-works",
-    "/api/clans/J2RGCRVG/awards",
-    "/api/clans/J2RGCRVG/policy",
+    "/api/clans/2PQRJ8LV/how-elder-works",
+    "/api/clans/2PQRJ8LV/awards",
+    "/api/clans/2PQRJ8LV/policy",
   ])
     assert.equal((await h.handler(req("GET", path))).statusCode, 401, path);
   // Signed in, the old public routes are simply not routes.
   const cookies = await leader(h);
   for (const path of [
-    "/api/clans/J2RGCRVG/how-elder-works",
-    "/api/clans/J2RGCRVG/awards",
+    "/api/clans/2PQRJ8LV/how-elder-works",
+    "/api/clans/2PQRJ8LV/awards",
   ])
     assert.equal((await api(h, cookies, "GET", path)).status, 404, path);
 });
@@ -645,7 +645,7 @@ test("scout: a pasted tag is read live, pending is passed through, and the polic
   };
   const h = harness({ part: partClan(), profile, log });
   const cookies = await leader(h);
-  const r = await api(h, cookies, "POST", "/api/clans/J2RGCRVG/scout", {
+  const r = await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/scout", {
     tag: "2pp",
   });
   assert.equal(r.status, 200);
@@ -670,7 +670,7 @@ test("scout: a pasted tag is read live, pending is passed through, and the polic
   // Scout works before a clan has a policy: statistics, no clan verdict.
   const unset = harness({ part: partClan(), profile, log, policy: null });
   const uc = await leader(unset);
-  const u = await api(unset, uc, "POST", "/api/clans/J2RGCRVG/scout", {
+  const u = await api(unset, uc, "POST", "/api/clans/2PQRJ8LV/scout", {
     tag: "2pp",
   });
   assert.equal(u.status, 200);
@@ -678,13 +678,13 @@ test("scout: a pasted tag is read live, pending is passed through, and the polic
   assert.equal(u.body.policy_answer, null);
   const pending = harness({ part: partClan() });
   const pc = await leader(pending);
-  const p = await api(pending, pc, "POST", "/api/clans/J2RGCRVG/scout", {
+  const p = await api(pending, pc, "POST", "/api/clans/2PQRJ8LV/scout", {
     tag: "#2PP",
   });
   assert.equal(p.status, 200);
   assert.deepEqual(p.body.pending, { retry_after_s: 45 });
   assert.equal(p.body.profile, null);
-  const badTag = await api(pending, pc, "POST", "/api/clans/J2RGCRVG/scout", {
+  const badTag = await api(pending, pc, "POST", "/api/clans/2PQRJ8LV/scout", {
     tag: "nope",
   });
   assert.equal(badTag.status, 400);
@@ -729,7 +729,7 @@ const leftEvents = (extra = []) => ({
 test("departures: every unexplained member_left raises one card; Kicked / Left / Ignore answers it; a Done removal explains its own", async () => {
   const h = harness({ part: partClan(), roster: leftEvents() });
   const cookies = await leader(h);
-  const first = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const first = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   const dep = first.body.inbox.filter((c) => c.type === "departure");
   assert.equal(dep.length, 1);
   assert.equal(dep[0].player_tag, "#GONE1");
@@ -740,7 +740,7 @@ test("departures: every unexplained member_left raises one card; Kicked / Left /
     h,
     cookies,
     "GET",
-    "/api/clans/J2RGCRVG/manage?refresh=1",
+    "/api/clans/2PQRJ8LV/manage?refresh=1",
   );
   assert.equal(
     again.body.inbox.filter((c) => c.type === "departure").length,
@@ -751,7 +751,7 @@ test("departures: every unexplained member_left raises one card; Kicked / Left /
     h,
     cookies,
     "POST",
-    `/api/clans/J2RGCRVG/cards/${dep[0].card_id}/decide`,
+    `/api/clans/2PQRJ8LV/cards/${dep[0].card_id}/decide`,
     {
       status: "declined",
       reason: "not_now",
@@ -763,7 +763,7 @@ test("departures: every unexplained member_left raises one card; Kicked / Left /
     h,
     cookies,
     "POST",
-    `/api/clans/J2RGCRVG/cards/${dep[0].card_id}/decide`,
+    `/api/clans/2PQRJ8LV/cards/${dep[0].card_id}/decide`,
     {
       classification: "leave",
       note: "  player decided to leave the game  ",
@@ -778,7 +778,7 @@ test("departures: every unexplained member_left raises one card; Kicked / Left /
     "the leader's note rides the decision",
   );
   // The timeline carries it, with a farewell to paste and a welcome for the join.
-  const hist = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  const hist = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/history");
   assert.equal(hist.status, 200);
   const t = hist.body.timeline;
   assert.deepEqual(
@@ -801,7 +801,7 @@ test("departures: every unexplained member_left raises one card; Kicked / Left /
     h,
     cookies,
     "POST",
-    `/api/clans/J2RGCRVG/cards/${removal.card_id}/decide`,
+    `/api/clans/2PQRJ8LV/cards/${removal.card_id}/decide`,
     { status: "done" },
   );
   h.mcp.state.roster = leftEvents([
@@ -816,14 +816,14 @@ test("departures: every unexplained member_left raises one card; Kicked / Left /
     h,
     cookies,
     "GET",
-    "/api/clans/J2RGCRVG/manage?refresh=1",
+    "/api/clans/2PQRJ8LV/manage?refresh=1",
   );
   assert.ok(
     !after.body.inbox.some(
       (c) => c.type === "departure" && c.player_tag === "#8QCV",
     ),
   );
-  const hist2 = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  const hist2 = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/history");
   const sleepy = hist2.body.timeline.find((e) => e.player_tag === "#8QCV");
   assert.equal(
     sleepy.classification,
@@ -871,7 +871,7 @@ test("departures: a member_left that carries only a tag is named from Elixir's c
     return orig(token, name, args);
   })(h.mcp.callTool);
   const cookies = await leader(h);
-  const first = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const first = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   const card = first.body.inbox.find(
     (c) => c.type === "departure" && c.player_tag === "#VGJJ",
   );
@@ -889,7 +889,7 @@ test("departures: a member_left that carries only a tag is named from Elixir's c
     h,
     cookies,
     "GET",
-    "/api/clans/J2RGCRVG/manage?refresh=1",
+    "/api/clans/2PQRJ8LV/manage?refresh=1",
   );
   assert.equal(
     again.body.inbox.find((c) => c.player_tag === "#VGJJ").player_name,
@@ -897,7 +897,7 @@ test("departures: a member_left that carries only a tag is named from Elixir's c
   );
   assert.equal(h.mcp.calls.filter(([n]) => n === "players_names").length, 1);
   // The timeline names the row from the card it raised.
-  const hist = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/history");
+  const hist = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/history");
   const row = hist.body.timeline.find((e) => e.player_tag === "#VGJJ");
   assert.equal(row.name, "Ditaka");
   assert.equal(row.role, "elder");
@@ -906,7 +906,7 @@ test("departures: a member_left that carries only a tag is named from Elixir's c
 test("cards: the inbox carries paste-ready in-game copy, clan-chat safe", async () => {
   const h = harness({ part: partClan() });
   const cookies = await leader(h);
-  const r = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/manage");
+  const r = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/manage");
   const removal = r.body.inbox.find((c) => c.type === "removal");
   assert.match(
     removal.copy,
@@ -919,7 +919,7 @@ test("cards: the inbox carries paste-ready in-game copy, clan-chat safe", async 
 test("away: a member marks themselves away within the policy's cap; the clock pauses; a leader can clear it; a leader's hold is not theirs to move", async () => {
   const ledger = ledgerWithPolicy(
     createMemoryLedger(),
-    "#J2RGCRVG",
+    "#2PQRJ8LV",
     EXAMPLE_POLICY,
   );
   const member = harness({
@@ -930,14 +930,14 @@ test("away: a member marks themselves away within the policy's cap; the clock pa
     ledger,
   });
   const mc = await leader(member);
-  const before = await api(member, mc, "GET", "/api/clans/J2RGCRVG/me/away");
+  const before = await api(member, mc, "GET", "/api/clans/2PQRJ8LV/me/away");
   assert.deepEqual(before.body, { allowed: true, max_days: 30, hold: null });
-  const tooLong = await api(member, mc, "PUT", "/api/clans/J2RGCRVG/me/away", {
+  const tooLong = await api(member, mc, "PUT", "/api/clans/2PQRJ8LV/me/away", {
     until: new Date(NOW.getTime() + 45 * DAY).toISOString(),
   });
   assert.equal(tooLong.status, 400);
   assert.equal(tooLong.body.error, "too_long");
-  const set = await api(member, mc, "PUT", "/api/clans/J2RGCRVG/me/away", {
+  const set = await api(member, mc, "PUT", "/api/clans/2PQRJ8LV/me/away", {
     until: new Date(NOW.getTime() + 10 * DAY).toISOString(),
     note: "Holiday, back on the 22nd",
   });
@@ -951,7 +951,7 @@ test("away: a member marks themselves away within the policy's cap; the clock pa
     lead,
     lc,
     "GET",
-    "/api/clans/J2RGCRVG/manage?refresh=1",
+    "/api/clans/2PQRJ8LV/manage?refresh=1",
   );
   const row = view.body.board.find((m) => m.player_tag === "#8QCV");
   assert.equal(row.hold.kind, "away");
@@ -967,7 +967,7 @@ test("away: a member marks themselves away within the policy's cap; the clock pa
   );
 
   // A leader replaces it with their own hold; the member can no longer move it.
-  await api(lead, lc, "PUT", "/api/clans/J2RGCRVG/holds/8QCV", {
+  await api(lead, lc, "PUT", "/api/clans/2PQRJ8LV/holds/8QCV", {
     until: null,
     note: "leader hold",
   });
@@ -975,20 +975,20 @@ test("away: a member marks themselves away within the policy's cap; the clock pa
     member,
     mc,
     "DELETE",
-    "/api/clans/J2RGCRVG/me/away",
+    "/api/clans/2PQRJ8LV/me/away",
   );
   assert.equal(blocked.status, 409);
-  await api(lead, lc, "DELETE", "/api/clans/J2RGCRVG/holds/8QCV");
-  const cleared = await api(member, mc, "GET", "/api/clans/J2RGCRVG/me/away");
+  await api(lead, lc, "DELETE", "/api/clans/2PQRJ8LV/holds/8QCV");
+  const cleared = await api(member, mc, "GET", "/api/clans/2PQRJ8LV/me/away");
   assert.equal(cleared.body.hold, null);
 
   // The policy can turn it off.
-  const pol = (await api(lead, lc, "GET", "/api/clans/J2RGCRVG/policy")).body
+  const pol = (await api(lead, lc, "GET", "/api/clans/2PQRJ8LV/policy")).body
     .current.values;
-  await api(lead, lc, "POST", "/api/clans/J2RGCRVG/policy", {
+  await api(lead, lc, "POST", "/api/clans/2PQRJ8LV/policy", {
     values: { ...pol, away_max_days: 0 },
   });
-  const off = await api(member, mc, "PUT", "/api/clans/J2RGCRVG/me/away", {
+  const off = await api(member, mc, "PUT", "/api/clans/2PQRJ8LV/me/away", {
     until: new Date(NOW.getTime() + 2 * DAY).toISOString(),
   });
   assert.equal(off.status, 403);

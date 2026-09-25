@@ -52,9 +52,9 @@ const capture = async (fn, cap) => {
 test("every request ends with one JSON line naming the route, the status, the time, and each Elixir call with its request_id; plus Server-Timing", async () => {
   const now = () => NOW.getTime();
   const part = participation(
-    [member("#20JJJ2CCRU", { name: "King Thing", role: "leader" })],
+    [member("#20QQL8CCRU", { name: "Ada", role: "leader" })],
     {
-      clan_tag: "#J2RGCRVG",
+      clan_tag: "#2PQRJ8LV",
     },
   );
   part.meta.request_id = "req-elixir-1";
@@ -67,7 +67,7 @@ test("every request ends with one JSON line naming the route, the status, the ti
     });
   const ledger = ledgerWithPolicy(
     createMemoryLedger(),
-    "#J2RGCRVG",
+    "#2PQRJ8LV",
     EXAMPLE_POLICY,
   );
   const cap = capturing();
@@ -94,7 +94,7 @@ test("every request ends with one JSON line naming the route, the status, the ti
   );
   const { r, lines } = await capture(
     () =>
-      handler(req("GET", "/api/clans/J2RGCRVG/manage", { cookies: cookie })),
+      handler(req("GET", "/api/clans/2PQRJ8LV/manage", { cookies: cookie })),
     cap,
   );
   assert.equal(r.statusCode, 200);
@@ -109,7 +109,7 @@ test("every request ends with one JSON line naming the route, the status, the ti
   const line = story[0];
   assert.equal(line.http, "GET /api/clans/*/manage", "the route, not the tag");
   assert.equal(line.status, 200);
-  assert.equal(line.clan, "#J2RGCRVG");
+  assert.equal(line.clan, "#2PQRJ8LV");
   assert.equal(line.role, "leader");
   assert.ok(line.ms >= 0 && line.elixir_calls >= 2, JSON.stringify(line));
   const calls = line.elixir.map((c) => c.call);
@@ -143,15 +143,15 @@ test("route keys hide ids and tags; a slow or failed request logs at warn", asyn
   assert.equal(line.http, "GET /api/roster");
   assert.equal(line.status, 401);
   assert.equal(
-    routeKey("GET", "/api/clans/J2RGCRVG/members/8QCV/notes"),
+    routeKey("GET", "/api/clans/2PQRJ8LV/members/8QCV/notes"),
     "GET /api/clans/*/members/*/notes",
   );
   assert.equal(
-    routeKey("POST", "/api/clans/J2RGCRVG/cards/abc_1/decide"),
+    routeKey("POST", "/api/clans/2PQRJ8LV/cards/abc_1/decide"),
     "POST /api/clans/*/cards/*/decide",
   );
   assert.equal(
-    routeKey("DELETE", "/api/clans/J2RGCRVG/awards/grants/135/free_pass/8QCV"),
+    routeKey("DELETE", "/api/clans/2PQRJ8LV/awards/grants/135/free_pass/8QCV"),
     "DELETE /api/clans/*/awards/grants/*",
   );
   assert.equal(

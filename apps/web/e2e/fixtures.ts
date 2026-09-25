@@ -1,67 +1,67 @@
 import type { Page, Route } from "@playwright/test";
 
-const POAP = {
-  clan_tag: "#J2RGCRVG",
-  name: "POAP KINGS",
+const FIRST = {
+  clan_tag: "#2PQRJ8LV",
+  name: "Example Clan",
   role: "leader",
   role_label: "Leader",
-  acting_as: "#20JJJ2CCRU",
-  acting_as_name: "King Thing",
-  player_name: "King Thing",
+  acting_as: "#20QQL8CCRU",
+  acting_as_name: "Ada",
+  player_name: "Ada",
   verified: true,
-  your_tags: ["#20JJJ2CCRU"],
+  your_tags: ["#20QQL8CCRU"],
 };
-const KINGS = {
-  clan_tag: "#GJ09RJP8",
-  name: "Elixir Kings",
+const SECOND = {
+  clan_tag: "#GQ08RJPL",
+  name: "Second Clan",
   role: "member",
   role_label: "Member",
-  acting_as: "#VJQV8G8RL",
-  acting_as_name: "thingles",
-  player_name: "thingles",
+  acting_as: "#VLQV8C8RP",
+  acting_as_name: "Ada's alt",
+  player_name: "Ada's alt",
   verified: true,
-  your_tags: ["#VJQV8G8RL"],
+  your_tags: ["#VLQV8C8RP"],
 };
 
-/** A signed-in leader of POAP KINGS who also holds a player in Elixir
+/** A signed-in leader of Example Clan who also holds a player in Elixir
  *  Kings, with nothing selected yet - the chooser's case. */
 export const ME = {
   signed_in: true,
   ok: true,
   principal: {
     kind: "person",
-    subject: { type: "player", tag: "#20JJJ2CCRU", name: "King Thing" },
+    subject: { type: "player", tag: "#20QQL8CCRU", name: "Ada" },
   },
-  primary: { player_tag: "#20JJJ2CCRU", name: "King Thing" },
+  primary: { player_tag: "#20QQL8CCRU", name: "Ada" },
   identities: [
     {
-      player_tag: "#20JJJ2CCRU",
-      name: "King Thing",
+      player_tag: "#20QQL8CCRU",
+      name: "Ada",
       is_primary: true,
       relationship: "primary",
       claim_status: "verified",
-      clan_tag: "#J2RGCRVG",
+      clan_tag: "#2PQRJ8LV",
       role: "leader",
       role_label: "Leader",
     },
   ],
-  clans: [POAP, KINGS],
-  selected: null as typeof POAP | null,
+  clans: [FIRST, SECOND],
+  selected: null as typeof FIRST | null,
   open_cards: 2,
   feedback_unseen: 1,
   maintainer: false,
 };
 
 export const ROSTER = {
-  clan_tag: "#J2RGCRVG",
+  clan_tag: "#2PQRJ8LV",
   member_count: 3,
   cached_at: "2026-09-12T17:55:00Z",
   meta: { freshness_seconds: 300, as_of: "2026-09-12T17:55:00Z" },
   notes: [],
   members: [
     {
-      player_tag: "#20JJJ2CCRU",
-      name: "King Thing",
+      player_tag: "#20QQL8CCRU",
+      name: "Ada",
       role: "leader",
       role_label: "Leader",
       trophies: 8000,
@@ -71,8 +71,8 @@ export const ROSTER = {
       you: true,
     },
     {
-      player_tag: "#U8RYG9Y2U",
-      name: "King Levy",
+      player_tag: "#UQ8LP2R9C",
+      name: "Ben",
       role: "coLeader",
       role_label: "Co-leader",
       trophies: 7600,
@@ -136,7 +136,7 @@ export function signedIn(
       return [200, me];
     },
     "GET /api/roster": [200, ROSTER],
-    "GET /api/clans/J2RGCRVG/standing": [
+    "GET /api/clans/2PQRJ8LV/standing": [
       200,
       {
         as_of: "2026-09-12T17:55:00Z",
@@ -144,8 +144,8 @@ export function signedIn(
         enabled: true,
         rows: [
           {
-            player_tag: "#U8RYG9Y2U",
-            name: "King Levy",
+            player_tag: "#UQ8LP2R9C",
+            name: "Ben",
             status: "elder",
             evidence: "war 4/4",
           },
@@ -160,7 +160,7 @@ export function signedIn(
     ],
     "GET /api/feedback": [200, { feedback: [] }],
     "POST /api/feedback": [200, { feedback_id: "abc123" }],
-    "GET /api/clans/J2RGCRVG/me/away": [200, { away: null }],
+    "GET /api/clans/2PQRJ8LV/me/away": [200, { away: null }],
     ...overrides,
   };
 }

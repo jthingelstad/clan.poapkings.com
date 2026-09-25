@@ -34,7 +34,7 @@ function harness({ players = [player()], ledger = createMemoryLedger() } = {}) {
       notify: async (spec) => notified.push(spec),
       log: { error() {} },
     }),
-    maintainerTags: ["#20JJJ2CCRU"],
+    maintainerTags: ["#20QQL8CCRU"],
     sessionSecret: "s",
     appUrl: "https://clan.test",
     elixirUrl: "https://elixir.test",
@@ -72,9 +72,9 @@ test("feedback: a member files with the page attached, sees it on their list, an
     message: "The **removal clock** says 20 days but I played yesterday.",
     category: "judgment",
     context: {
-      path: "/clan/J2RGCRVG/standing",
-      clan_tag: "#J2RGCRVG",
-      clan_name: "POAP KINGS",
+      path: "/clan/2PQRJ8LV/standing",
+      clan_tag: "#2PQRJ8LV",
+      clan_name: "Example Clan",
       role: "member",
     },
   });
@@ -82,15 +82,15 @@ test("feedback: a member files with the page attached, sees it on their list, an
   assert.equal(filed.body.status, "new");
   assert.equal(filed.body.category, "judgment");
   assert.deepEqual(filed.body.context, {
-    path: "/clan/J2RGCRVG/standing",
-    clan_tag: "#J2RGCRVG",
-    clan_name: "POAP KINGS",
+    path: "/clan/2PQRJ8LV/standing",
+    clan_tag: "#2PQRJ8LV",
+    clan_name: "Example Clan",
     role: "member",
   });
   assert.equal(member.notified.length, 1);
   assert.equal(member.notified[0].from, "Amy (#8QCV)");
-  assert.equal(member.notified[0].clan_tag, "#J2RGCRVG");
-  assert.equal(member.notified[0].clan_name, "POAP KINGS");
+  assert.equal(member.notified[0].clan_tag, "#2PQRJ8LV");
+  assert.equal(member.notified[0].clan_name, "Example Clan");
   assert.match(member.notified[0].excerpt, /removal clock/);
 
   const list = await api(member, cookies, "GET", "/api/feedback");

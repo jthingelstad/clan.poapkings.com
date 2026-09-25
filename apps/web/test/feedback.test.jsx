@@ -15,8 +15,8 @@ afterEach(() => {
 const me = {
   signed_in: true,
   ok: true,
-  selected: { clan_tag: "#J2RGCRVG", name: "POAP KINGS", role: "member" },
-  clans: [{ clan_tag: "#J2RGCRVG" }],
+  selected: { clan_tag: "#2PQRJ8LV", name: "Example Clan", role: "member" },
+  clans: [{ clan_tag: "#2PQRJ8LV" }],
   primary: { name: "Amy" },
   feedback_unseen: 2,
   maintainer: false,
@@ -47,7 +47,7 @@ describe("feedback", () => {
         },
       });
     renderWithProviders(
-      <Feedback me={me} navigate={vi.fn()} from="/clan/J2RGCRVG/standing" />,
+      <Feedback me={me} navigate={vi.fn()} from="/clan/2PQRJ8LV/standing" />,
     );
     expect(await screen.findByText("Nothing filed yet.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
@@ -63,9 +63,9 @@ describe("feedback", () => {
       message: "The clock is wrong.",
       category: "judgment",
       context: {
-        path: "/clan/J2RGCRVG/standing",
-        clan_tag: "#J2RGCRVG",
-        clan_name: "POAP KINGS",
+        path: "/clan/2PQRJ8LV/standing",
+        clan_tag: "#2PQRJ8LV",
+        clan_name: "Example Clan",
         role: "member",
       },
     });
@@ -113,8 +113,8 @@ describe("feedback", () => {
             message: "Scout should show clan history.",
             status: "new",
             context: {
-              path: "/clan/J2RGCRVG/manage/scout",
-              clan_tag: "#J2RGCRVG",
+              path: "/clan/2PQRJ8LV/manage/scout",
+              clan_tag: "#2PQRJ8LV",
               role: "elder",
             },
             created_at: "2026-09-12T19:00:00Z",
@@ -237,10 +237,10 @@ describe("feedback", () => {
       "away",
     );
     expect(railItems({ ...me, clans: [{}, {}] })[0].key).toBe("clans");
-    expect(railKey("/clan/J2RGCRVG")).toBe("clan");
-    expect(railKey("/clan/J2RGCRVG/manage")).toBe("inbox");
-    expect(railKey("/clan/J2RGCRVG/manage/awards")).toBe("awards");
-    expect(railKey("/clan/J2RGCRVG/trophies")).toBe("trophies");
+    expect(railKey("/clan/2PQRJ8LV")).toBe("clan");
+    expect(railKey("/clan/2PQRJ8LV/manage")).toBe("inbox");
+    expect(railKey("/clan/2PQRJ8LV/manage/awards")).toBe("awards");
+    expect(railKey("/clan/2PQRJ8LV/trophies")).toBe("trophies");
     expect(railKey("/you/away")).toBe("away");
     expect(railKey("/feedback/abc")).toBe("feedback");
   });

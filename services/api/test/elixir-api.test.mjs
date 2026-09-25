@@ -33,7 +33,7 @@ test("the /api/v1 client keeps the MCP client's interface: initialize reads /me,
           request_id: "r1",
         },
       };
-    if (url.includes("/api/v1/clans/%23J2RGCRVG/participation?weeks=8"))
+    if (url.includes("/api/v1/clans/%232PQRJ8LV/participation?weeks=8"))
       return { body: { data: { members: [], weeks: [] }, request_id: "r2" } };
     return undefined;
   });
@@ -48,7 +48,7 @@ test("the /api/v1 client keeps the MCP client's interface: initialize reads /me,
   assert.deepEqual(mine.body.players, [{ player_tag: "#AA" }]);
   assert.ok(mine.body.meta.as_of);
   const part = await api.callTool("eat_x", "clans_participation", {
-    clan_tag: "#J2RGCRVG",
+    clan_tag: "#2PQRJ8LV",
     weeks: 8,
   });
   assert.equal(part.ok, true);

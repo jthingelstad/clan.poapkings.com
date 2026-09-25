@@ -5,7 +5,7 @@ import { fakeMcp, PERSON, player } from "./fakes.mjs";
 
 test("gate: an agent grant is refused first, before any tool call", async () => {
   const mcp = fakeMcp({
-    principal: { kind: "agent", subject: { type: "clan", tag: "#J2RGCRVG" } },
+    principal: { kind: "agent", subject: { type: "clan", tag: "#2PQRJ8LV" } },
   });
   const g = await runGate({ mcp, token: "t" });
   assert.equal(g.ok, false);
@@ -37,7 +37,7 @@ test("gate: no verified claim is refused before the clan check, with the players
   });
   const g = await runGate({ mcp, token: "t" });
   assert.equal(g.reason, "unverified");
-  assert.equal(g.identities[0].player_tag, "#20JJJ2CCRU");
+  assert.equal(g.identities[0].player_tag, "#20QQL8CCRU");
 });
 
 test("gate: a verified primary not in a clan", async () => {
@@ -53,13 +53,13 @@ test("gate: the happy path names the clan set and the role", async () => {
   const g = await runGate({ mcp, token: "t" });
   assert.equal(g.ok, true);
   assert.equal(g.clans.length, 1);
-  assert.equal(g.clans[0].clan_tag, "#J2RGCRVG");
-  assert.equal(g.clans[0].name, "POAP KINGS");
+  assert.equal(g.clans[0].clan_tag, "#2PQRJ8LV");
+  assert.equal(g.clans[0].name, "Example Clan");
   assert.equal(g.clans[0].role, "leader");
   assert.equal(g.clans[0].role_label, "Leader");
-  assert.equal(g.clans[0].acting_as, "#20JJJ2CCRU");
-  assert.equal(g.primary.player_tag, "#20JJJ2CCRU");
-  assert.equal(g.principal.subject.name, "King Thing");
+  assert.equal(g.clans[0].acting_as, "#20QQL8CCRU");
+  assert.equal(g.primary.player_tag, "#20QQL8CCRU");
+  assert.equal(g.principal.subject.name, "Ada");
 });
 
 test("gate: a verified alt in another clan adds a second clan; the primary's comes first", async () => {
@@ -69,7 +69,7 @@ test("gate: a verified alt in another clan adds a second clan; the primary's com
       player(),
       player({
         player_tag: "#8QCV",
-        name: "Big Thing",
+        name: "Ada's other",
         is_primary: false,
         relationship: "alt",
         clan_tag: "#PYLQ2",
@@ -80,7 +80,7 @@ test("gate: a verified alt in another clan adds a second clan; the primary's com
   const g = await runGate({ mcp, token: "t" });
   assert.deepEqual(
     g.clans.map((c) => c.clan_tag),
-    ["#J2RGCRVG", "#PYLQ2"],
+    ["#2PQRJ8LV", "#PYLQ2"],
   );
   assert.equal(g.clans[0].name, null);
   assert.equal(g.clans[1].name, "Elsewhere");
@@ -124,7 +124,7 @@ test("gate: two verified tags in one clan are one clan, acting as the higher rol
   assert.equal(g.clans.length, 1);
   assert.equal(g.clans[0].acting_as, "#8QCV");
   assert.equal(g.clans[0].role, "coLeader");
-  assert.deepEqual(g.clans[0].your_tags.sort(), ["#20JJJ2CCRU", "#8QCV"]);
+  assert.deepEqual(g.clans[0].your_tags.sort(), ["#20QQL8CCRU", "#8QCV"]);
 });
 
 test("gate: an alt-only account with a verified alt in a clan passes; the alt keys the preference", async () => {
@@ -195,8 +195,8 @@ test("clansOf: friends and watching never make a clan, even if the row says veri
 
 test("normalizeTag: case, missing #, O-for-0, and refusal of a non-tag", () => {
   assert.equal(normalizeTag("pylq2"), "#PYLQ2");
-  assert.equal(normalizeTag("#J2RGCRVG"), "#J2RGCRVG");
-  assert.equal(normalizeTag("j2rgcrvg"), "#J2RGCRVG");
+  assert.equal(normalizeTag("#2PQRJ8LV"), "#2PQRJ8LV");
+  assert.equal(normalizeTag("2pqrj8lv"), "#2PQRJ8LV");
   assert.equal(normalizeTag("OTHER"), null);
   assert.equal(normalizeTag(""), null);
 });

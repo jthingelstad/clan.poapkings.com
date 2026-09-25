@@ -25,8 +25,8 @@ export function loadTinylytics() {
 }
 
 /**
- * The page a path is, for the report. `/clan/J2RGCRVG/manage/board` is the
- * page `/clan/manage/board` of clan J2RGCRVG; `/feedback/abc123` is the page
+ * The page a path is, for the report. `/clan/2PQRJ8LV/manage/board` is the
+ * page `/clan/manage/board` of clan 2PQRJ8LV; `/feedback/abc123` is the page
  * `/feedback` of item abc123. Query strings (`?error=`) never ride along.
  */
 export function analyticsLocation(

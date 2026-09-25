@@ -22,7 +22,7 @@ import {
 } from "./fakes.mjs";
 
 const CLAN = {
-  tag: "#J2RGCRVG",
+  tag: "#2PQRJ8LV",
   name: "Example Clan",
   members: 47,
   requiredTrophies: 5000,
@@ -45,7 +45,7 @@ const PITCH = {
 
 function harness({
   players = [player()],
-  ledger = seedVersion(createMemoryLedger(), "recruit", "#J2RGCRVG", PITCH),
+  ledger = seedVersion(createMemoryLedger(), "recruit", "#2PQRJ8LV", PITCH),
   live,
 } = {}) {
   const clock = { t: Date.parse("2026-09-13T12:00:00Z") };
@@ -55,8 +55,8 @@ function harness({
     roster: {
       ...rosterBody([
         {
-          player_tag: "#20JJJ2CCRU",
-          name: "King Thing",
+          player_tag: "#20QQL8CCRU",
+          name: "Ada",
           role: "leader",
           trophies: 9000,
           donations_this_week: 10,
@@ -108,7 +108,7 @@ const api = async (h, cookies, method, path, body) => {
   return { status: r.statusCode, body: r.body ? JSON.parse(r.body) : null };
 };
 const signedIn = async (h) => cookieHeader((await signIn(h)).sessionCookie);
-const PATH = "/api/clans/J2RGCRVG/recruit";
+const PATH = "/api/clans/2PQRJ8LV/recruit";
 
 test("recruit: a member gets the pitch, live facts and both formats, passing the checks; the live read is cached", async () => {
   const h = harness({

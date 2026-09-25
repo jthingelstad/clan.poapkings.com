@@ -7,20 +7,20 @@ import { createHandler } from "../src/handler.mjs";
 
 export const PERSON = {
   kind: "person",
-  subject: { type: "player", tag: "#20JJJ2CCRU", name: "King Thing" },
-  clan: { tag: "#J2RGCRVG", name: "POAP KINGS" },
+  subject: { type: "player", tag: "#20QQL8CCRU", name: "Ada" },
+  clan: { tag: "#2PQRJ8LV", name: "Example Clan" },
 };
 
 export function player(overrides = {}) {
   return {
-    player_tag: "#20JJJ2CCRU",
-    name: "King Thing",
+    player_tag: "#20QQL8CCRU",
+    name: "Ada",
     relationship: "primary",
     is_primary: true,
     claim_status: "verified",
     notify: false,
     recording: "active",
-    clan_tag: "#J2RGCRVG",
+    clan_tag: "#2PQRJ8LV",
     clan_role: "leader",
     ...overrides,
   };
@@ -28,8 +28,8 @@ export function player(overrides = {}) {
 
 export function rosterBody(members) {
   return {
-    clan_tag: "#J2RGCRVG",
-    name: "POAP KINGS",
+    clan_tag: "#2PQRJ8LV",
+    name: "Example Clan",
     member_count: members.length,
     members,
     notes: ["last_seen_in_game is the game's own lastSeen."],
