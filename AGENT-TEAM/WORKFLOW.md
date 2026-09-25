@@ -38,7 +38,7 @@ the product docs it points at.
 8. Verify the deploy (`gh run list`, the smoke output, one live read of the
    changed surface). Verify semantic success from natural evidence: a
    verdict on the real roster, a real feedback item answered, a real grant.
-   Never manufacture a card decision, a hold, a note, a grant or a feedback
+   Never manufacture an action decision, a comment, a hold, a note, a grant or a feedback
    item for acceptance; never write to Elixir; reads only against live data.
 9. Release only this run's lease after the repository is clean. If safe
    cleanup is impossible, leave the lease and report it.
@@ -66,7 +66,7 @@ One objective label each; no dispatch or handoff labels.
 
 Jamie decides: any change to what the engine judges or how (a new policy
 field, a new award kind, a changed starting value), anything that touches a
-member's in-game standing outside the leader's own decision on a card,
+member's in-game standing outside the leader's own decision on an action,
 anything published outside a signed-in session (nothing is, by decision), the
 OAuth scope, anything stored about a person beyond what `AGENTS.md` lists, and
 broad communication to a clan. Ask one concrete yes/no
@@ -78,7 +78,7 @@ Elixir dependency re-pin when Elixir's design changes, and answering feedback
 whose answer is already decided.
 
 Leaders decide their own clan's policy and awards through the product.
-This team never edits a clan's policy, awards, cards, holds, notes or
+This team never edits a clan's policy, awards, actions, holds, notes or
 grants on a clan's behalf.
 
 ## Automation memory

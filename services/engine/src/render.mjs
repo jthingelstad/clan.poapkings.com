@@ -180,7 +180,7 @@ export function cardRationale(type, v, policy, verdicts) {
     const r = v.removal;
     const slots = verdicts?.roster?.open_slots ?? verdicts?.band?.open_slots;
     return {
-      headline: `${r.days_idle} battle-free days: at risk at ${r.at_risk_days}, a card at ${r.at_risk_days + r.confirm_days}${r.grace_days ? ` (${r.grace_days} grace days for meeting the minimums with ${slots} open slots)` : ""}.`,
+      headline: `${r.days_idle} battle-free days: at risk at ${r.at_risk_days}, an action at ${r.at_risk_days + r.confirm_days}${r.grace_days ? ` (${r.grace_days} grace days for meeting the minimums with ${slots} open slots)` : ""}.`,
       clauses: [
         "at_risk_days",
         "confirm_days",
@@ -379,6 +379,10 @@ export function describePolicy(policy) {
       lines.push(
         `Going to be away? Mark it on your Away page for up to ${plural(policy.away_max_days, "day")} and your clock pauses.`,
       );
+    if (policy.away_max_days > 0 && policy.away_suggestions_enabled)
+      lines.push(
+        "If your clock reaches at risk, you are asked on your Actions page whether you are away.",
+      );
     lines.push(
       policy.removal_includes_elders
         ? "This applies to Elders too."
@@ -386,6 +390,12 @@ export function describePolicy(policy) {
     );
     sections.push({ key: "removal", title: "Inactivity", lines });
   }
+  if (policy.welcome_enabled)
+    sections.push({
+      key: "welcome",
+      title: "Newcomers",
+      lines: ["Elders and leaders are asked to welcome every newcomer."],
+    });
   return sections;
 }
 

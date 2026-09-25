@@ -22,7 +22,7 @@ route to make another objective's work easier.
 - **What is stored.** `AGENTS.md` §Sessions and §What is stored are the
   whole list: sessions (token pair, gate answer, roster cache), one
   remembered clan per person, and the per-clan ledger (policy, verdict
-  snapshot with evidence summaries, cards, holds, notes, awards, grants)
+  snapshot with evidence summaries, actions and their logs, holds, notes, awards, grants)
   plus feedback. Anything else found in the table is a finding. Tags and
   summaries, never Elixir payloads.
 - **Nothing is published** (Jamie, 2026-09-25). Every route under

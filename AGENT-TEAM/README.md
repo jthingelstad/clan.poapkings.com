@@ -6,7 +6,7 @@ verification, deployment and acceptance itself. There is no dispatcher and
 no Build Manager; building and testing are capabilities of every owner.
 
 Elixir Clan is small and its stakes are personal: it judges real clan
-members from Elixir's record and puts cards in front of real leaders. Two
+members from Elixir's record and puts actions in front of real people. Two
 things therefore matter more here than on a bigger product: the judgment
 must stay faithful to the rules a clan chose, and a member who says "this
 is wrong about me" must be answered.
@@ -16,7 +16,7 @@ is wrong about me" must be answered.
 | Objective | File | Primary question |
 |---|---|---|
 | **Run Elixir Clan** | `run-elixir-clan.md` | Is the product up, deployed from `main`, cheap, and still speaking Elixir's current contract? |
-| **Judge Fairly** | `judge-fairly.md` | Do the verdicts, cards, standing and awards follow the clan's policy and the record — and does the record cover what they claim? |
+| **Judge Fairly** | `judge-fairly.md` | Do the verdicts, actions, standing and awards follow the clan's policy and the record — and does the record cover what they claim? |
 | **Close the Loop** | `close-the-loop.md` | Is every piece of feedback answered, acted on or framed for Jamie, and do the docs still describe the shipped product? |
 | **Guard the Door** | `guard-the-door.md` | Are the seams to Elixir, the public repo and the session cookies holding to their boundaries, with nothing published? |
 
@@ -39,7 +39,7 @@ Start with the outcome instead of choosing a role or preparing a ticket:
 - `What across this team needs Jamie?`
 
 Choose **Run Elixir Clan** for deploys, alarms, cost, the Elixir dependency
-pin or the OAuth client; **Judge Fairly** for a verdict, card, standing line
+pin or the OAuth client; **Judge Fairly** for a verdict, action, standing line
 or award grant that looks wrong, or a season that closed without grants;
 **Close the Loop** when feedback sits unanswered or the docs lie; **Guard
 the Door** for scopes, cookies, secrets, the public repo, or the public
@@ -77,4 +77,5 @@ acceptance.
 - `services/api/` — one Lambda: auth, the gate, sessions, the roster,
   Manage (ledger, service, awards, recruit, scout), feedback.
 - `apps/web/` — the SPA. `infra/` — one stack, deploy/smoke scripts.
-- `scripts/feedback.mjs` — the feedback queue from the host.
+- `scripts/feedback.mjs` — the feedback queue from the host;
+  `scripts/actions.mjs` — actions and their logs, read-only, for review.

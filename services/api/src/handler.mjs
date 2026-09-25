@@ -378,10 +378,14 @@ export function createHandler({
       body.policy = await manage
         .policySummary(selected.clan_tag)
         .catch(() => null);
-      if (["leader", "coLeader"].includes(selected.role))
-        body.open_cards = await manage
-          .openCardCount(selected.clan_tag)
-          .catch(() => 0);
+      // The rail's Actions count: what waits for this person, as who they
+      // are in this clan.
+      body.open_actions = await manage
+        .openActionCount(selected.clan_tag, {
+          player_tag: selected.acting_as ?? selected.player_tag,
+          role: selected.role,
+        })
+        .catch(() => 0);
     }
     return json(200, body);
   }
@@ -654,9 +658,19 @@ export function createHandler({
           200,
           await manage.previewPolicy(tag, who, token, body.values ?? {}),
         );
-      const decide = /^\/cards\/([A-Za-z0-9_-]+)\/decide$/.exec(rest);
+      if (method === "GET" && rest === "/actions")
+        return json(
+          200,
+          await manage.actionsView(tag, who, token, {
+            refresh: event.queryStringParameters?.refresh === "1",
+          }),
+        );
+      const decide = /^\/actions\/([A-Za-z0-9_-]+)\/decide$/.exec(rest);
       if (method === "POST" && decide)
         return json(200, await manage.decide(tag, who, decide[1], body));
+      const comment = /^\/actions\/([A-Za-z0-9_-]+)\/comments$/.exec(rest);
+      if (method === "POST" && comment)
+        return json(200, await manage.comment(tag, who, comment[1], body.text));
       const hold = /^\/holds\/([0-9A-Za-z]{3,12})$/.exec(rest);
       if (hold) {
         const ptag = normalizeTag(hold[1]);
@@ -828,7 +842,7 @@ export function createHandler({
 export function routeKey(method, path) {
   const generic = path
     .replace(/^\/api\/clans\/[0-9A-Za-z]+/, "/api/clans/*")
-    .replace(/\/(cards|notes|holds|members)\/[^/]+/g, "/$1/*")
+    .replace(/\/(actions|notes|holds|members)\/[^/]+/g, "/$1/*")
     .replace(/\/awards\/grants\/.+$/, "/awards/grants/*")
     .replace(/^(\/api\/(?:maintain\/)?feedback)\/[^/]+$/, "$1/*");
   return `${method} ${generic}`;

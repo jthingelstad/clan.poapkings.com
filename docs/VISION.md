@@ -133,9 +133,10 @@ clan Elixir only watches rather than records works with less.
 
 Sign in with Elixir; the roster with roles and statistics; the clan's
 versioned policy (categories, minimums, Elder by hand or by a weighted mix,
-the inactivity clock, departures); actions leaders complete or decline
-(called cards in the code), with outcomes verified from the record; holds,
-Away, tiered notes; Standing with "How it works here"; awards as a catalog
+the inactivity clock, departures); actions for leaders, elders and members
+(assigned or open to a role, completed or declined), each with its own log
+of what raised it, who took it and anyone's comments, and outcomes verified
+from the record; holds, Away, tiered notes; Standing with "How it works here"; awards as a catalog
 of kinds and a members' trophy case; recruiting copy in two formats;
 scouting an applicant; feedback to the maintainer. See `AGENTS.md` for how.
 

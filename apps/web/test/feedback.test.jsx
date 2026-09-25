@@ -175,10 +175,10 @@ describe("feedback", () => {
       );
     expect(keys("leader")).toEqual([
       "clan",
+      "actions",
       "standing",
       "trophies",
       "recruit",
-      "inbox",
       "board",
       "history",
       "policy",
@@ -190,6 +190,7 @@ describe("feedback", () => {
     ]);
     expect(keys("elder")).toEqual([
       "clan",
+      "actions",
       "standing",
       "trophies",
       "recruit",
@@ -201,6 +202,7 @@ describe("feedback", () => {
     ]);
     expect(keys("member")).toEqual([
       "clan",
+      "actions",
       "standing",
       "trophies",
       "recruit",
@@ -243,7 +245,9 @@ describe("feedback", () => {
     );
     expect(railItems({ ...me, clans: [{}, {}] })[0].key).toBe("clans");
     expect(railKey("/clan/2PQRJ8LV")).toBe("clan");
-    expect(railKey("/clan/2PQRJ8LV/manage")).toBe("inbox");
+    expect(railKey("/clan/2PQRJ8LV/manage")).toBe("actions");
+    expect(railKey("/clan/2PQRJ8LV/manage/inbox")).toBe("actions");
+    expect(railKey("/clan/2PQRJ8LV/actions")).toBe("actions");
     expect(railKey("/clan/2PQRJ8LV/manage/awards")).toBe("awards");
     expect(railKey("/clan/2PQRJ8LV/trophies")).toBe("trophies");
     expect(railKey("/you/away")).toBe("away");

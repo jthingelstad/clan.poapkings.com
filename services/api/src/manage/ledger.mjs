@@ -9,9 +9,14 @@
  *   policy#<clan>#v<n>       one immutable version: values, who, when
  *   verdicts#<clan>          the latest verdict snapshot (small; evidence
  *                            summaries, never Elixir payloads)
- *   card#<clan>#<id>         a card: member, type, status, frozen evidence,
- *                            decision, outcome (kept: this ledger is how a
- *                            leave is told from a kick)
+ *   card#<clan>#<id>         an action (a "card" in code): member, type,
+ *                            audience, status, frozen evidence, decision,
+ *                            outcome (kept: this ledger is how a leave is
+ *                            told from a kick)
+ *   action_log#<clan>#<card id>#<entry id>
+ *                            one entry in an action's log: raised (with
+ *                            what raised it), withdrawn, completed,
+ *                            declined, outcome, or a person's comment
  *   hold#<clan>#<tag>        a member on hold: until (or null), who, note
  *   note#<clan>#<id>         a note on a member: tier (leader | elder),
  *                            author, text, when
@@ -54,6 +59,7 @@ const clanKey = (tag) => `clan#${tag}`;
 const FEEDBACK_PARTITION = "feedback#queue";
 export const newId = () => randomBytes(9).toString("base64url");
 const pad = (n) => String(n).padStart(6, "0");
+let logSeq = 0;
 
 export function createDynamoLedger({ tableName, region }) {
   const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
@@ -223,6 +229,30 @@ function ledgerOver(io) {
         ...card,
       });
       return card;
+    },
+    // ---- action logs: append-only, one item per entry, so two people
+    // writing at once never overwrite each other ------------------------
+    async actionLog(clanTag, cardId) {
+      return (await io.listByPrefix(clanTag, `action_log#${cardId}#`)).map(
+        stripKeys,
+      );
+    },
+    async actionLogs(clanTag) {
+      return (await io.listByPrefix(clanTag, "action_log#")).map(stripKeys);
+    },
+    async appendActionLog(clanTag, entry) {
+      const entry_id = entry.entry_id ?? newId();
+      // Entries written in the same millisecond keep the order they were
+      // written in: `seq` breaks the tie.
+      const seq = String((logSeq = (logSeq + 1) % 1e9)).padStart(9, "0");
+      const item = { ...entry, entry_id, seq };
+      await io.put({
+        pk: `action_log#${clanTag}#${entry.card_id}#${entry_id}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: `action_log#${entry.card_id}#${entry.at}#${seq}#${entry_id}`,
+        ...item,
+      });
+      return item;
     },
     // ---- holds ---------------------------------------------------------
     async holds(clanTag) {

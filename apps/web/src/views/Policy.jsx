@@ -98,16 +98,16 @@ export function Policy({ clan }) {
       {view.set ? (
         <p className="page-head__note m-0">
           {`Version ${view.current.version}, saved ${view.current.saved_at?.slice(0, 10)} by ${view.current.saved_by_name ?? view.current.saved_by}.`}{" "}
-          Every save is a new version; nothing is edited in place. Cards say
-          which version judged them.
+          Every save is a new version; nothing is edited in place. Each action
+          says which version raised it.
         </p>
       ) : (
         <div className="callout" role="note">
           <span>
             This clan has no policy yet, so nothing in clan management runs: no
-            cards, no standing, no inactivity clock, no awards. Everything below
-            starts off. Turn on what your clan does and save; members then see
-            how the clan runs on their Standing page.
+            actions, no standing, no inactivity clock, no awards. Everything
+            below starts off. Turn on what your clan does and save; members then
+            see how the clan runs on their Standing page.
           </span>
         </div>
       )}

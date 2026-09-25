@@ -34,6 +34,15 @@ import {
   FIELDS,
   GROUPS,
   MIN_MEMBERS,
+  ACTION_TYPES,
+  SYSTEM,
+  audienceOf,
+  awayCandidates,
+  canAct,
+  logEntry,
+  priorActions,
+  reconstructedLog,
+  welcomesFrom,
 } from "@elixir-clan/engine";
 import { newId } from "./ledger.mjs";
 
@@ -195,6 +204,104 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     return (await ledger.clanSize(clanTag))?.members ?? null;
   }
 
+  // ---- actions and their logs ----------------------------------------
+  const person = (who) => ({
+    tag: who.player_tag,
+    name: who.name ?? null,
+    role: who.role,
+  });
+  /** Append one entry to an action's log. */
+  const logAction = (
+    clanTag,
+    card_id,
+    kind,
+    { by = SYSTEM, text = null, detail = null } = {},
+  ) =>
+    ledger.appendActionLog(clanTag, {
+      card_id,
+      ...logEntry(kind, {
+        at: new Date(now()).toISOString(),
+        by,
+        text,
+        detail,
+      }),
+    });
+  /** Raise an action, logging what raised it and the member's earlier
+   *  actions of the same kind. */
+  async function raiseAction(clanTag, card, cards, { text, detail = {} }) {
+    const action = { ...card, audience: audienceOf(card) };
+    await ledger.putCard(clanTag, action);
+    await logAction(clanTag, action.card_id, "raised", {
+      text,
+      detail: {
+        policy_version: action.policy_version ?? null,
+        ...detail,
+        prior: priorActions(cards, {
+          player_tag: action.player_tag,
+          type: action.type,
+          before: action.raised_at,
+        }),
+      },
+    });
+    return action;
+  }
+  /** Withdraw an open action, saying why. */
+  async function withdrawAction(clanTag, card, reason) {
+    await ledger.putCard(clanTag, {
+      ...card,
+      status: "withdrawn",
+      withdrawn_at: new Date(now()).toISOString(),
+      withdraw_reason: reason,
+    });
+    await logAction(clanTag, card.card_id, "withdrawn", { text: reason });
+  }
+  /** An action's log: the stored entries, with what an action raised
+   *  before logs were kept reconstructed from its own fields. */
+  function logOf(card, stored) {
+    const order = (a, b) =>
+      a.at < b.at
+        ? -1
+        : a.at > b.at
+          ? 1
+          : String(a.seq ?? "").localeCompare(String(b.seq ?? ""));
+    const entries = [...(stored ?? [])].sort(order);
+    if (entries.some((e) => e.kind === "raised")) return entries;
+    const have = new Set(entries.map((e) => e.kind));
+    return [
+      ...reconstructedLog(card).filter((e) => !have.has(e.kind)),
+      ...entries,
+    ].sort(order);
+  }
+  /** The paste-ready clan-chat line an action carries, if any. */
+  const copyFor = (c) =>
+    c.type === "departure" || c.type === "away"
+      ? null
+      : c.type === "welcome"
+        ? inGameCopy("welcome", { name: c.player_name })
+        : inGameCopy(c.type, {
+            name: c.player_name,
+            days_idle: c.evidence?.days_idle ?? null,
+            phrase: c.evidence?.phrase ?? "",
+          });
+  /** An action as a person reads it, with its log. */
+  const shapeAction = (c, stored, who) => ({
+    ...c,
+    audience: audienceOf(c),
+    label: ACTION_TYPES[c.type]?.label ?? c.type,
+    copy: copyFor(c),
+    can_act: c.status === "proposed" && (!who || canAct(c, who)),
+    log: logOf(c, stored),
+  });
+  const logsByCard = async (clanTag) => {
+    const byCard = new Map();
+    for (const e of await ledger.actionLogs(clanTag)) {
+      const list = byCard.get(e.card_id) ?? [];
+      list.push(e);
+      byCard.set(e.card_id, list);
+    }
+    return byCard;
+  };
+
   /** Tag -> trophies today, when the policy counts trophy road. */
   const trophiesFrom = (roster) =>
     roster
@@ -260,7 +367,9 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     // The roster carries today's trophies and the join/leave events; read
     // only when the policy needs one of them.
     const needsRoster =
-      policy.values.trophies_enabled || policy.values.departures_enabled;
+      policy.values.trophies_enabled ||
+      policy.values.departures_enabled ||
+      policy.values.welcome_enabled;
     const roster =
       !participation && needsRoster
         ? await fetchRoster(mcp, token, clanTag)
@@ -295,42 +404,52 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     // Reconcile cards against the fresh verdicts.
     const open = cards.filter((c) => c.status === "proposed");
     const { raise, withdraw } = reconcileCards(verdicts, open);
-    for (const { card, reason } of withdraw) {
-      await ledger.putCard(clanTag, {
-        ...card,
-        status: "withdrawn",
-        withdrawn_at: new Date(t).toISOString(),
-        withdraw_reason: reason,
-      });
-    }
+    for (const { card, reason } of withdraw)
+      await withdrawAction(clanTag, card, reason);
     for (const { player_tag, type, verdict } of raise) {
       const raised_at = new Date(t).toISOString();
-      await ledger.putCard(clanTag, {
-        card_id: newId(),
-        clan_tag: clanTag,
-        player_tag,
-        player_name: verdict.name,
-        role_at_raise: verdict.role,
-        type,
-        status: "proposed",
-        raised_at,
-        policy_version: policy.version,
-        evidence: {
-          as_of: verdicts.as_of,
-          freshness_seconds: verdicts.freshness_seconds,
-          facts: cardFacts(verdict, policy.values),
-          rationale: cardRationale(type, verdict, policy.values, verdicts),
-          phrase: participationPhrase(verdict, policy.values),
-          days_idle: verdict.removal.days_idle,
-          standing: verdict.standing,
+      const facts = cardFacts(verdict, policy.values);
+      const rationale = cardRationale(type, verdict, policy.values, verdicts);
+      await raiseAction(
+        clanTag,
+        {
+          card_id: newId(),
+          clan_tag: clanTag,
+          player_tag,
+          player_name: verdict.name,
+          role_at_raise: verdict.role,
+          type,
+          status: "proposed",
+          raised_at,
+          policy_version: policy.version,
+          evidence: {
+            as_of: verdicts.as_of,
+            freshness_seconds: verdicts.freshness_seconds,
+            facts,
+            rationale,
+            phrase: participationPhrase(verdict, policy.values),
+            days_idle: verdict.removal.days_idle,
+            standing: verdict.standing,
+          },
         },
-      });
+        cards,
+        {
+          text: rationale.headline,
+          detail: {
+            clauses: rationale.clauses,
+            facts: facts.map((f) => `${f.label}: ${f.value} (${f.window})`),
+            as_of: verdicts.as_of,
+          },
+        },
+      );
     }
-    // Outcome verification for done cards, from the record.
+    // Outcome verification for completed promotions, demotions and
+    // removals, from the record.
     const memberByTag = new Map(verdicts.members.map((m) => [m.player_tag, m]));
     for (const c of cards) {
       if (
         c.status !== "done" ||
+        !["promotion", "demotion", "removal"].includes(c.type) ||
         c.outcome?.verified_at ||
         c.outcome?.flagged_at
       )
@@ -345,27 +464,116 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           m?.role === "elder" || m?.role === "coLeader" || m?.role === "leader";
       else if (c.type === "demotion") verified = m?.role === "member";
       if (verified) {
+        const classification =
+          c.type === "removal" ? "member_kicked" : "role_changed";
         await ledger.putCard(clanTag, {
           ...c,
           outcome: {
             verified_at: new Date(t).toISOString(),
             delay_hours: Number(((t - decidedMs) / 3600_000).toFixed(1)),
-            classification:
-              c.type === "removal" ? "member_kicked" : "role_changed",
+            classification,
           },
+        });
+        await logAction(clanTag, c.card_id, "outcome_verified", {
+          text:
+            c.type === "removal"
+              ? "The record shows the member gone."
+              : "The record shows the role changed.",
+          detail: { classification },
         });
       } else if (
         t - decidedMs >
         policy.values.outcome_window_hours * 3600_000
       ) {
+        const note =
+          "No matching change in the record inside the outcome window.";
         await ledger.putCard(clanTag, {
           ...c,
-          outcome: {
-            flagged_at: new Date(t).toISOString(),
-            note: "No matching change in the record inside the outcome window.",
-          },
+          outcome: { flagged_at: new Date(t).toISOString(), note },
         });
+        await logAction(clanTag, c.card_id, "outcome_flagged", { text: note });
       }
+    }
+    // Going to be away? A member whose own clock is at risk is asked, when
+    // the policy says so; the action closes itself when they play again or
+    // mark themselves away.
+    const awayOn =
+      policy.values.removal_enabled &&
+      policy.values.away_max_days > 0 &&
+      policy.values.away_suggestions_enabled;
+    const askAway = new Map(
+      (awayOn ? awayCandidates(verdicts) : []).map((m) => [m.player_tag, m]),
+    );
+    const awayHolds = new Map(
+      holds
+        .filter(
+          (h) => h.kind === "away" && (!h.until || Date.parse(h.until) > t),
+        )
+        .map((h) => [h.player_tag, h]),
+    );
+    for (const c of cards.filter(
+      (c) => c.type === "away" && c.status === "proposed",
+    )) {
+      const away = awayHolds.get(c.player_tag);
+      if (away) {
+        const note = `Marked away${away.until ? ` until ${away.until.slice(0, 10)}` : ""}.`;
+        await ledger.putCard(clanTag, {
+          ...c,
+          status: "done",
+          decided_at: new Date(t).toISOString(),
+          decided_by: c.player_tag,
+          decided_by_name: c.player_name ?? null,
+          decision_note: note,
+        });
+        await logAction(clanTag, c.card_id, "completed", {
+          by: { tag: c.player_tag, name: c.player_name ?? null, role: null },
+          text: note,
+        });
+      } else if (!awayOn)
+        await withdrawAction(
+          clanTag,
+          c,
+          "The policy no longer asks quiet members.",
+        );
+      else if (!askAway.has(c.player_tag))
+        await withdrawAction(clanTag, c, "They played again.");
+    }
+    for (const m of askAway.values()) {
+      if (
+        cards.some(
+          (c) =>
+            c.type === "away" &&
+            c.player_tag === m.player_tag &&
+            c.status === "proposed",
+        )
+      )
+        continue;
+      const days = Math.floor(m.removal.days_idle);
+      await raiseAction(
+        clanTag,
+        {
+          card_id: newId(),
+          clan_tag: clanTag,
+          player_tag: m.player_tag,
+          player_name: m.name,
+          role_at_raise: m.role,
+          type: "away",
+          status: "proposed",
+          raised_at: new Date(t).toISOString(),
+          policy_version: policy.version,
+          evidence: {
+            as_of: verdicts.as_of,
+            days_idle: m.removal.days_idle,
+            at_risk_days: m.removal.at_risk_days,
+            away_max_days: policy.values.away_max_days,
+          },
+        },
+        cards,
+        {
+          text: `${days} battle-free days, at risk from ${m.removal.at_risk_days}: asked whether they are away.`,
+          detail: { clauses: ["away_suggestions_enabled", "at_risk_days"] },
+        },
+      );
     }
     // Departures the record shows and this ledger has not explained (a
     // removal card marked Done explains its own): one card each, Kicked /
@@ -376,12 +584,63 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       for (const c of cards.filter(
         (c) => c.type === "departure" && c.status === "proposed",
       ))
-        await ledger.putCard(clanTag, {
-          ...c,
-          status: "withdrawn",
-          withdrawn_at: new Date(t).toISOString(),
-          withdraw_reason: "The policy no longer asks about departures.",
-        });
+        await withdrawAction(
+          clanTag,
+          c,
+          "The policy no longer asks about departures.",
+        );
+    }
+    if (!policy.values.welcome_enabled) {
+      for (const c of cards.filter(
+        (c) => c.type === "welcome" && c.status === "proposed",
+      ))
+        await withdrawAction(
+          clanTag,
+          c,
+          "The policy no longer suggests welcomes.",
+        );
+    }
+    if (!participation && roster && policy.values.welcome_enabled) {
+      // Newcomers to welcome: elders and leaders get the action; it closes
+      // itself if they leave first or after a week.
+      const allCards = await ledger.cards(clanTag);
+      const currentTags = new Set(
+        (roster.members ?? []).map((m) => m.player_tag),
+      );
+      for (const c of allCards.filter(
+        (c) => c.type === "welcome" && c.status === "proposed",
+      )) {
+        if (!currentTags.has(c.player_tag))
+          await withdrawAction(clanTag, c, "They left before a welcome.");
+        else if (t - Date.parse(c.evidence?.joined_at) > 7 * DAY_MS)
+          await withdrawAction(clanTag, c, "Too long after they joined.");
+      }
+      for (const w of welcomesFrom(
+        roster.recent_events,
+        allCards,
+        currentTags,
+        new Date(t),
+      ))
+        await raiseAction(
+          clanTag,
+          {
+            card_id: newId(),
+            clan_tag: clanTag,
+            player_tag: w.player_tag,
+            player_name: w.player_name,
+            role_at_raise: "member",
+            type: "welcome",
+            status: "proposed",
+            raised_at: new Date(t).toISOString(),
+            policy_version: policy.version,
+            evidence: { joined_at: w.joined_at },
+          },
+          allCards,
+          {
+            text: `${w.player_name ?? w.player_tag} joined the clan ${w.joined_at.slice(0, 10)}.`,
+            detail: { clauses: ["welcome_enabled"] },
+          },
+        );
     }
     if (!participation) {
       if (roster && policy.values.departures_enabled) {
@@ -400,12 +659,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
             c.status === "proposed" &&
             currentTags.has(c.player_tag),
         )) {
-          await ledger.putCard(clanTag, {
-            ...c,
-            status: "withdrawn",
-            withdrawn_at: new Date(t).toISOString(),
-            withdraw_reason: "The member rejoined the clan.",
-          });
+          await withdrawAction(clanTag, c, "The member rejoined the clan.");
         }
         for (const d of departuresFrom(
           roster.recent_events,
@@ -413,27 +667,37 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           lastKnown,
           currentTags,
         )) {
-          await ledger.putCard(clanTag, {
-            card_id: newId(),
-            clan_tag: clanTag,
-            player_tag: d.player_tag,
-            player_name: d.player_name ?? d.last?.name ?? null,
-            role_at_raise: d.role_before ?? d.last?.role ?? null,
-            type: "departure",
-            status: "proposed",
-            raised_at: new Date(t).toISOString(),
-            policy_version: policy.version,
-            evidence: {
-              left_at: d.left_at,
-              days_idle:
-                d.last?.facts?.days_idle ?? d.last?.removal?.days_idle ?? null,
-              tenure_days: d.last?.facts?.tenure_days ?? null,
-              removal_state: d.last?.removal?.state ?? null,
-              phrase: d.last
-                ? participationPhrase(d.last, policy.values)
-                : null,
+          await raiseAction(
+            clanTag,
+            {
+              card_id: newId(),
+              clan_tag: clanTag,
+              player_tag: d.player_tag,
+              player_name: d.player_name ?? d.last?.name ?? null,
+              role_at_raise: d.role_before ?? d.last?.role ?? null,
+              type: "departure",
+              status: "proposed",
+              raised_at: new Date(t).toISOString(),
+              policy_version: policy.version,
+              evidence: {
+                left_at: d.left_at,
+                days_idle:
+                  d.last?.facts?.days_idle ??
+                  d.last?.removal?.days_idle ??
+                  null,
+                tenure_days: d.last?.facts?.tenure_days ?? null,
+                removal_state: d.last?.removal?.state ?? null,
+                phrase: d.last
+                  ? participationPhrase(d.last, policy.values)
+                  : null,
+              },
             },
-          });
+            allCards,
+            {
+              text: `${d.player_name ?? d.last?.name ?? d.player_tag} left the clan ${d.left_at.slice(0, 10)} and no removal action explains it.`,
+              detail: { clauses: ["departures_enabled"] },
+            },
+          );
         }
       }
       // A card raised with only a tag (a member_left Elixir observed
@@ -472,14 +736,72 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
 
     noteSize,
 
-    /** Open cards, for the rail's count: a ledger read, no evaluation. */
-    async openCardCount(clanTag) {
+    /** Open actions this person may take, for the rail's count: a ledger
+     *  read, no evaluation. */
+    async openActionCount(clanTag, who) {
       if (!(await policyFor(clanTag)).set) return 0;
       const size = await ledger.clanSize(clanTag);
       if (size && size.members < MIN_MEMBERS) return 0;
       return (await ledger.cards(clanTag)).filter(
-        (c) => c.status === "proposed",
+        (c) => c.status === "proposed" && canAct(c, who),
       ).length;
+    },
+
+    /**
+     * Actions, for everyone in a clan with a policy: the open ones this
+     * person may take (assigned to them, or open to their role), and the
+     * ones closed in the last 30 days they could have taken, each with its
+     * log. Opening it evaluates (five-minute cache), so actions are raised
+     * by whoever looks first.
+     */
+    async actionsView(clanTag, who, token, { refresh = false } = {}) {
+      const { verdicts, policy, cached } = await evaluateClan({
+        clanTag,
+        token,
+        who,
+        force: refresh,
+      });
+      const t = now();
+      const byCard = await logsByCard(clanTag);
+      const mine = (await ledger.cards(clanTag)).filter((c) => canAct(c, who));
+      const closedAt = (c) => c.decided_at ?? c.withdrawn_at ?? c.raised_at;
+      return {
+        clan_tag: clanTag,
+        evaluated_at: verdicts.evaluated_at,
+        cached,
+        as_of: verdicts.as_of,
+        freshness_seconds: verdicts.freshness_seconds,
+        policy_version: policy.version,
+        open: mine
+          .filter((c) => c.status === "proposed")
+          .sort((a, b) => (a.raised_at < b.raised_at ? 1 : -1))
+          .map((c) => shapeAction(c, byCard.get(c.card_id), who)),
+        recent: mine
+          .filter(
+            (c) =>
+              c.status !== "proposed" &&
+              t - Date.parse(closedAt(c)) < 30 * DAY_MS,
+          )
+          .sort((a, b) => (closedAt(a) < closedAt(b) ? 1 : -1))
+          .slice(0, 30)
+          .map((c) => shapeAction(c, byCard.get(c.card_id), who)),
+        decline_reasons: DECLINE_REASONS,
+      };
+    },
+
+    /** A comment in an action's log, from anyone who may see the action,
+     *  open or closed. */
+    async comment(clanTag, who, cardId, text) {
+      await requirePolicy(clanTag);
+      const card = await ledger.card(clanTag, cardId);
+      if (!card || !canAct(card, who)) throw new ManageError(404, "no_action");
+      const body = String(text ?? "").trim();
+      if (!body || body.length > 1000)
+        throw new ManageError(400, "bad_comment");
+      return logAction(clanTag, card.card_id, "comment", {
+        by: person(who),
+        text: body,
+      });
     },
 
     /** What the chrome needs to know about the clan's policy: whether one
@@ -634,20 +956,11 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       const cards = await ledger.cards(clanTag);
       const holds = await ledger.holds(clanTag);
       const holdByTag = new Map(holds.map((h) => [h.player_tag, h]));
+      const byCard = await logsByCard(clanTag);
       const inbox = cards
-        .filter((c) => c.status === "proposed")
+        .filter((c) => c.status === "proposed" && canAct(c, who))
         .sort((a, b) => (a.raised_at < b.raised_at ? 1 : -1))
-        .map((c) => ({
-          ...c,
-          copy:
-            c.type === "departure"
-              ? null
-              : inGameCopy(c.type, {
-                  name: c.player_name,
-                  days_idle: c.evidence?.days_idle ?? null,
-                  phrase: c.evidence?.phrase ?? "",
-                }),
-        }));
+        .map((c) => shapeAction(c, byCard.get(c.card_id), who));
       const board = verdicts.members.map((m) => ({
         player_tag: m.player_tag,
         name: m.name,
@@ -698,9 +1011,11 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       requireLeader(who);
       await requirePolicy(clanTag);
       const allCards = await ledger.cards(clanTag);
+      const byCard = await logsByCard(clanTag);
       const cards = allCards
         .filter((c) => c.status !== "proposed")
-        .sort((a, b) => (a.raised_at < b.raised_at ? 1 : -1));
+        .sort((a, b) => (a.raised_at < b.raised_at ? 1 : -1))
+        .map((c) => shapeAction(c, byCard.get(c.card_id), who));
       // The membership timeline: Elixir's recent join / leave / role
       // events, each leave carrying what this ledger says about it, and
       // a welcome line a leader can paste for a join.
@@ -784,12 +1099,17 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       cardId,
       { status, reason = null, note = null, classification = null },
     ) {
-      requireLeader(who);
       await requirePolicy(clanTag);
       const card = await ledger.card(clanTag, cardId);
-      if (!card) throw new ManageError(404, "no_card");
-      // A decided card is frozen; a withdrawn card cannot be resurrected.
-      if (card.status !== "proposed") throw new ManageError(409, "card_closed");
+      // Only the people an action is for may take it (or see it at all).
+      if (!card || !canAct(card, who)) {
+        if (card && audienceOf(card).kind === "leaders")
+          throw new ManageError(403, "leaders_only");
+        throw new ManageError(404, "no_action");
+      }
+      // A decided action is frozen; a withdrawn one cannot be resurrected.
+      if (card.status !== "proposed")
+        throw new ManageError(409, "action_closed");
       // A departure is answered, never declined: Kicked, Left or Ignore.
       if (card.type === "departure") {
         if (!DEPARTURE_CLASSIFICATIONS.includes(classification))
@@ -797,7 +1117,12 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         status = "done";
       } else if (status !== "done" && status !== "declined")
         throw new ManageError(400, "bad_status");
-      if (status === "declined" && !DECLINE_REASONS.includes(reason))
+      // A leader's decline says why; a welcome or an away may just be no.
+      if (
+        status === "declined" &&
+        !DECLINE_REASONS.includes(reason) &&
+        !(audienceOf(card).kind !== "leaders" && reason === null)
+      )
         throw new ManageError(400, "bad_reason");
       const decided_at = new Date(now()).toISOString();
       const decided = {
@@ -827,6 +1152,19 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           : {}),
       };
       await ledger.putCard(clanTag, decided);
+      await logAction(
+        clanTag,
+        card.card_id,
+        status === "done" ? "completed" : "declined",
+        {
+          by: person(who),
+          text: decided.decision_note,
+          detail: {
+            reason: decided.decline_reason,
+            classification: decided.outcome?.classification ?? null,
+          },
+        },
+      );
       return decided;
     },
 
@@ -893,7 +1231,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       // A leader's hold is the leader's; the member does not overwrite it.
       if (existing && existing.kind !== "away")
         throw new ManageError(409, "held_by_leader");
-      return ledger.putHold(clanTag, {
+      const hold = await ledger.putHold(clanTag, {
         player_tag: who.player_tag,
         kind: "away",
         until: new Date(untilMs).toISOString(),
@@ -902,6 +1240,28 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
         by_name: who.name ?? null,
         set_at: new Date(t).toISOString(),
       });
+      // Marking away completes the "going to be away?" action, if one is open.
+      for (const c of (await ledger.cards(clanTag)).filter(
+        (c) =>
+          c.type === "away" &&
+          c.status === "proposed" &&
+          c.player_tag === who.player_tag,
+      )) {
+        const text = `Marked away until ${hold.until.slice(0, 10)}.`;
+        await ledger.putCard(clanTag, {
+          ...c,
+          status: "done",
+          decided_at: new Date(t).toISOString(),
+          decided_by: who.player_tag,
+          decided_by_name: who.name ?? null,
+          decision_note: text,
+        });
+        await logAction(clanTag, c.card_id, "completed", {
+          by: person(who),
+          text,
+        });
+      }
+      return hold;
     },
     async clearAway(clanTag, who) {
       const existing = (await ledger.holds(clanTag)).find(

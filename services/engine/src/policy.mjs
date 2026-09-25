@@ -1,7 +1,7 @@
 /**
  * Policy: how one clan runs, as versioned configuration its leaders write.
  * Nothing in clan management runs until a leader or co-leader has saved a
- * policy (Jamie, 2026-09-25): before then there are no cards, no standing,
+ * policy (Jamie, 2026-09-25): before then there are no actions, no standing,
  * no inactivity clock and no awards, only the roster and its statistics.
  *
  * A policy is built from CATEGORIES the clan chooses to count (Clan Wars,
@@ -81,7 +81,7 @@ export const GROUPS = [
   {
     key: "promotion",
     title: "Promotion",
-    why: "Sustained, never a snapshot: a member is in the promotable set on several weekly reviews before a card is raised. One missed review is tolerated; two in a row start the count again.",
+    why: "Sustained, never a snapshot: a member is in the promotable set on several weekly reviews before an action is suggested. One missed review is tolerated; two in a row start the count again.",
     when: RANKING,
   },
   {
@@ -97,13 +97,13 @@ export const GROUPS = [
   },
   {
     key: "departures",
-    title: "Departures",
-    why: "A leave and a kick look the same in the roster. Leaders can be asked which it was, so the clan's history says.",
+    title: "Arrivals and departures",
+    why: "A leave and a kick look the same in the roster: leaders can be asked which it was, so the clan's history says. A newcomer can be welcomed: elders and leaders get the action, with a line for clan chat.",
   },
   {
-    key: "cards",
-    title: "Cards",
-    why: "How the cards leaders decide behave after a decision.",
+    key: "actions",
+    title: "Actions",
+    why: "How the actions leaders take behave after a decision.",
     when: [{ elder_mode: "categories" }, { removal_enabled: true }],
   },
   {
@@ -270,7 +270,7 @@ export const FIELDS = {
       },
     ],
     default: "manual",
-    why: "By hand, the app raises no promotion or demotion cards. By participation, members are ranked on the weighted categories below and leaders decide the cards that follow.",
+    why: "By hand, the app suggests no promotion or demotion. By participation, members are ranked on the weighted categories below and leaders decide the actions that follow.",
   },
   elder_weight_war: {
     group: "elder",
@@ -372,7 +372,7 @@ export const FIELDS = {
     min: 1,
     max: 8,
     default: 3,
-    why: "In the promotable set on this many weekly reviews before a card is raised.",
+    why: "In the promotable set on this many weekly reviews before an action is suggested.",
     when: RANKING,
   },
   swap_margin: {
@@ -412,11 +412,11 @@ export const FIELDS = {
   // ---- removal ------------------------------------------------------------------
   removal_enabled: {
     group: "removal",
-    label: "Raise removal cards",
+    label: "Suggest removals",
     unit: "on/off",
     type: "boolean",
     default: false,
-    why: "Track inactivity and raise a removal card for leaders to decide.",
+    why: "Track inactivity and suggest removal to leaders as an action.",
   },
   watch_days: {
     group: "removal",
@@ -426,7 +426,7 @@ export const FIELDS = {
     min: 1,
     max: 60,
     default: 3,
-    why: "Shown to leaders on the board; never a card.",
+    why: "Shown to leaders on the board; never an action.",
     when: [{ removal_enabled: true }],
   },
   at_risk_days: {
@@ -442,13 +442,13 @@ export const FIELDS = {
   },
   confirm_days: {
     group: "removal",
-    label: "Card after",
+    label: "Removal action after",
     unit: "more days",
     type: "integer",
     min: 0,
     max: 90,
     default: 7,
-    why: "At risk plus this many days raises a removal card.",
+    why: "At risk plus this many days suggests a removal action.",
     when: [{ removal_enabled: true }],
   },
   contribution_grace_max_days: {
@@ -475,11 +475,11 @@ export const FIELDS = {
   },
   removal_includes_elders: {
     group: "removal",
-    label: "Elders can get removal cards",
+    label: "Elders can get removal actions",
     unit: "on/off",
     type: "boolean",
     default: false,
-    why: "Off, an inactive Elder is shown at risk but never carded. Leaders and co-leaders are never carded.",
+    why: "Off, an inactive Elder is shown at risk but never gets a removal action. Leaders and co-leaders never do.",
     when: [{ removal_enabled: true }],
   },
   away_max_days: {
@@ -493,6 +493,15 @@ export const FIELDS = {
     why: "A member who says they will be away pauses their own clock, up to this long. Zero turns it off; leaders can always hold or clear.",
     when: [{ removal_enabled: true }],
   },
+  away_suggestions_enabled: {
+    group: "removal",
+    label: "Ask quiet members if they are away",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "A member whose inactivity clock reaches at risk gets an action of their own: going to be away? It closes itself when they play again or mark themselves away.",
+    when: [{ removal_enabled: true }],
+  },
 
   // ---- departures -------------------------------------------------------------
   departures_enabled: {
@@ -501,23 +510,31 @@ export const FIELDS = {
     unit: "on/off",
     type: "boolean",
     default: false,
-    why: "When a member leaves and no removal card explains it, leaders get a card: kicked, left, or ignore.",
+    why: "When a member leaves and no removal action explains it, leaders get an action: kicked, left, or ignore.",
+  },
+  welcome_enabled: {
+    group: "departures",
+    label: "Suggest welcoming newcomers",
+    unit: "on/off",
+    type: "boolean",
+    default: false,
+    why: "When a member joins, elders and leaders get an action to welcome them, with a line to paste in clan chat. It closes itself after a few days.",
   },
 
-  // ---- cards ------------------------------------------------------------------------
+  // ---- actions ----------------------------------------------------------------------
   outcome_window_hours: {
-    group: "cards",
+    group: "actions",
     label: "Outcome window",
     unit: "hours",
     type: "integer",
     min: 1,
     max: 168,
     default: 48,
-    why: "After a card is marked Done, the record must show the change (role moved, membership closed) within this window or the card is flagged for a look.",
+    why: "After an action is completed, the record must show the change (role moved, membership closed) within this window or the action is flagged for a look.",
     when: [{ elder_mode: "categories" }, { removal_enabled: true }],
   },
   renominate_removal_days: {
-    group: "cards",
+    group: "actions",
     label: "After a declined removal",
     unit: "days",
     type: "integer",
@@ -528,7 +545,7 @@ export const FIELDS = {
     when: [{ removal_enabled: true }],
   },
   renominate_promotion_days: {
-    group: "cards",
+    group: "actions",
     label: "After a declined promotion",
     unit: "days",
     type: "integer",
@@ -539,7 +556,7 @@ export const FIELDS = {
     when: RANKING,
   },
   renominate_demotion_days: {
-    group: "cards",
+    group: "actions",
     label: "After a declined demotion",
     unit: "days",
     type: "integer",
@@ -557,7 +574,7 @@ export const FIELDS = {
     unit: "on/off",
     type: "boolean",
     default: true,
-    why: "Who holds Elder, who is rising, who is slipping, each with their own evidence in a player's terms. Nobody below co-leader ever sees a removal card or who is on a clock.",
+    why: "Who holds Elder, who is rising, who is slipping, each with their own evidence in a player's terms. Nobody below co-leader ever sees a removal action or who is on a clock.",
     when: RANKING,
   },
 };
@@ -669,6 +686,13 @@ export function validate(input = {}) {
     errors.band_ceiling_share = "The upper share cannot be below the lower.";
   if (values.at_risk_days < values.watch_days)
     errors.at_risk_days = "At risk cannot come before getting quiet.";
+  if (
+    values.removal_enabled &&
+    values.away_suggestions_enabled &&
+    !(values.away_max_days > 0)
+  )
+    errors.away_suggestions_enabled =
+      "Asking members if they are away needs members to be allowed to mark themselves away.";
   return { ok: Object.keys(errors).length === 0, values, errors };
 }
 

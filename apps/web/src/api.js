@@ -31,8 +31,13 @@ export const manageApi = {
     post(`${clanBase(tag)}/policy`, { values, note }),
   previewPolicy: (tag, values) =>
     post(`${clanBase(tag)}/policy/preview`, { values }),
-  decide: (tag, cardId, body) =>
-    post(`${clanBase(tag)}/cards/${cardId}/decide`, body),
+  // Actions (2026-09-25): what waits for you, with each action's log.
+  actions: (tag, refresh = false) =>
+    get(`${clanBase(tag)}/actions${refresh ? "?refresh=1" : ""}`),
+  decideAction: (tag, id, body) =>
+    post(`${clanBase(tag)}/actions/${id}/decide`, body),
+  commentAction: (tag, id, text) =>
+    post(`${clanBase(tag)}/actions/${id}/comments`, { text }),
   setHold: (tag, playerTag, body) =>
     put(`${clanBase(tag)}/holds/${String(playerTag).replace(/^#/, "")}`, body),
   clearHold: (tag, playerTag) =>

@@ -47,7 +47,7 @@ export const ME = {
   ],
   clans: [FIRST, SECOND],
   selected: null as typeof FIRST | null,
-  open_cards: 2,
+  open_actions: 2,
   feedback_unseen: 1,
   maintainer: false,
   // The selected clan's policy: saved, ranking Elder, tracking inactivity.

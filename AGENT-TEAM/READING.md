@@ -17,6 +17,6 @@ Elixir's behaviour is <https://elixir.poapkings.com/docs> (`protocol`,
 | Judge Fairly | `AGENTS.md` §The engine's contract, §Policy, §Awards, §Roles in Manage; `services/engine/src/*.mjs` and `test/`; `services/api/src/manage/{service,awards}.mjs`; each clan's saved policy (the ledger, read-only); `docs/NOTES.md` from 2026-09-25, "Elixir Clan is for any clan" |
 | Close the Loop | `AGENTS.md` §Feedback; `services/api/src/feedback.mjs`; `scripts/feedback.mjs`; `apps/web/src/views/{Feedback,Maintain}.jsx`; `docs/NOTES.md` "waiting on Jamie" items |
 | Guard the Door | `AGENTS.md` §The five rules, §The seams to Elixir, §Sessions, §What is stored; `services/api/src/{cookies,oauth,gate,handler}.mjs`; `infra/template.yaml` (CloudFront behaviors, headers policy, IAM); `.gitignore`; `git ls-files` |
-| A verdict or card disputed by a member | Judge Fairly's row, plus the disputed member's line in the latest verdict snapshot (ledger) and the policy version that judged it |
+| A verdict or action disputed by a member | Judge Fairly's row, plus the disputed member's line in the latest verdict snapshot (ledger) and the policy version that judged it |
 | A season closed without grants | `services/engine/src/awards.mjs` (`seasonsFrom`, the closed/complete rule), `services/api/src/manage/awards.mjs`, the ledger's `awards_snapshot#<clan>` |
 | Elixir contract moved | Elixir's changelog entry, `AGENTS.md` §Elixir tools this app depends on, `services/api/src/{gate,mcp}.mjs`, the engine's `facts.mjs` if `clans_participation` changed |

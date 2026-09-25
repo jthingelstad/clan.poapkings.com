@@ -107,7 +107,7 @@ export function trackEvent(event, value) {
 export function routeLabel(method, path) {
   const generic = path
     .replace(/^\/api\/clans\/[0-9A-Za-z]+/, "/api/clans/*")
-    .replace(/\/(cards|notes|holds|members)\/[^/]+/g, "/$1/*")
+    .replace(/\/(actions|notes|holds|members)\/[^/]+/g, "/$1/*")
     .replace(/\/awards\/grants\/.+$/, "/awards/grants/*")
     .replace(/^(\/api\/(?:maintain\/)?feedback)\/[^/]+$/, "$1/*")
     .replace(/\?.*$/, "");

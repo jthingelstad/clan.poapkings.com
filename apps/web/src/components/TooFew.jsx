@@ -13,7 +13,7 @@ export function TooFew({ members, min = 10 }) {
         {members != null
           ? `This clan has ${members}. `
           : "This clan is below that for now. "}
-        Like Clan Wars, the policy, cards, standing and awards wait until the
+        Like Clan Wars, the policy, actions, standing and awards wait until the
         clan has {min}; until then Elixir Clan shows the roster and every
         member&rsquo;s statistics, and Recruit and Scout work. A saved policy is
         kept and picks up again at {min}.

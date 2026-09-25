@@ -25,8 +25,8 @@ describe("analytics", () => {
     expect(routeLabel("GET", "/api/clans/2PQRJ8LV/manage?refresh=1")).toBe(
       "GET /api/clans/*/manage",
     );
-    expect(routeLabel("POST", "/api/clans/2PQRJ8LV/cards/abc/decide")).toBe(
-      "POST /api/clans/*/cards/*/decide",
+    expect(routeLabel("POST", "/api/clans/2PQRJ8LV/actions/abc/decide")).toBe(
+      "POST /api/clans/*/actions/*/decide",
     );
     expect(routeLabel("GET", "/api/feedback/abc")).toBe("GET /api/feedback/*");
   });

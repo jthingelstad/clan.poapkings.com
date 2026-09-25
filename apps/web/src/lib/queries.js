@@ -5,7 +5,7 @@
  * the session ["me"], their away note ["me", "away", tag] - so
  * invalidating ["me"] refetches everything that is theirs. A clan's
  * reads start with its tag: ["clan", tag, "manage"], so a decision on
- * a card can invalidate the whole clan or one read of it.
+ * an action can invalidate the whole clan or one read of it.
  *
  * Most of this app's reads gate on status - 401 is the session gone,
  * 403 is the role refusing - so they keep the ENVELOPE (answered()) and
@@ -37,6 +37,7 @@ export const keys = {
   recruit: (tag) => ["clan", tag, "recruit"],
   standing: (tag) => ["clan", tag, "standing"],
   trophies: (tag) => ["clan", tag, "trophies"],
+  actions: (tag) => ["clan", tag, "actions"],
   memberNotes: (tag, player) => ["clan", tag, "member", player, "notes"],
   memberAwards: (tag, player) => ["clan", tag, "member", player, "awards"],
   maintain: ["maintain", "feedback"],
@@ -134,6 +135,9 @@ export const useStanding = (tag) =>
     queryKey: keys.standing(tag),
     queryFn: answered(() => manageApi.standing(tag)),
   });
+
+export const useActions = (tag) =>
+  useGated(keys.actions(tag), (refresh) => manageApi.actions(tag, refresh));
 
 export const useTrophies = (tag) =>
   useGated(keys.trophies(tag), () => manageApi.trophies(tag));

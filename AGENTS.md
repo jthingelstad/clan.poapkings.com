@@ -53,14 +53,15 @@ chosen: `docs/VISION.md`. Read it before proposing a feature.
 ```
 apps/web/          React 19 + Vite SPA on Elixir's kit (TanStack Router + Query,
                    Tailwind v4 over Elixir's tokens): /, /clans, /clan/<TAG>,
-                   /clan/<TAG>/standing, /clan/<TAG>/trophies, /clan/<TAG>/recruit,
-                   /clan/<TAG>/manage/{inbox,board,history,policy,awards,scout},
+                   /clan/<TAG>/actions, /clan/<TAG>/standing, /clan/<TAG>/trophies,
+                   /clan/<TAG>/recruit, /clan/<TAG>/manage/{board,history,policy,awards,scout},
                    /you, /you/away, /feedback, /maintain/feedback, /refused/<reason>
 services/engine/   the management engine, PURE: policy schema, facts, standing,
                    evaluate, render, awards, recruit. No I/O, no clock. Golden tests in test/.
 services/api/      Node 24 arm64 Lambda behind one HTTP API: /auth/*, /api/*,
                    /api/clans/<TAG>/* (manage/ = ledger, service, awards, recruit, scout)
-scripts/           feedback.mjs (the Close-the-Loop owner's read of the queue)
+scripts/           feedback.mjs (the Close-the-Loop owner's read of the queue),
+                   actions.mjs (actions and their logs, read-only, for review)
 infra/             one CloudFormation stack + scripts (bootstrap, deploy, smoke)
 docs/NOTES.md      decisions, newest last; what is waiting on Jamie
 ```
@@ -192,11 +193,13 @@ only when the policy counts trophy road, each member's trophies today from
   for a member meeting the minimums; leadership and an active hold stop at
   `at_risk`, and so do Elders unless `removal_includes_elders`; a member
   with no anchor is `held`.
-- **Cards** (`reconcileCards`): one open card per (member, type); raised when
-  `actionable` (ready + eligible/recommended + past the cooldown), withdrawn
-  with a reason when not. Outcomes are verified from the record on the next
-  evaluation (removal: membership closed → `member_kicked`; promotion or
-  demotion: the role moved) or flagged after `outcome_window_hours`.
+- **Actions** (`reconcileCards`, still "cards" in code and storage): one open
+  action per (member, type); raised when `actionable` (ready +
+  eligible/recommended + past the cooldown), withdrawn with a reason when
+  not. Outcomes of completed promotions, demotions and removals are verified
+  from the record on the next evaluation (removal: membership closed →
+  `member_kicked`; promotion or demotion: the role moved) or flagged after
+  `outcome_window_hours`. See §Actions for who may take each and its log.
 - **Words** (`render.mjs`): card facts, the member-safe phrase, next steps,
   paste-ready in-game copy and `describePolicy` (the "How it works here"
   section of Standing) are all written from the clan's policy.
@@ -331,22 +334,62 @@ member shields, the weekly digest; **alt accounts are Elixir's knowledge**
 (a fact request to Elixir if ever needed, never recorded here); Discord
 webhooks are deferred. Scheduled evaluation is the next push.
 
+## Actions (2026-09-25)
+
+What Elixir Clan suggests a person in the clan do is an **action** (Jamie:
+"cards" did not resonate; code and storage keep `card`). Each action has an
+**audience** (`services/engine/src/actions.mjs`): `leaders` (promote,
+demote, remove, departure), `elders` (elders and up: welcome a newcomer) or
+one `member` (going to be away?). Whoever the audience allows completes it
+or declines it (a leader's decline says why; a welcome or an away may just
+be no), and only they see it: nobody below co-leader ever sees a removal
+action or who is on a clock, and a member's own away question is theirs
+alone. Two kinds beyond the leaders' are policy switches, off to start:
+`welcome_enabled` (a `member_joined` in the last three days raises a
+welcome for elders and up, with the clan-chat line; it closes itself if
+they leave or after a week) and `away_suggestions_enabled` (a member or
+elder at risk is asked; marking away completes it, playing again
+withdraws it).
+
+**Every action keeps its own log** (Jamie: "for the agent team to review
+per action to improve the system"): append-only entries
+(`action_log#<clan>#<card id>#<entry id>`, one item each, ordered by time
+and a tie-breaking `seq`) for what raised it (the rule's headline, the
+policy version and clauses, the facts, and the member's earlier actions of
+the same kind with how they closed), a withdrawal and why, who completed
+or declined it with their note and reason, what the record confirmed or
+flagged, and anyone's comments, open or closed. An action raised before
+logs existed has its log reconstructed from its own fields, marked so.
+
+Surfaces: **Actions** (`/clan/<TAG>/actions`, `GET /api/clans/<TAG>/actions`,
+the rail's count is `/api/me`'s `open_actions`) for everyone in a clan with
+an active policy: what waits for you and what closed in the last 30 days,
+each with its log and a comment box; opening it evaluates. The leaders'
+old Inbox address lands there. `POST .../actions/<id>/decide` and
+`POST .../actions/<id>/comments`. History shows each closed action's log.
+The agent team reads logs from the host, read-only:
+`node scripts/actions.mjs clans | list | show | review --clan <TAG>`
+(`review` picks declines, quick withdrawals, flagged outcomes and anything
+commented).
+
 ## Roles in Manage
 
 From the roster, as the gate resolves them. Leader and co-leader: Manage
-(inbox, board, history, policy, awards, scout), holds, leader notes, and
-every note. Elder: elder notes (write and read), awards (read; grant what
-elders may), scout. Everyone in the clan, once there is a policy: Standing
-("How it works here" and their own line, plus where everyone stands when
-Elder is ranked and `members_see_standing` is on) and Trophies. Nobody
-below co-leader ever sees a removal card or who is on a clock.
+(board, history, policy, awards, scout), the leaders' actions, holds, leader
+notes, and every note. Elder: the elders' actions, elder notes (write and
+read), awards (read; grant what elders may), scout. Everyone in the clan,
+once there is an active policy: Actions (their own), Standing ("How it works
+here" and their own line, plus where everyone stands when Elder is ranked
+and `members_see_standing` is on) and Trophies. Nobody below co-leader ever
+sees a removal action or who is on a clock.
 
 ## What is stored, second push
 
 The `elixir-clan` table gains, per clan, through the `ByClan` index:
 the member count at the latest read (`clan_size#`), policy versions, the latest verdict snapshot (evidence summaries only,
-overwritten each evaluation), cards (kept: this ledger is how a leave is
-told from a kick), holds, and notes (tiered `leader` / `elder`). Tags and
+overwritten each evaluation), actions (`card#`, kept: this ledger is how a
+leave is told from a kick) and each action's log (`action_log#`), holds,
+and notes (tiered `leader` / `elder`). Tags and
 summaries, never Elixir payloads. `ledger.deleteClan` removes the set; call
 it when a clan's last verified leader disconnects. Evaluation is on demand
 with the signed-in person's token, cached five minutes per clan; no
@@ -464,7 +507,7 @@ taxonomy, and it is REAL (add here when adding there):
 | Event | Value |
 |---|---|
 | `clan.signin_started` | `landing` \| `chrome` (the link clicked) |
-| `clan.card_decided` | `<type>:<status or classification>` e.g. `removal:done`, `departure:leave` |
+| `clan.action_decided`, `clan.action_commented` | `<type>:<status or classification>` e.g. `removal:done`, `departure:leave`; the type |
 | `clan.hold_set`, `clan.note_added` | `until` \| `open`; `leader` \| `elder` |
 | `clan.policy_previewed`, `clan.policy_saved` | (none); `v<n>` |
 | `clan.awards_saved`, `clan.award_granted` | `v<n>`; the award kind |

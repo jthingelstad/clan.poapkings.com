@@ -1,17 +1,15 @@
-import { Fresh, Icon, ago } from "elixir-mcp/packages/ui/src/index.ts";
+import { Fresh, ago } from "elixir-mcp/packages/ui/src/index.ts";
 import { useState } from "react";
-import { manageApi } from "../api.js";
 import { useHistory, useManage } from "../lib/queries.js";
 import { MemberSheet } from "../components/MemberSheet.jsx";
+import { ActionLog, CopyLine } from "../components/ActionCard.jsx";
 import { RoleChip } from "../components/RoleChip.jsx";
 import { Policy } from "./Policy.jsx";
 import { Scout } from "./Scout.jsx";
 import { Awards } from "./Awards.jsx";
-import { trackEvent } from "../analytics.js";
 import { TooFew } from "../components/TooFew.jsx";
 
 const TITLES = {
-  inbox: "Inbox",
   board: "Board",
   history: "History",
   policy: "Policy",
@@ -19,12 +17,6 @@ const TITLES = {
   scout: "Scout",
 };
 
-const TYPE_LABEL = {
-  promotion: "Promote to Elder",
-  demotion: "Demote to Member",
-  removal: "Remove from the clan",
-  departure: "Departure: kicked, left, or ignore?",
-};
 const BUCKET_LABEL = {
   actionable: "Actionable",
   building: "Building",
@@ -192,127 +184,84 @@ export function Manage({ clan, tab, navigate, who }) {
         <History clan={clan} />
       </>
     );
-  if (tab === "board")
-    return (
-      <>
-        {head}
-        {tabs}
-        {evidenceLine}
-        <BandLine band={d.band} roster={d.roster} />
-        {["actionable", "building", "held", "clear"].map((bucket) => {
-          const rows = d.board.filter((m) => m.bucket === bucket);
-          if (!rows.length) return null;
-          return (
-            <section key={bucket} style={{ marginBottom: "22px" }}>
-              <div className="label" style={{ marginBottom: "8px" }}>
-                {BUCKET_LABEL[bucket]} · {rows.length}
-              </div>
-              <div className="table__scroll">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Member</th>
-                      <th>Role</th>
-                      {d.policy?.ranks_elder ? <th>Elder</th> : null}
-                      {d.policy?.removal ? <th>Removal</th> : null}
-                      <th>Evidence</th>
-                      <th>Judgment</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((m) => (
-                      <tr
-                        key={m.player_tag}
-                        data-you={
-                          m.player_tag === who.player_tag ? "true" : undefined
-                        }
-                      >
-                        <td>
-                          <button
-                            type="button"
-                            className="btn--text"
-                            onClick={() =>
-                              setOpen(
-                                open === m.player_tag ? null : m.player_tag,
-                              )
-                            }
-                          >
-                            {m.name ?? m.player_tag}
-                          </button>{" "}
-                          <span className="tag">{m.player_tag}</span>
-                          {m.hold?.active !== false && m.hold ? (
-                            <span
-                              className="chip chip--info"
-                              style={{ marginLeft: "6px" }}
-                              title={m.hold.note ?? undefined}
-                            >
-                              {m.hold.kind === "away" ? "away" : "hold"}
-                              {m.hold.until
-                                ? ` · ${m.hold.until.slice(0, 10)}`
-                                : ""}
-                            </span>
-                          ) : null}
-                          {sheet(m)}
-                        </td>
-                        <td>
-                          <RoleChip role={m.role} label={m.role} />
-                        </td>
-                        {d.policy?.ranks_elder ? <td>{elderCell(m)}</td> : null}
-                        {d.policy?.removal ? <td>{removalCell(m)}</td> : null}
-                        <td style={{ whiteSpace: "normal", maxWidth: "320px" }}>
-                          {m.phrase || <span className="nil">—</span>}
-                        </td>
-                        <td className="max-w-[280px] min-w-[180px] whitespace-normal">
-                          {judgmentCell(m)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          );
-        })}
-      </>
-    );
-  // Inbox
-  const groups = ["departure", "removal", "promotion", "demotion"]
-    .map((t) => [t, d.inbox.filter((c) => c.type === t)])
-    .filter(([, cs]) => cs.length);
   return (
     <>
       {head}
       {tabs}
       {evidenceLine}
-      {groups.length === 0 ? (
-        <div className="empty">
-          <div className="empty__title">Nothing to decide</div>
-          <p className="empty__body">
-            No card is open. The board shows what is building; a card appears
-            here when the policy's clock or weekly reviews say so.
-          </p>
-        </div>
-      ) : (
-        groups.map(([type, cards]) => (
-          <section key={type} style={{ marginBottom: "22px" }}>
+      <BandLine band={d.band} roster={d.roster} />
+      {["actionable", "building", "held", "clear"].map((bucket) => {
+        const rows = d.board.filter((m) => m.bucket === bucket);
+        if (!rows.length) return null;
+        return (
+          <section key={bucket} style={{ marginBottom: "22px" }}>
             <div className="label" style={{ marginBottom: "8px" }}>
-              {TYPE_LABEL[type]} · {cards.length}
+              {BUCKET_LABEL[bucket]} · {rows.length}
             </div>
-            <div style={{ display: "grid", gap: "12px" }}>
-              {cards.map((c) => (
-                <Card
-                  key={c.card_id}
-                  card={c}
-                  clan={clan}
-                  reasons={d.decline_reasons}
-                  onDecided={() => load(true)}
-                  who={who}
-                />
-              ))}
+            <div className="table__scroll">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Role</th>
+                    {d.policy?.ranks_elder ? <th>Elder</th> : null}
+                    {d.policy?.removal ? <th>Removal</th> : null}
+                    <th>Evidence</th>
+                    <th>Judgment</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((m) => (
+                    <tr
+                      key={m.player_tag}
+                      data-you={
+                        m.player_tag === who.player_tag ? "true" : undefined
+                      }
+                    >
+                      <td>
+                        <button
+                          type="button"
+                          className="btn--text"
+                          onClick={() =>
+                            setOpen(open === m.player_tag ? null : m.player_tag)
+                          }
+                        >
+                          {m.name ?? m.player_tag}
+                        </button>{" "}
+                        <span className="tag">{m.player_tag}</span>
+                        {m.hold?.active !== false && m.hold ? (
+                          <span
+                            className="chip chip--info"
+                            style={{ marginLeft: "6px" }}
+                            title={m.hold.note ?? undefined}
+                          >
+                            {m.hold.kind === "away" ? "away" : "hold"}
+                            {m.hold.until
+                              ? ` · ${m.hold.until.slice(0, 10)}`
+                              : ""}
+                          </span>
+                        ) : null}
+                        {sheet(m)}
+                      </td>
+                      <td>
+                        <RoleChip role={m.role} label={m.role} />
+                      </td>
+                      {d.policy?.ranks_elder ? <td>{elderCell(m)}</td> : null}
+                      {d.policy?.removal ? <td>{removalCell(m)}</td> : null}
+                      <td style={{ whiteSpace: "normal", maxWidth: "320px" }}>
+                        {m.phrase || <span className="nil">—</span>}
+                      </td>
+                      <td className="max-w-[280px] min-w-[180px] whitespace-normal">
+                        {judgmentCell(m)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
-        ))
-      )}
+        );
+      })}
     </>
   );
 }
@@ -393,276 +342,6 @@ function judgmentCell(m) {
   return <span className="chip chip--ok">ready</span>;
 }
 
-/** The leader's word on a decision, stored with the card as
- *  decision_note and shown in History and on the timeline. */
-function NoteInput({ value, onChange, placeholder = "note (optional)" }) {
-  return (
-    <input
-      className="input basis-full"
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      maxLength={280}
-    />
-  );
-}
-
-function Card({ card, clan, reasons, onDecided, who }) {
-  const [reason, setReason] = useState("not_now");
-  const [note, setNote] = useState("");
-  const [declining, setDeclining] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [sheet, setSheet] = useState(false);
-  const decide = async (status, classification = null) => {
-    setBusy(true);
-    setError("");
-    const r = await manageApi.decide(clan.clan_tag, card.card_id, {
-      status,
-      reason: status === "declined" ? reason : null,
-      note: note || null,
-      ...(classification ? { classification } : {}),
-    });
-    setBusy(false);
-    if (!r.ok)
-      return setError(
-        r.data?.error === "card_closed"
-          ? "This card was already decided or withdrawn."
-          : "That did not work.",
-      );
-    trackEvent("clan.card_decided", `${card.type}:${classification ?? status}`);
-    onDecided();
-  };
-  const ev = card.evidence ?? {};
-  return (
-    <div className="panel" data-card={card.card_id}>
-      <div className="panel__head">
-        <span>{card.player_name ?? card.player_tag}</span>
-        <span className="tag">{card.player_tag}</span>
-        <RoleChip role={card.role_at_raise} label={card.role_at_raise} />
-        <span style={{ marginLeft: "auto" }}>
-          <Fresh
-            label="evidence as of"
-            // Age from the evidence instant, now: freshness_seconds was its
-            // age when the card was raised, so it never grew.
-            seconds={ev.as_of ? undefined : ev.freshness_seconds}
-            ts={ev.as_of}
-          />
-        </span>
-      </div>
-      <div className="panel__body" style={{ display: "grid", gap: "10px" }}>
-        <div style={{ fontWeight: 600 }}>{TYPE_LABEL[card.type]}</div>
-        {card.type === "departure" ? (
-          <div>
-            Left the clan {ago(ev.left_at)} ({ev.left_at?.slice(0, 10)})
-            {ev.removal_state && ev.removal_state !== "none"
-              ? ` · was ${ev.removal_state.replaceAll("_", " ")} on the clock`
-              : ""}
-            {ev.days_idle !== null && ev.days_idle !== undefined
-              ? ` · ${Math.round(ev.days_idle)} days since their last battle`
-              : ""}
-            {ev.tenure_days !== null && ev.tenure_days !== undefined
-              ? ` · ${ev.tenure_days} days in the clan`
-              : ""}
-            . A leave and a kick look the same in the record; say which so the
-            ledger knows.
-          </div>
-        ) : (
-          <div>{ev.rationale?.headline}</div>
-        )}
-        {card.copy ? <CopyLine text={card.copy} /> : null}
-        <ul
-          style={{
-            margin: 0,
-            paddingLeft: "18px",
-            color: "var(--ink-body)",
-            fontSize: "13.5px",
-          }}
-        >
-          {(ev.facts ?? []).map((f) => (
-            <li key={f.key}>
-              <span className="label" style={{ marginRight: "6px" }}>
-                {f.label}
-              </span>
-              {f.value}{" "}
-              <span className="page-head__note">
-                ({f.window}
-                {f.fidelity !== "daily" ? `, ${f.fidelity}` : ""})
-              </span>
-            </li>
-          ))}
-        </ul>
-        <div className="page-head__note">
-          Policy v{card.policy_version}:{" "}
-          {(ev.rationale?.clauses ?? []).map((c) => (
-            <a
-              key={c}
-              href={`/clan/${clan.clan_tag.slice(1)}/manage/policy#${c}`}
-              style={{ marginRight: "8px" }}
-            >
-              {c}
-            </a>
-          ))}
-          · raised {ago(card.raised_at)}
-        </div>
-        {card.type === "departure" ? (
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <NoteInput
-              value={note}
-              onChange={setNote}
-              placeholder="why, for the ledger (optional)"
-            />
-            <button
-              type="button"
-              className="btn btn--danger"
-              disabled={busy}
-              onClick={() => decide("done", "kick")}
-            >
-              Kicked
-            </button>
-            <button
-              type="button"
-              className="btn btn--primary"
-              disabled={busy}
-              onClick={() => decide("done", "leave")}
-            >
-              Left
-            </button>
-            <button
-              type="button"
-              className="btn btn--quiet"
-              disabled={busy}
-              onClick={() => decide("done", "ignore")}
-            >
-              Ignore
-            </button>
-          </div>
-        ) : !declining ? (
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <NoteInput value={note} onChange={setNote} />
-            <button
-              type="button"
-              className="btn btn--primary"
-              disabled={busy}
-              onClick={() => decide("done")}
-            >
-              Done
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={busy}
-              onClick={() => setDeclining(true)}
-            >
-              Decline
-            </button>
-            <button
-              type="button"
-              className="btn btn--quiet"
-              onClick={() => setSheet((v) => !v)}
-            >
-              Notes & hold
-            </button>
-          </div>
-        ) : (
-          <form
-            style={{
-              display: "flex",
-              gap: "8px",
-              flexWrap: "wrap",
-              alignItems: "center",
-            }}
-            onSubmit={(e) => {
-              e.preventDefault();
-              decide("declined");
-            }}
-          >
-            <select
-              className="select"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            >
-              {reasons.map((r) => (
-                <option key={r} value={r}>
-                  {r.replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
-            <NoteInput value={note} onChange={setNote} />
-            <button type="submit" className="btn btn--danger" disabled={busy}>
-              Decline
-            </button>
-            <button
-              type="button"
-              className="btn btn--quiet"
-              onClick={() => setDeclining(false)}
-            >
-              Back
-            </button>
-          </form>
-        )}
-        {sheet ? (
-          <MemberSheet
-            clanTag={clan.clan_tag}
-            member={{
-              player_tag: card.player_tag,
-              name: card.player_name,
-              role: card.role_at_raise,
-              hold: null,
-            }}
-            role={who.role}
-            onChange={onDecided}
-          />
-        ) : null}
-        {error ? (
-          <div className="callout callout--warn" role="alert">
-            <span>{error}</span>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/** Paste-ready in-game copy for clan chat. */
-function CopyLine({ text }) {
-  const [done, setDone] = useState(false);
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: "8px",
-        alignItems: "flex-start",
-        background: "var(--ground-sunken)",
-        border: "1px solid var(--line-soft)",
-        borderRadius: "8px",
-        padding: "8px 10px",
-        fontSize: "13px",
-      }}
-    >
-      <span style={{ flex: "1 1 auto" }}>{text}</span>
-      <button
-        type="button"
-        className="btn btn--sm"
-        title="Copy for clan chat"
-        aria-label="Copy for clan chat"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(text);
-            trackEvent("clan.copy_in_game");
-            setDone(true);
-            setTimeout(() => setDone(false), 1500);
-          } catch {
-            // The line is on screen to select by hand.
-          }
-        }}
-      >
-        <Icon name={done ? "check" : "copy"} size={14} />
-      </button>
-    </div>
-  );
-}
-
 const EVENT_LABEL = {
   member_joined: "joined",
   member_left: "left",
@@ -727,7 +406,7 @@ function History({ clan }) {
                       </span>
                     ) : (
                       <span className="chip chip--info">
-                        unanswered (Inbox)
+                        unanswered (Actions)
                       </span>
                     )}
                     {e.note ? (
@@ -750,7 +429,7 @@ function History({ clan }) {
         </div>
       )}
       <div className="label" style={{ margin: "0 0 8px" }}>
-        Cards
+        Actions
       </div>
       <div className="table__scroll">
         <table className="table">
@@ -758,7 +437,7 @@ function History({ clan }) {
             <tr>
               <th>Raised</th>
               <th>Member</th>
-              <th>Card</th>
+              <th>Action</th>
               <th>Outcome</th>
               <th>Decided by</th>
               <th>Detail</th>
@@ -768,7 +447,7 @@ function History({ clan }) {
             {data.cards.length === 0 ? (
               <tr>
                 <td colSpan={6} className="nil">
-                  No decided card yet.
+                  No action taken yet.
                 </td>
               </tr>
             ) : (
@@ -779,12 +458,12 @@ function History({ clan }) {
                     {c.player_name ?? c.player_tag}{" "}
                     <span className="tag">{c.player_tag}</span>
                   </td>
-                  <td>{TYPE_LABEL[c.type]}</td>
+                  <td>{c.label}</td>
                   <td>
                     <span
                       className={`chip ${c.status === "done" ? "chip--ok" : c.status === "declined" ? "chip--warn" : ""}`}
                     >
-                      {c.status}
+                      {c.status === "done" ? "completed" : c.status}
                     </span>
                     {c.outcome?.verified_at ? (
                       <span
@@ -792,7 +471,7 @@ function History({ clan }) {
                         style={{ marginLeft: "6px" }}
                       >
                         {c.outcome.delay_hours != null
-                          ? `verified ${Math.round(c.outcome.delay_hours)} h after Done`
+                          ? `confirmed ${Math.round(c.outcome.delay_hours)} h after completion`
                           : "verified"}
                       </span>
                     ) : null}
@@ -822,6 +501,14 @@ function History({ clan }) {
                       : ""}
                     {c.decision_note ? ` · ${c.decision_note}` : ""}
                     {c.withdraw_reason ?? ""}
+                    <details className="mt-1">
+                      <summary className="page-head__note cursor-pointer">
+                        Log · {(c.log ?? []).length}
+                      </summary>
+                      <div className="mt-2 min-w-[320px]">
+                        <ActionLog action={c} clan={clan} />
+                      </div>
+                    </details>
                   </td>
                 </tr>
               ))

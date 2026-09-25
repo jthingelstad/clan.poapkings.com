@@ -686,3 +686,25 @@ answers on the draft:
   attested by a person go back; judgments never do. It needs an Elixir
   contract first (a plan for that team).
 
+## 2026-09-25 — Round 1: actions for everyone, each with its own log (Jamie)
+
+"Cards" are **actions** in every word a person reads (code and storage keep
+`card`). Each has an audience: leaders (promote, demote, remove,
+departure), elders and up (welcome a newcomer), or one member (going to be
+away?); only they see it and take it, completing or declining. Welcome and
+away are policy switches, off to start. Actions is one page for everyone
+with a rail count; the leaders' Inbox address lands there.
+
+Jamie added the log: every action keeps its own append-only log of what
+raised it (headline, policy version and clauses, facts, and the member's
+earlier actions of that kind), who completed or declined it and why, what
+the record confirmed or flagged, and anyone's comments, before or after it
+closes, so the agent team can review action by action and improve the
+rules. `scripts/actions.mjs` reads them from the host (read-only); Judge
+Fairly reads the week's `review` every Monday. The 15 actions raised before
+logs existed show a log reconstructed from their own fields.
+
+Also: outcome verification now covers only promotions, demotions and
+removals (a welcome or an away has no record change to wait for), and
+request logs and analytics mask action ids as they did card ids.
+

@@ -60,7 +60,8 @@ test.describe("signed in", () => {
     await expect(page.getByText("Ben")).toBeVisible();
     await expect(page.getByText("Co-leader").first()).toBeVisible();
     // The rail now carries the clan: Manage for a leader, the tag aside.
-    await expect(rail.getByRole("link", { name: /^Inbox/ })).toBeVisible();
+    await expect(rail.getByRole("link", { name: /^Actions/ })).toBeVisible();
+    await expect(rail.getByRole("link", { name: /^Board/ })).toBeVisible();
     await expect(rail).toContainText("#2PQRJ8LV");
     await rendered(page);
     await accessible(page, "clan page");
@@ -90,7 +91,7 @@ test.describe("signed in", () => {
     const rail = page.locator(".rail");
     await expect(rail).toContainText("Second Clan");
     // A member: no Manage group.
-    await expect(rail.getByRole("link", { name: /^Inbox/ })).toHaveCount(0);
+    await expect(rail.getByRole("link", { name: /^Board/ })).toHaveCount(0);
   });
 
   test("a clan with no policy yet: only the roster, Recruit, Scout and the policy editor", async ({
@@ -102,7 +103,13 @@ test.describe("signed in", () => {
     await expect(rail.getByRole("link", { name: /^Policy/ })).toBeVisible();
     await expect(rail.getByRole("link", { name: /^Scout/ })).toBeVisible();
     await expect(rail.getByRole("link", { name: /^Recruit/ })).toBeVisible();
-    for (const name of [/^Inbox/, /^Standing/, /^Trophies/, /^Away/])
+    for (const name of [
+      /^Actions/,
+      /^Board/,
+      /^Standing/,
+      /^Trophies/,
+      /^Away/,
+    ])
       await expect(rail.getByRole("link", { name })).toHaveCount(0);
   });
 
@@ -133,7 +140,7 @@ test.describe("signed in", () => {
     );
     await page.goto("/clan/2PQRJ8LV");
     const rail = page.locator(".rail");
-    for (const name of [/^Inbox/, /^Standing/, /^Trophies/])
+    for (const name of [/^Actions/, /^Board/, /^Standing/, /^Trophies/])
       await expect(rail.getByRole("link", { name })).toHaveCount(0);
     await rail.getByRole("link", { name: /^Policy/ }).click();
     await expect(page).toHaveURL(/\/manage\/policy$/);

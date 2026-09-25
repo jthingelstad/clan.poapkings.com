@@ -24,6 +24,15 @@ export function railItems(me) {
   const set = policy?.active ?? policy?.set === true;
   if (clan) {
     items.push({ key: "clan", label: "Clan", icon: "users", to: base });
+    // Actions: what waits for you, as who you are in this clan.
+    if (set)
+      items.push({
+        key: "actions",
+        label: "Actions",
+        icon: "inbox",
+        to: `${base}/actions`,
+        meta: me.open_actions ? String(me.open_actions) : undefined,
+      });
     if (set)
       items.push({
         key: "standing",
@@ -50,13 +59,6 @@ export function railItems(me) {
       if (set) {
         items.push({
           group: "Manage",
-          key: "inbox",
-          label: "Inbox",
-          icon: "inbox",
-          to: `${base}/manage/inbox`,
-          meta: me.open_cards ? String(me.open_cards) : undefined,
-        });
-        items.push({
           key: "board",
           label: "Board",
           icon: "layout-dashboard",
@@ -135,12 +137,12 @@ export function railKey(path) {
   if (path.startsWith("/feedback")) return "feedback";
   if (path.startsWith("/maintain")) return "maintain";
   const m =
-    /^\/clan\/[0-9A-Za-z]+(?:\/(standing|trophies|recruit|manage)(?:\/([a-z-]+))?)?\/?$/.exec(
+    /^\/clan\/[0-9A-Za-z]+(?:\/(actions|standing|trophies|recruit|manage)(?:\/([a-z-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
   if (!m[1]) return "clan";
-  if (m[1] === "standing" || m[1] === "trophies" || m[1] === "recruit")
+  if (["actions", "standing", "trophies", "recruit"].includes(m[1]))
     return m[1];
-  return m[2] ?? "inbox";
+  return !m[2] || m[2] === "inbox" ? "actions" : m[2];
 }
