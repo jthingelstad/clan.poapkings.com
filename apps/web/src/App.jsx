@@ -43,7 +43,7 @@ import { You } from "./views/You.jsx";
 import { Away } from "./views/Away.jsx";
 import { Recruit } from "./views/Recruit.jsx";
 import { Trophies } from "./views/Trophies.jsx";
-import { Actions } from "./views/Actions.jsx";
+import { ActionDetail, Actions } from "./views/Actions.jsx";
 import { YouHere } from "./views/YouHere.jsx";
 import { Feedback, FeedbackItem } from "./views/Feedback.jsx";
 import { MaintainItem, MaintainQueue } from "./views/Maintain.jsx";
@@ -61,10 +61,11 @@ import { MaintainItem, MaintainQueue } from "./views/Maintain.jsx";
 export const clanPath = (tag) => `/clan/${String(tag).replace(/^#/, "")}`;
 
 /** `/clan/<TAG>[/<section>[/<tab>]]` parsed: the tag with its #, the
- *  section (roster by default) and the Manage tab. */
+ *  section (roster by default) and the Manage tab or, under actions, the
+ *  action's number (`/clan/<TAG>/actions/37`). */
 export function parseClanPath(path) {
   const m =
-    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|me|actions|standing|trophies|recruit)(?:\/([a-z-]+))?)?\/?$/.exec(
+    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|me|actions|standing|trophies|recruit)(?:\/([a-z0-9-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
@@ -202,6 +203,17 @@ const clanRoute = createRoute({
     };
     if (parsed.section === "me")
       return <YouHere key={clan.clan_tag} clan={clan} navigate={navigate} />;
+    // One action, by its number: the address people send each other.
+    if (parsed.section === "actions" && /^[0-9]{1,7}$/.test(parsed.tab ?? ""))
+      return (
+        <ActionDetail
+          key={`${clan.clan_tag}-${parsed.tab}`}
+          clan={clan}
+          who={who}
+          number={Number(parsed.tab)}
+          navigate={navigate}
+        />
+      );
     // Actions are everyone's; the leaders' old Inbox address lands here.
     if (
       parsed.section === "actions" ||

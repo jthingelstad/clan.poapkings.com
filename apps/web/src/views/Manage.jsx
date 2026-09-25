@@ -192,7 +192,7 @@ export function Manage({ clan, tab, navigate, who }) {
       <>
         {head}
         {tabs}
-        <History clan={clan} />
+        <History clan={clan} navigate={navigate} />
       </>
     );
   return (
@@ -364,7 +364,7 @@ const CLASS_LABEL = {
   ignored: "ignored",
 };
 
-function History({ clan }) {
+function History({ clan, navigate }) {
   const { data } = useHistory(clan.clan_tag);
   if (!data) return <p className="page__lede">Loading…</p>;
   const timeline = data.timeline ?? [];
@@ -446,6 +446,7 @@ function History({ clan }) {
         <table className="table">
           <thead>
             <tr>
+              <th>#</th>
               <th>Raised</th>
               <th>Member</th>
               <th>Action</th>
@@ -457,13 +458,32 @@ function History({ clan }) {
           <tbody>
             {data.cards.length === 0 ? (
               <tr>
-                <td colSpan={6} className="nil">
+                <td colSpan={7} className="nil">
                   No action taken yet.
                 </td>
               </tr>
             ) : (
               data.cards.map((c) => (
                 <tr key={c.card_id}>
+                  <td className="mono">
+                    {Number.isInteger(c.number) &&
+                    c.audience?.kind !== "member" ? (
+                      <a
+                        href={`/clan/${clan.clan_tag.slice(1)}/actions/${c.number}`}
+                        onClick={(e) => {
+                          if (!navigate) return;
+                          e.preventDefault();
+                          navigate(
+                            `/clan/${clan.clan_tag.slice(1)}/actions/${c.number}`,
+                          );
+                        }}
+                      >
+                        #{c.number}
+                      </a>
+                    ) : Number.isInteger(c.number) ? (
+                      `#${c.number}`
+                    ) : null}
+                  </td>
                   <td>{c.raised_at.slice(0, 10)}</td>
                   <td>
                     {c.player_name ?? c.player_tag}{" "}

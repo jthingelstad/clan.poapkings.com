@@ -44,7 +44,13 @@ export function createActionStore({ ledger, now = () => Date.now() }) {
   /** Raise an action, logging what raised it and the member's earlier
    *  actions of the same kind. */
   async function raiseAction(clanTag, card, cards, { text, detail = {} }) {
-    const action = { ...card, audience: audienceOf(card) };
+    // Older actions get their numbers first, so the count reads in order.
+    await numberActions(clanTag, cards);
+    const action = {
+      ...card,
+      number: await ledger.nextActionNumber(clanTag),
+      audience: audienceOf(card),
+    };
     await ledger.putCard(clanTag, action);
     await logAction(clanTag, action.card_id, "raised", {
       text,
@@ -59,6 +65,20 @@ export function createActionStore({ ledger, now = () => Date.now() }) {
       },
     });
     return action;
+  }
+
+  /** Give every action without a number one, oldest first (the actions
+   *  raised before numbers existed, once). */
+  async function numberActions(clanTag, cards = null) {
+    const list = (cards ?? (await ledger.cards(clanTag)))
+      .filter((c) => !Number.isInteger(c.number))
+      .sort((a, b) => (a.raised_at < b.raised_at ? -1 : 1));
+    for (const c of list) {
+      const n = await ledger.nextActionNumber(clanTag);
+      if (await ledger.numberCard(clanTag, c.card_id, n)) c.number = n;
+      // Another request numbered it first: its number is the one.
+      else c.number = (await ledger.card(clanTag, c.card_id))?.number;
+    }
   }
 
   /** Withdraw an open action, saying why. */
@@ -146,6 +166,7 @@ export function createActionStore({ ledger, now = () => Date.now() }) {
     logAction,
     raiseAction,
     withdrawAction,
+    numberActions,
     logOf,
     shapeAction,
     logsByCard,

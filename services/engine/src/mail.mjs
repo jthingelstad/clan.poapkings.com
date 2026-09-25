@@ -7,8 +7,9 @@
  * their last email, so an action left open is not mailed every morning;
  * the email lists everything waiting, newest first, the new ones marked.
  *
- * Plain words, as the Actions page says them: an action's label and the
- * member it is about. Nothing a person could not already see signed in.
+ * Plain words, as the Actions page says them: an action's number, its
+ * label and the member it is about; the link is that action's own page
+ * when one is waiting, the list when more are. Nothing a person could not already see signed in.
  * Pure: actions, people and the last send in; one email per person out.
  */
 
@@ -20,9 +21,11 @@ export const MAIL_MAX_LINES = 10;
 
 const labelOf = (c) => ACTION_TYPES[c.type]?.label ?? c.type;
 const lineOf = (c) =>
-  c.player_name && ACTION_TYPES[c.type]?.audience !== "member"
-    ? `${labelOf(c)}: ${c.player_name}`
-    : labelOf(c);
+  `${Number.isInteger(c.number) ? `#${c.number} ` : ""}${
+    c.player_name && ACTION_TYPES[c.type]?.audience !== "member"
+      ? `${labelOf(c)}: ${c.player_name}`
+      : labelOf(c)
+  }`;
 
 /**
  * @param {object} p
@@ -71,7 +74,11 @@ export function actionsWaitingMail({
       player_tag: who.player_tag,
       subject: subject.slice(0, 120),
       lines,
-      link,
+      // One action waiting: its own page; more: the list.
+      link:
+        mine.length === 1 && Number.isInteger(mine[0].number)
+          ? `${link}/${mine[0].number}`
+          : link,
       card_ids: mine.map((c) => c.card_id),
       new_card_ids: [...fresh],
     });

@@ -98,3 +98,29 @@ test("a long list is capped and counted", () => {
   assert.equal(m.lines.length, MAIL_MAX_LINES + 1);
   assert.equal(m.lines.at(-1), "And 3 more.");
 });
+
+test("each line carries the action's number, and one action waiting links to its own page", () => {
+  const mail = actionsWaitingMail({
+    ...base,
+    people,
+    cards: [
+      card("r1", "removal", { number: 37 }),
+      card("w1", "welcome", {
+        number: 38,
+        player_tag: "#N",
+        player_name: "Newbie",
+      }),
+    ],
+  });
+  const to = Object.fromEntries(mail.map((m) => [m.player_tag, m]));
+  assert.deepEqual(to["#L"].lines.sort(), [
+    "#37 Remove from the clan: Quiet (new)",
+    "#38 Welcome a newcomer: Newbie (new)",
+  ]);
+  assert.equal(to["#L"].link, "https://clan.test/clan/2PQRJ8LV/actions");
+  assert.equal(
+    to["#E"].subject,
+    "#38 Welcome a newcomer: Newbie (Example Clan)",
+  );
+  assert.equal(to["#E"].link, "https://clan.test/clan/2PQRJ8LV/actions/38");
+});

@@ -9,6 +9,9 @@
  *   policy#<clan>#v<n>       one immutable version: values, who, when
  *   verdicts#<clan>          the latest verdict snapshot (small; evidence
  *                            summaries, never Elixir payloads)
+ *   action_seq#<clan>        the clan's action counter: every action gets
+ *                            the next number, so people can say "action
+ *                            37" (2026-09-25)
  *   card#<clan>#<id>         an action (a "card" in code): member, type,
  *                            audience, status, frozen evidence, decision,
  *                            outcome (kept: this ledger is how a leave is
@@ -66,6 +69,7 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { randomBytes } from "node:crypto";
 import { timedStore } from "../trace.mjs";
@@ -123,11 +127,47 @@ export function createDynamoLedger({ tableName, region }) {
   }
   const listByPrefix = (clanTag, prefix) =>
     listByPartition(clanKey(clanTag), prefix);
+  /** Add one to a counter item and answer the new value (atomic). */
+  async function increment(pk) {
+    const { Attributes } = await doc.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: { pk },
+        UpdateExpression: "ADD #n :one",
+        ExpressionAttributeNames: { "#n": "n" },
+        ExpressionAttributeValues: { ":one": 1 },
+        ReturnValues: "UPDATED_NEW",
+      }),
+    );
+    return Number(Attributes.n);
+  }
+  /** Set an attribute only if the item lacks it; false when it had one. */
+  async function setIfAbsent(pk, attr, value) {
+    try {
+      await doc.send(
+        new UpdateCommand({
+          TableName: tableName,
+          Key: { pk },
+          UpdateExpression: "SET #a = :v",
+          ConditionExpression:
+            "attribute_exists(pk) AND attribute_not_exists(#a)",
+          ExpressionAttributeNames: { "#a": attr },
+          ExpressionAttributeValues: { ":v": value },
+        }),
+      );
+      return true;
+    } catch (e) {
+      if (e?.name === "ConditionalCheckFailedException") return false;
+      throw e;
+    }
+  }
   return ledgerOver({
     put,
     get,
     listByPrefix,
     listByPartition,
+    increment,
+    setIfAbsent,
     doc,
     tableName,
   });
@@ -155,6 +195,18 @@ export function createMemoryLedger() {
     },
     async remove(pk) {
       items.delete(pk);
+    },
+    async increment(pk) {
+      const item = items.get(pk) ?? { pk, n: 0 };
+      item.n += 1;
+      items.set(pk, item);
+      return item.n;
+    },
+    async setIfAbsent(pk, attr, value) {
+      const item = items.get(pk);
+      if (!item || item[attr] !== undefined) return false;
+      item[attr] = value;
+      return true;
     },
   });
   api.items = items;
@@ -267,6 +319,15 @@ function ledgerOver(io) {
     async card(clanTag, cardId) {
       const item = await io.get(`card#${clanTag}#${cardId}`);
       return item ? stripKeys(item) : null;
+    },
+    /** The clan's next action number. */
+    async nextActionNumber(clanTag) {
+      return io.increment(`action_seq#${clanTag}`);
+    },
+    /** Number an action that has none (older actions, once); false when
+     *  another request numbered it first. */
+    async numberCard(clanTag, cardId, number) {
+      return io.setIfAbsent(`card#${clanTag}#${cardId}`, "number", number);
     },
     async putCard(clanTag, card) {
       await io.put({
@@ -497,6 +558,7 @@ function ledgerOver(io) {
       await remove(`recruit#${clanTag}`);
       await remove(`model_key#${clanTag}`);
       await remove(`schedule#${clanTag}`);
+      await remove(`action_seq#${clanTag}`);
       return all.length;
     },
   };

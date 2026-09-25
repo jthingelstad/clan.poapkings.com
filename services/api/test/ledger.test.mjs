@@ -87,5 +87,34 @@ test("DynamoDB clan cleanup queries only the named partition without an empty so
     "recruit##TEST",
     "model_key##TEST",
     "schedule##TEST",
+    "action_seq##TEST",
   ]);
+});
+
+test("DynamoDB action numbers: an atomic counter, and a number set only on an action that has none", async (t) => {
+  const calls = [];
+  t.mock.method(DynamoDBDocumentClient.prototype, "send", async (command) => {
+    calls.push(command.input);
+    assert.equal(command.constructor.name, "UpdateCommand");
+    if (command.input.Key.pk.startsWith("action_seq#"))
+      return { Attributes: { n: 38 } };
+    if (command.input.ExpressionAttributeValues[":v"] === 2)
+      throw Object.assign(new Error("taken"), {
+        name: "ConditionalCheckFailedException",
+      });
+    return {};
+  });
+  const ledger = createDynamoLedger({
+    tableName: "clan-test",
+    region: "us-east-1",
+  });
+  assert.equal(await ledger.nextActionNumber("#TEST"), 38);
+  assert.equal(calls[0].Key.pk, "action_seq##TEST");
+  assert.equal(calls[0].UpdateExpression, "ADD #n :one");
+  assert.equal(await ledger.numberCard("#TEST", "c1", 1), true);
+  assert.equal(calls[1].Key.pk, "card##TEST#c1");
+  assert.match(calls[1].ConditionExpression, /attribute_not_exists\(#a\)/);
+  assert.match(calls[1].ConditionExpression, /attribute_exists\(pk\)/);
+  assert.equal(calls[1].ExpressionAttributeNames["#a"], "number");
+  assert.equal(await ledger.numberCard("#TEST", "c2", 2), false);
 });

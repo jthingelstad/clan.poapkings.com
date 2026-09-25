@@ -45,12 +45,26 @@ function holdActive(hold, nowMs) {
   return Date.parse(hold.until) > nowMs;
 }
 
-/** Days until which a declined card blocks re-nomination, or null. */
-function blockedUntil(decisions, tag, type, cooldownDays) {
+/**
+ * Until when the member's latest decided action of this kind blocks a new
+ * one, or null. A DECLINED action blocks for the policy's re-nomination
+ * days. A COMPLETED one waits for the record (2026-09-25: completing a
+ * removal re-raised it at once, because the member stays on the roster
+ * until the next poll sees the kick): no new action until the outcome
+ * window has passed; one the record never confirmed (flagged) may be
+ * raised again, which is the signal it should be.
+ */
+function blockedUntil(decisions, tag, type, cooldownDays, outcomeHours) {
   const mine = decisions
     .filter((d) => d.player_tag === tag && d.type === type && d.decided_at)
     .sort((a, b) => Date.parse(b.decided_at) - Date.parse(a.decided_at));
   const last = mine[0];
+  if (last?.status === "done") {
+    if (last.outcome_flagged) return null;
+    return new Date(
+      Date.parse(last.decided_at) + (outcomeHours ?? 48) * 3600_000,
+    ).toISOString();
+  }
   if (!last || last.status !== "declined") return null;
   let until = Date.parse(last.decided_at) + cooldownDays * DAY_MS;
   if (last.expires_at && Date.parse(last.expires_at) > until)
@@ -282,18 +296,21 @@ export function evaluate({
         tag,
         "promotion",
         policy.renominate_promotion_days,
+        policy.outcome_window_hours,
       ),
       demotion: blockedUntil(
         decisions,
         tag,
         "demotion",
         policy.renominate_demotion_days,
+        policy.outcome_window_hours,
       ),
       removal: blockedUntil(
         decisions,
         tag,
         "removal",
         policy.renominate_removal_days,
+        policy.outcome_window_hours,
       ),
     };
     const past = (t) => !cooldown[t] || Date.parse(cooldown[t]) <= nowMs;
@@ -424,6 +441,9 @@ export function reconcileCards(verdicts, openCards) {
 }
 
 function withdrawReason(type, m) {
+  // A completed or declined one of the same kind is waiting it out.
+  if (m[type]?.cooldown_until)
+    return "A leader already decided this; it waits for the record to show the change.";
   if (type === "removal") {
     if (m.removal.shielded === "hold") return "The member is on hold.";
     if (m.removal.state === "none" || m.removal.state === "watch")

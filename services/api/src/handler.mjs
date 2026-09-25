@@ -713,6 +713,14 @@ export function createHandler({
           view.model = await model.summary(tag);
         return json(200, view);
       }
+      // One action by its number, for "take a look at action 37".
+      const byNumber = /^\/actions\/([0-9]{1,7})$/.exec(rest);
+      if (method === "GET" && byNumber) {
+        const view = await manage.actionByNumber(tag, who, Number(byNumber[1]));
+        if (model && ["leader", "coLeader"].includes(who.role))
+          view.model = await model.summary(tag);
+        return json(200, view);
+      }
       const decide = /^\/actions\/([A-Za-z0-9_-]+)\/decide$/.exec(rest);
       if (method === "POST" && decide)
         return json(200, await manage.decide(tag, who, decide[1], body, token));

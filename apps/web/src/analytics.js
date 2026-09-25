@@ -26,8 +26,9 @@ export function loadTinylytics() {
 
 /**
  * The page a path is, for the report. `/clan/2PQRJ8LV/manage/board` is the
- * page `/clan/manage/board` of clan 2PQRJ8LV; `/feedback/abc123` is the page
- * `/feedback` of item abc123. Query strings (`?error=`) never ride along.
+ * page `/clan/manage/board` of clan 2PQRJ8LV; `/clan/2PQRJ8LV/actions/37`
+ * is the page `/clan/actions/detail` of action 37; `/feedback/abc123` is
+ * the page `/feedback` of item abc123. Query strings (`?error=`) never ride along.
  */
 export function analyticsLocation(
   pathname = window.location.pathname,
@@ -37,8 +38,13 @@ export function analyticsLocation(
   const url = new URL("/", origin);
   let page = "/";
   if (segments[0] === "clan" && segments[1]) {
-    page = `/clan${segments.length > 2 ? `/${segments.slice(2).join("/")}` : ""}`;
     url.searchParams.set("clan", `#${segments[1].toUpperCase()}`);
+    const rest = segments.slice(2);
+    if (rest[0] === "actions" && /^[0-9]+$/.test(rest[1] ?? "")) {
+      url.searchParams.set("id", rest[1]);
+      rest[1] = "detail";
+    }
+    page = `/clan${rest.length ? `/${rest.join("/")}` : ""}`;
   } else if (
     (segments[0] === "feedback" && segments[1]) ||
     (segments[0] === "maintain" && segments[1] === "feedback" && segments[2])

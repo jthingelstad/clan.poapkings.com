@@ -12,6 +12,13 @@ describe("analytics", () => {
     expect(analyticsLocation("/clan/2pqrj8lv/manage/board", o).url).toBe(
       `${o}/clan/manage/board?clan=%232PQRJ8LV`,
     );
+    expect(analyticsLocation("/clan/2PQRJ8LV/actions/37", o)).toEqual({
+      path: "/clan/actions/detail",
+      url: `${o}/clan/actions/detail?clan=%232PQRJ8LV&id=37`,
+    });
+    expect(analyticsLocation("/clan/2PQRJ8LV/actions", o).path).toBe(
+      "/clan/actions",
+    );
     expect(analyticsLocation("/feedback/abc123", o).url).toBe(
       `${o}/feedback?id=abc123`,
     );

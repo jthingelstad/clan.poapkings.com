@@ -1727,3 +1727,108 @@ test("sharing: each completed action attests only what happened, in the words se
     place: 1,
   });
 });
+
+test("actions: completing a removal does not raise a new one while the record catches up (2026-09-25)", async () => {
+  const h = harness({ part: partClan() });
+  const cookies = await leader(h);
+  const open = async (refresh = false) =>
+    (
+      await api(
+        h,
+        cookies,
+        "GET",
+        `/api/clans/2PQRJ8LV/actions${refresh ? "?refresh=1" : ""}`,
+      )
+    ).body.open.filter((a) => a.type === "removal" && a.player_tag === "#8QCV");
+  const [removal] = await open();
+  assert.ok(removal);
+  const done = await api(
+    h,
+    cookies,
+    "POST",
+    `/api/clans/2PQRJ8LV/actions/${removal.card_id}/decide`,
+    { status: "done" },
+  );
+  assert.equal(done.status, 200);
+  // The page re-reads at once: the member is still on the roster (the
+  // kick not polled yet), and no second removal appears.
+  assert.deepEqual(await open(true), []);
+  h.clock.t += 60 * 60_000;
+  assert.deepEqual(await open(true), [], "an hour later, still waiting");
+});
+
+test("actions: each has a number in the clan, and its own address answers it to those it is for (2026-09-25)", async () => {
+  const lh = harness({ part: partClan() });
+  const lc = await leader(lh);
+  const list = await api(lh, lc, "GET", "/api/clans/2PQRJ8LV/actions");
+  const removal = list.body.open.find((a) => a.type === "removal");
+  assert.ok(Number.isInteger(removal.number) && removal.number >= 1);
+  const numbers = (await lh.ledger.cards("#2PQRJ8LV")).map((c) => c.number);
+  assert.equal(new Set(numbers).size, numbers.length, "numbers are unique");
+  const one = await api(
+    lh,
+    lc,
+    "GET",
+    `/api/clans/2PQRJ8LV/actions/${removal.number}`,
+  );
+  assert.equal(one.status, 200);
+  assert.equal(one.body.action.card_id, removal.card_id);
+  assert.equal(one.body.action.number, removal.number);
+  assert.ok(one.body.action.log.length >= 1, "with its log");
+  assert.ok(one.body.decline_reasons.length);
+  // A number that is not the clan's, and a removal to an elder: the same
+  // answer, so an address never tells anyone a removal exists.
+  const missing = await api(lh, lc, "GET", "/api/clans/2PQRJ8LV/actions/9999");
+  assert.deepEqual(missing, { status: 404, body: { error: "no_action" } });
+  const eh = harness({
+    players: [player({ player_tag: "#O1", clan_role: "elder" })],
+    part: partClan(),
+    ledger: lh.ledger,
+  });
+  const ec = await leader(eh);
+  assert.deepEqual(
+    await api(eh, ec, "GET", `/api/clans/2PQRJ8LV/actions/${removal.number}`),
+    { status: 404, body: { error: "no_action" } },
+  );
+});
+
+test("actions: those raised before numbers existed are numbered once, oldest first, and keep their numbers", async () => {
+  const ledger = ledgerWithPolicy(
+    createMemoryLedger(),
+    "#2PQRJ8LV",
+    EXAMPLE_POLICY,
+  );
+  const old = (id, at, extra = {}) => ({
+    card_id: id,
+    type: "removal",
+    status: "declined",
+    player_tag: `#${id.toUpperCase()}`,
+    player_name: id,
+    raised_at: at,
+    decided_at: at,
+    decline_reason: "not_now",
+    ...extra,
+  });
+  await ledger.putCard("#2PQRJ8LV", old("b", "2026-09-10T00:00:00.000Z"));
+  await ledger.putCard("#2PQRJ8LV", old("a", "2026-09-01T00:00:00.000Z"));
+  const h = harness({ part: partClan(), ledger });
+  const cookies = await leader(h);
+  await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions");
+  const byId = async () =>
+    Object.fromEntries(
+      (await ledger.cards("#2PQRJ8LV")).map((c) => [c.card_id, c.number]),
+    );
+  const first = await byId();
+  assert.equal(first.a, 1);
+  assert.equal(first.b, 2);
+  const raised = Object.entries(first).filter(
+    ([id]) => !["a", "b"].includes(id),
+  );
+  assert.ok(raised.length >= 1);
+  assert.ok(
+    raised.every(([, n]) => n > 2),
+    "new actions follow them",
+  );
+  await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions?refresh=1");
+  assert.deepEqual(await byId(), first, "numbers never move");
+});

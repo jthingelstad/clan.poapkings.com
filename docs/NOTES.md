@@ -941,3 +941,27 @@ words and what happened, never a member's name: it writes `{name}` and
 The action's log says it was drafted; the use counts toward the clan's 20 a
 day on its key.
 
+
+## 2026-09-25 — Completing an action no longer raises it again; numbers and pages (Jamie)
+
+Jamie completed the removal of a member and the Actions page showed it
+completed and, at once, a new open removal for the same member. Cause:
+the engine's cooldown (`blockedUntil`) held an action only after a
+decline, and the page re-reads with an evaluation after a decision; the
+member is still on the roster until Elixir's next poll, so the removal
+was raised again. Now a completed action holds the same action for that
+member until its outcome window passes (48 hours unless the policy says
+otherwise), or until the outcome is flagged. The duplicate left open on
+the live ledger is withdrawn by the next evaluation, saying a leader
+already decided it.
+
+Jamie also asked for numbers people can say ("take a look at action
+37"), then for each action's own address, sent to each other, as the
+place to work it out, and for the list to be short. Every action has a
+per-clan number (an atomic counter; the actions before it were numbered
+once, oldest first); `/clan/<TAG>/actions/<number>` is its page, with the
+log open, the buttons, comments and "Copy link"; the Actions page is one
+line per action; the morning email lists numbers and links the one
+action's page when only one is waiting. An address answers only those
+the action is for; for anyone else it is "no such action here", the
+same as a number the clan does not have.

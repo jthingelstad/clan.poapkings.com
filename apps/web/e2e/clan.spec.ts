@@ -281,6 +281,96 @@ test.describe("signed in", () => {
     await accessible(page, "clan settings");
   });
 
+  test("actions are a short list; each has its own address, with its log open", async ({
+    page,
+  }) => {
+    const removal = {
+      card_id: "a1",
+      number: 37,
+      type: "removal",
+      label: "Remove from the clan",
+      status: "proposed",
+      can_act: true,
+      audience: { kind: "leaders" },
+      player_tag: "#8QCV",
+      player_name: "Sleepy",
+      role_at_raise: "member",
+      raised_at: "2026-09-12T20:00:00Z",
+      copy: "Sleepy was removed for inactivity.",
+      evidence: { rationale: { headline: "20 battle-free days." }, facts: [] },
+      log: [
+        {
+          entry_id: "e1",
+          kind: "raised",
+          at: "2026-09-12T20:00:00Z",
+          by: { system: "elixir-clan" },
+          text: "20 battle-free days.",
+        },
+        {
+          entry_id: "e2",
+          kind: "comment",
+          at: "2026-09-13T08:00:00Z",
+          by: { tag: "#UQ8LP2R9C", name: "Ben", role: "coLeader" },
+          text: "I messaged them yesterday.",
+        },
+      ],
+    };
+    await mockApi(
+      page,
+      signedIn({
+        "GET /api/clans/2PQRJ8LV/actions": [
+          200,
+          {
+            clan_tag: "#2PQRJ8LV",
+            as_of: "2026-09-13T09:00:00Z",
+            open: [removal],
+            recent: [],
+            decline_reasons: ["not_now", "other"],
+          },
+        ],
+        "GET /api/clans/2PQRJ8LV/actions/37": [
+          200,
+          {
+            clan_tag: "#2PQRJ8LV",
+            action: removal,
+            decline_reasons: ["not_now", "other"],
+          },
+        ],
+        "GET /api/clans/2PQRJ8LV/actions/99": [404, { error: "no_action" }],
+      }),
+    );
+    await page.goto("/clan/2PQRJ8LV");
+    const rail = page.locator(".rail");
+    await rail.getByRole("link", { name: /^Actions/ }).click();
+    await expect(page).toHaveURL(/\/actions$/);
+    const row = page.getByRole("link", { name: /#37.*Remove from the clan/ });
+    await expect(row).toContainText("1 comment");
+    await expect(page.getByRole("button", { name: "Complete" })).toHaveCount(0);
+    await accessible(page, "actions list");
+    await row.click();
+    await expect(page).toHaveURL(/\/actions\/37$/);
+    await expect(
+      page.getByRole("heading", { name: "Action #37" }),
+    ).toBeVisible();
+    await expect(page.getByText("I messaged them yesterday.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Complete" })).toBeVisible();
+    await expect(rail.getByRole("link", { name: /^Actions/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await rendered(page);
+    await accessible(page, "an action's page");
+    // The address works on its own, sent to someone.
+    await page.goto("/clan/2PQRJ8LV/actions/37");
+    await expect(
+      page.getByRole("heading", { name: "Action #37" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "‹ All actions" }).click();
+    await expect(page).toHaveURL(/\/actions$/);
+    await page.goto("/clan/2PQRJ8LV/actions/99");
+    await expect(page.getByText("No action #99 here")).toBeVisible();
+  });
+
   test("@narrow the rail is a disclosure above the content", async ({
     page,
   }) => {

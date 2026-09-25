@@ -185,7 +185,9 @@ test("scheduled: after evaluating, the people who can act on something new are e
     "#UQ8LP2R9C",
   ]);
   assert.ok(
-    sent.messages[0].lines.includes("Remove from the clan: Sleepy (new)"),
+    sent.messages[0].lines.some((l) =>
+      /^#\d+ Remove from the clan: Sleepy \(new\)$/.test(l),
+    ),
     JSON.stringify(sent.messages[0].lines),
   );
   assert.equal(

@@ -9,12 +9,14 @@ import { RoleChip } from "./RoleChip.jsx";
 /**
  * One action (Jamie, 2026-09-25): what Elixir Clan suggests someone in the
  * clan do, assigned to them or open to their role, completed or declined.
- * Every action shows its log: what raised it, who took it and how, what
- * the record confirmed, and anyone's comments, open or closed.
+ * It is drawn on the action's own page (`/clan/<TAG>/actions/<number>`),
+ * with its log open: what raised it, who took it and how, what the record
+ * confirmed, and anyone's comments, open or closed. The log is where the
+ * people it is for work it out.
  */
 
 const LEADER_TYPES = new Set(["promotion", "demotion", "removal"]);
-const STATUS = {
+export const STATUS = {
   done: ["Completed", "chip--ok"],
   declined: ["Declined", "chip--warn"],
   withdrawn: ["Withdrawn", ""],
@@ -722,15 +724,13 @@ export function ActionCard({
             <span>{error}</span>
           </div>
         ) : null}
-        <details>
-          <summary className="page-head__note cursor-pointer">
+        <div className="mt-1 grid gap-2 border-t border-[var(--line-soft)] pt-3">
+          <div className="label">
             Log · {(action.log ?? []).length}{" "}
             {(action.log ?? []).length === 1 ? "entry" : "entries"}
-          </summary>
-          <div className="mt-2">
-            <ActionLog action={action} clan={clan} onChanged={onChanged} />
           </div>
-        </details>
+          <ActionLog action={action} clan={clan} onChanged={onChanged} />
+        </div>
       </div>
     </div>
   );

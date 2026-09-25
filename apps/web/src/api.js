@@ -34,6 +34,8 @@ export const manageApi = {
   // Actions (2026-09-25): what waits for you, with each action's log.
   actions: (tag, refresh = false) =>
     get(`${clanBase(tag)}/actions${refresh ? "?refresh=1" : ""}`),
+  // One action by its number: its own page, the address people share.
+  action: (tag, number) => get(`${clanBase(tag)}/actions/${number}`),
   decideAction: (tag, id, body) =>
     post(`${clanBase(tag)}/actions/${id}/decide`, body),
   // A Leader Message in the clan's voice, by the clan's own model.

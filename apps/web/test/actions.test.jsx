@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "./helpers.jsx";
-import { Actions } from "../src/views/Actions.jsx";
+import { ActionDetail, Actions } from "../src/views/Actions.jsx";
 import { manageApi } from "../src/api.js";
 
 afterEach(() => {
@@ -54,6 +54,20 @@ const removal = {
     },
   ],
 };
+/** The same action, as its own page answers it. */
+const one = (extra = {}) => {
+  const { data } = view(extra);
+  return {
+    ok: true,
+    status: 200,
+    data: {
+      clan_tag: data.clan_tag,
+      action: { number: 37, ...data.open[0] },
+      decline_reasons: data.decline_reasons,
+      ...(data.model ? { model: data.model } : {}),
+    },
+  };
+};
 const view = (extra = {}) => ({
   ok: true,
   status: 200,
@@ -71,7 +85,7 @@ const view = (extra = {}) => ({
 
 describe("actions", () => {
   test("an action shows what raised it, its earlier history, and can be completed and commented on", async () => {
-    vi.spyOn(manageApi, "actions").mockResolvedValue(view());
+    vi.spyOn(manageApi, "action").mockResolvedValue(one());
     const decide = vi
       .spyOn(manageApi, "decideAction")
       .mockResolvedValue({ ok: true, status: 200, data: {} });
@@ -79,15 +93,15 @@ describe("actions", () => {
       .spyOn(manageApi, "commentAction")
       .mockResolvedValue({ ok: true, status: 200, data: {} });
     renderWithProviders(
-      <Actions
+      <ActionDetail
+        number={37}
         clan={clan}
         who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
       />,
     );
-    await waitFor(() =>
-      expect(screen.getByText("Remove from the clan · 1")).toBeTruthy(),
-    );
-    expect(screen.getByText(/Log · 1 entry/)).toBeTruthy();
+    expect(await screen.findByText(/Log · 1 entry/)).toBeTruthy();
+    expect(screen.getByText("Action #37")).toBeTruthy();
+    expect(screen.getByText("‹ All actions")).toBeTruthy();
     expect(
       screen.getByText(/Earlier: declined 2026-09-02 \(knows the member\)/),
     ).toBeTruthy();
@@ -117,8 +131,8 @@ describe("actions", () => {
   });
 
   test("a member's own away question offers to mark away or say no", async () => {
-    vi.spyOn(manageApi, "actions").mockResolvedValue(
-      view({
+    vi.spyOn(manageApi, "action").mockResolvedValue(
+      one({
         open: [
           {
             ...removal,
@@ -135,7 +149,8 @@ describe("actions", () => {
     );
     const navigate = vi.fn();
     renderWithProviders(
-      <Actions
+      <ActionDetail
+        number={37}
         clan={{ ...clan, role: "member" }}
         who={{ player_tag: "#8QCV", role: "member" }}
         navigate={navigate}
@@ -147,6 +162,105 @@ describe("actions", () => {
     fireEvent.click(screen.getByRole("link", { name: "Mark me away" }));
     expect(navigate).toHaveBeenCalledWith("/you/away");
     expect(screen.getByRole("button", { name: "I’m not away" })).toBeTruthy();
+  });
+
+  test("the list is one line per action, numbered; a line opens that action's own page", async () => {
+    vi.spyOn(manageApi, "actions").mockResolvedValue(
+      view({
+        open: [
+          { ...removal, number: 37 },
+          {
+            ...removal,
+            card_id: "d1",
+            number: 12,
+            type: "departure",
+            label: "Say how they left",
+            player_name: "Gone",
+            log: [
+              ...removal.log,
+              {
+                entry_id: "c1",
+                kind: "comment",
+                at: "2026-09-12T21:00:00Z",
+                by: { tag: "#20QQL8CCRU", name: "Ada", role: "leader" },
+                text: "I think they left.",
+              },
+            ],
+          },
+        ],
+        recent: [
+          {
+            ...removal,
+            card_id: "x1",
+            number: 5,
+            status: "done",
+            label: "Promote to Elder",
+            player_name: "Rising",
+          },
+        ],
+      }),
+    );
+    const navigate = vi.fn();
+    renderWithProviders(
+      <Actions
+        clan={clan}
+        who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
+        navigate={navigate}
+      />,
+    );
+    expect(await screen.findByText("Waiting for you · 2")).toBeTruthy();
+    const links = screen
+      .getAllByRole("link")
+      .filter((l) => /\/actions\/\d+$/.test(l.getAttribute("href")));
+    // Departures first, then removals; then what closed.
+    expect(links.map((l) => l.getAttribute("href"))).toEqual([
+      "/clan/2PQRJ8LV/actions/12",
+      "/clan/2PQRJ8LV/actions/37",
+      "/clan/2PQRJ8LV/actions/5",
+    ]);
+    expect(links[0].textContent).toMatch(
+      /#12.*Say how they left.*Gone.*1 comment/,
+    );
+    expect(links[2].textContent).toMatch(/#5.*Promote to Elder.*Completed/);
+    // The list decides nothing: that is on the action's page.
+    expect(screen.queryByRole("button", { name: "Complete" })).toBeNull();
+    fireEvent.click(links[1]);
+    expect(navigate).toHaveBeenCalledWith("/clan/2PQRJ8LV/actions/37");
+  });
+
+  test("an action that is not yours, or not there, says there is no such action here", async () => {
+    vi.spyOn(manageApi, "action").mockResolvedValue({
+      ok: false,
+      status: 404,
+      data: { error: "no_action" },
+    });
+    renderWithProviders(
+      <ActionDetail
+        number={99}
+        clan={clan}
+        who={{ player_tag: "#X", role: "member" }}
+      />,
+    );
+    expect(await screen.findByText("No action #99 here")).toBeTruthy();
+  });
+
+  test("an action's page offers its address to send to someone", async () => {
+    vi.spyOn(manageApi, "action").mockResolvedValue(one());
+    const write = vi.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    renderWithProviders(
+      <ActionDetail
+        number={37}
+        clan={clan}
+        who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Copy link/ }));
+    await waitFor(() =>
+      expect(write).toHaveBeenCalledWith(
+        `${window.location.origin}/clan/2PQRJ8LV/actions/37`,
+      ),
+    );
   });
 
   test("nothing waiting says so", async () => {
@@ -162,8 +276,8 @@ describe("actions", () => {
 
 describe("clan leader messages", () => {
   test("a promotion comes with its Clan Leader Message, counted against the game's limits and copyable", async () => {
-    vi.spyOn(manageApi, "actions").mockResolvedValue(
-      view({
+    vi.spyOn(manageApi, "action").mockResolvedValue(
+      one({
         open: [
           {
             ...removal,
@@ -184,7 +298,8 @@ describe("clan leader messages", () => {
     const write = vi.fn().mockResolvedValue();
     Object.assign(navigator, { clipboard: { writeText: write } });
     renderWithProviders(
-      <Actions
+      <ActionDetail
+        number={37}
         clan={clan}
         who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
       />,
@@ -206,8 +321,8 @@ describe("clan leader messages", () => {
   });
 
   test("an announcement is marked sent without a reason, with the words as edited", async () => {
-    vi.spyOn(manageApi, "actions").mockResolvedValue(
-      view({
+    vi.spyOn(manageApi, "action").mockResolvedValue(
+      one({
         open: [
           {
             card_id: "r1",
@@ -234,7 +349,8 @@ describe("clan leader messages", () => {
       .spyOn(manageApi, "decideAction")
       .mockResolvedValue({ ok: true, status: 200, data: {} });
     renderWithProviders(
-      <Actions
+      <ActionDetail
+        number={37}
         clan={clan}
         who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
       />,
@@ -261,8 +377,8 @@ describe("clan leader messages", () => {
 
 describe("the clan's model on a Leader Message", () => {
   test("a leader drafts it in the clan's voice, sees what to check, and can put back what they had", async () => {
-    vi.spyOn(manageApi, "actions").mockResolvedValue(
-      view({
+    vi.spyOn(manageApi, "action").mockResolvedValue(
+      one({
         model: { set: true, refused: false, model: "claude-sonnet-5" },
         open: [
           {
@@ -297,7 +413,8 @@ describe("the clan's model on a Leader Message", () => {
       },
     });
     renderWithProviders(
-      <Actions
+      <ActionDetail
+        number={37}
         clan={clan}
         who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
       />,
@@ -316,8 +433,8 @@ describe("the clan's model on a Leader Message", () => {
   });
 
   test("without the clan's key, there is no draft button", async () => {
-    vi.spyOn(manageApi, "actions").mockResolvedValue(
-      view({
+    vi.spyOn(manageApi, "action").mockResolvedValue(
+      one({
         open: [
           {
             card_id: "r1",
@@ -338,7 +455,8 @@ describe("the clan's model on a Leader Message", () => {
       }),
     );
     renderWithProviders(
-      <Actions
+      <ActionDetail
+        number={37}
         clan={clan}
         who={{ player_tag: "#20QQL8CCRU", role: "leader" }}
       />,

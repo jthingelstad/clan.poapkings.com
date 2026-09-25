@@ -40,6 +40,7 @@ export const keys = {
   standing: (tag) => ["clan", tag, "standing"],
   trophies: (tag) => ["clan", tag, "trophies"],
   actions: (tag) => ["clan", tag, "actions"],
+  action: (tag, number) => ["clan", tag, "actions", number],
   memberView: (tag) => ["clan", tag, "me"],
   memberNotes: (tag, player) => ["clan", tag, "member", player, "notes"],
   memberAwards: (tag, player) => ["clan", tag, "member", player, "awards"],
@@ -152,6 +153,11 @@ export const useMemberView = (tag) =>
 
 export const useActions = (tag) =>
   useGated(keys.actions(tag), (refresh) => manageApi.actions(tag, refresh));
+
+/** One action by its number; under the list's key, so a change to the
+ *  list refetches it too. */
+export const useAction = (tag, number) =>
+  useGated(keys.action(tag, number), () => manageApi.action(tag, number));
 
 export const useTrophies = (tag) =>
   useGated(keys.trophies(tag), () => manageApi.trophies(tag));

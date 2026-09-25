@@ -277,6 +277,7 @@ export function createManageService({
     logAction,
     raiseAction,
     withdrawAction,
+    numberActions,
     shapeAction,
     logsByCard,
   } = createActionStore({ ledger, now });
@@ -364,6 +365,9 @@ export function createManageService({
         status: c.status,
         decided_at: c.decided_at,
         expires_at: c.expires_at ?? null,
+        // A completed action the record never confirmed may be raised
+        // again; one still inside its window waits (engine blockedUntil).
+        outcome_flagged: Boolean(c.outcome?.flagged_at),
       }));
     const holds = (await ledger.holds(clanTag)).map((h) => ({
       player_tag: h.player_tag,
@@ -855,7 +859,9 @@ export function createManageService({
       });
       const t = now();
       const byCard = await logsByCard(clanTag);
-      const mine = (await ledger.cards(clanTag)).filter((c) => canAct(c, who));
+      const all = await ledger.cards(clanTag);
+      await numberActions(clanTag, all);
+      const mine = all.filter((c) => canAct(c, who));
       const closedAt = (c) => c.decided_at ?? c.withdrawn_at ?? c.raised_at;
       return {
         clan_tag: clanTag,
@@ -877,6 +883,23 @@ export function createManageService({
           .sort((a, b) => (closedAt(a) < closedAt(b) ? 1 : -1))
           .slice(0, 30)
           .map((c) => shapeAction(c, byCard.get(c.card_id), who)),
+        decline_reasons: DECLINE_REASONS,
+      };
+    },
+
+    /** One action by its number ("take a look at action 37"), open or
+     *  closed, for anyone who may see it; anyone else is told there is no
+     *  such action. */
+    async actionByNumber(clanTag, who, number) {
+      await requirePolicy(clanTag);
+      const all = await ledger.cards(clanTag);
+      await numberActions(clanTag, all);
+      const card = all.find((c) => c.number === number);
+      if (!card || !canAct(card, who)) throw new ManageError(404, "no_action");
+      const byCard = await logsByCard(clanTag);
+      return {
+        clan_tag: clanTag,
+        action: shapeAction(card, byCard.get(card.card_id), who),
         decline_reasons: DECLINE_REASONS,
       };
     },
@@ -1106,6 +1129,7 @@ export function createManageService({
       requireLeader(who);
       await requirePolicy(clanTag);
       const allCards = await ledger.cards(clanTag);
+      await numberActions(clanTag, allCards);
       const byCard = await logsByCard(clanTag);
       const cards = allCards
         .filter((c) => c.status !== "proposed")

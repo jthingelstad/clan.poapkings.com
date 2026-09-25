@@ -625,7 +625,7 @@ test("demotion for abandonment takes two reviews; outranked takes three", () => 
 
 // ---- decisions and cooldowns -----------------------------------------------
 
-test("a declined card blocks re-nomination until the cooldown lapses; done does not", () => {
+test("a declined card blocks re-nomination until the cooldown lapses; a completed one waits out the outcome window", () => {
   const others = Array.from({ length: 10 }, (_, i) => member(`#O${i}`));
   const idle = member("#X", { lastBattleDaysAgo: 20, war: [0, 0, 0, 0, 0, 0] });
   const declined = [
@@ -661,6 +661,7 @@ test("a declined card blocks re-nomination until the cooldown lapses; done does 
     v2.members.find((m) => m.player_tag === "#X").actionable.removal,
     true,
   );
+  // Completed three days ago: past the 48-hour outcome window.
   const done = [{ ...declined[0], status: "done" }];
   const v3 = evaluate({
     participation: participation([...others, idle]),
@@ -670,6 +671,34 @@ test("a declined card blocks re-nomination until the cooldown lapses; done does 
   });
   assert.equal(
     v3.members.find((m) => m.player_tag === "#X").actionable.removal,
+    true,
+  );
+  // Completed an hour ago and the member still on the roster (the kick
+  // not polled yet): no new removal until the window passes (2026-09-25).
+  const justDone = [
+    {
+      ...done[0],
+      decided_at: new Date(NOW.getTime() - 3600_000).toISOString(),
+    },
+  ];
+  const v4 = evaluate({
+    participation: participation([...others, idle]),
+    policy,
+    now: NOW,
+    decisions: justDone,
+  });
+  const r4 = v4.members.find((m) => m.player_tag === "#X");
+  assert.equal(r4.actionable.removal, false, "waits for the record");
+  assert.ok(r4.removal.cooldown_until);
+  // One the record never confirmed (flagged) may be raised again.
+  const v5 = evaluate({
+    participation: participation([...others, idle]),
+    policy,
+    now: NOW,
+    decisions: [{ ...justDone[0], outcome_flagged: true }],
+  });
+  assert.equal(
+    v5.members.find((m) => m.player_tag === "#X").actionable.removal,
     true,
   );
 });

@@ -54,7 +54,7 @@ chosen: `docs/VISION.md`. Read it before proposing a feature.
 ```
 apps/web/          React 19 + Vite SPA on Elixir's kit (TanStack Router + Query,
                    Tailwind v4 over Elixir's tokens): /, /clans, /clan/<TAG>,
-                   /clan/<TAG>/actions, /clan/<TAG>/standing, /clan/<TAG>/trophies,
+                   /clan/<TAG>/actions[/<number>], /clan/<TAG>/standing, /clan/<TAG>/trophies,
                    /clan/<TAG>/recruit, /clan/<TAG>/manage/{board,history,policy,awards,scout,settings},
                    /you, /you/away, /feedback, /maintain/feedback, /refused/<reason>
 services/engine/   the management engine, PURE: policy schema, facts, standing,
@@ -199,7 +199,11 @@ only when the policy counts trophy road, each member's trophies today from
 - **Actions** (`reconcileCards`, still "cards" in code and storage): one open
   action per (member, type); raised when `actionable` (ready +
   eligible/recommended + past the cooldown), withdrawn with a reason when
-  not. Outcomes of completed promotions, demotions and removals are verified
+  not. A completed action holds the same action for that member until its
+  outcome window (`outcome_window_hours`) passes, unless its outcome was
+  flagged first: a kick shows in the record only at Elixir's next roster
+  poll, and without the hold the page's re-read after "Complete" raised
+  the removal again (2026-09-25). Outcomes of completed promotions, demotions and removals are verified
   from the record on the next evaluation (removal: membership closed →
   `member_kicked`; promotion or demotion: the role moved) or flagged after
   `outcome_window_hours`. See §Actions for who may take each and its log.
@@ -485,12 +489,27 @@ or declined it with their note and reason, what the record confirmed or
 flagged, and anyone's comments, open or closed. An action raised before
 logs existed has its log reconstructed from its own fields, marked so.
 
+**Every action has a number** (Jamie, 2026-09-25: "take a look at action
+37"), the clan's own sequence, never reused: `action_seq#<clan>` is an
+atomic counter (DynamoDB `ADD`), stamped on the action when it is raised;
+actions raised before numbers existed were numbered once, oldest first,
+by a conditional write that never overwrites a number. **Each action has
+its own page**, `/clan/<TAG>/actions/<number>` (`GET
+/api/clans/<TAG>/actions/<number>`), the address people send each other:
+the whole action with its log open, its buttons, the comment box and
+"Copy link". Only those the action is for can open it; anyone else, and
+a number the clan does not have, gets the same `404 no_action`, so an
+address never tells anyone a removal exists. The page reads the ledger
+and never evaluates.
+
 Surfaces: **Actions** (`/clan/<TAG>/actions`, `GET /api/clans/<TAG>/actions`,
 the rail's count is `/api/me`'s `open_actions`) for everyone in a clan with
-an active policy: what waits for you and what closed in the last 30 days,
-each with its log and a comment box; opening it evaluates. The leaders'
-old Inbox address lands there. `POST .../actions/<id>/decide` and
-`POST .../actions/<id>/comments`. History shows each closed action's log.
+an active policy: a list, one line per action (number, what, who, when,
+comments), of what waits for you and what closed in the last 30 days;
+each line opens the action's page. Opening the list evaluates. The
+leaders' old Inbox address lands there. `POST .../actions/<id>/decide` and
+`POST .../actions/<id>/comments` (by card id). History shows each closed
+action's number, linked to its page, and its log.
 The agent team reads logs from the host, read-only:
 `node scripts/actions.mjs clans | list | show | review --clan <TAG>`
 (`review` picks declines, quick withdrawals, flagged outcomes and anything
@@ -571,11 +590,12 @@ sees a removal action or who is on a clock.
 The `elixir-clan` table gains, per clan, through the `ByClan` index:
 the member count at the latest read (`clan_size#`), policy versions, the latest verdict snapshot (evidence summaries only,
 overwritten each evaluation), actions (`card#`, kept: this ledger is how a
-leave is told from a kick) and each action's log (`action_log#`), holds,
+leave is told from a kick; each carries its `number`) and each action's
+log (`action_log#`), holds,
 and notes (tiered `leader` / `elder`), and the uses of the clan's model
 (`model_call#`, 90 days). Tags and summaries, never Elixir payloads. The
-clan's sealed model key (`model_key#`) is the one clan item outside the
-index. `ledger.deleteClan` removes the set, the key included; call it when
+clan's sealed model key (`model_key#`) and the action-number counter
+(`action_seq#`) are the clan items outside the index. `ledger.deleteClan` removes the set, the key included; call it when
 a clan's last verified leader disconnects. Evaluation runs on demand with
 the signed-in person's token, cached five minutes per clan, and each
 morning on Elixir Clan's own integration key (see "The morning
@@ -704,6 +724,7 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.away_set`, `clan.away_cleared` | (none) |
 | `clan.feedback_sent`, `clan.feedback_answered` | the category; the status |
 | `clan.copy_in_game` | (none), or `leader_message` for a Leader Message field |
+| `clan.action_link_copied` | (none) |
 | `clan.invite_copied` | `leaders` \| `clanmates` \| `link` |
 | `clan.recruit_copied`, `clan.recruit_saved` | `personal` \| `post`; `v<n>` |
 | `clan.model_key_set`, `clan.model_key_removed`, `clan.model_drafted` | (none); (none); the purpose (`recruit_pitch`) |
@@ -775,7 +796,8 @@ evaluation, `mailActionsWaiting` emails, through Elixir, each person who
 can act on something that became theirs since their last email
 (`actionsWaitingMail` in `services/engine/src/mail.mjs`: only people who
 can act on an action are sent it, Jamie; the email lists everything
-waiting for them, the new marked). Clan names each person by player tag
+waiting for them by number, the new marked, and links the one action's
+page when only one is waiting). Clan names each person by player tag
 (`POST /api/v1/clans/{tag}/mail`, kind `clan_actions_waiting`, on the same
 key, which holds `mail:send`); Elixir sends only to the account that
 verified the player, while in the clan, with the kind on (on to start),
