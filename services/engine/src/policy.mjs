@@ -12,9 +12,14 @@
  * the clan does. The field help is the documentation of the rules; it says
  * what a setting does, never what a clan should believe.
  *
- * Fields are flat and grouped as the editor reads them. `when` makes a
- * group or field apply only under other values: a list of clauses, any of
- * which may match; a clause matches when every field in it has the value.
+ * Fields are flat and grouped as the editor reads them, and the groups sit
+ * on TABS (Jamie, 2026-09-25: one long page was too much): a tab for what
+ * the clan is for, one per category with its own on/off switch and its
+ * own settings, Elder, inactivity, arrivals and departures, and
+ * announcements. A group marked `advanced` is fine tuning the editor
+ * keeps folded until opened. `when` makes a group or field apply only under other
+ * values: a list of clauses, any of which may match; a clause matches when
+ * every field in it has the value.
  */
 
 export const POLICY_SCHEMA_VERSION = 2;
@@ -44,7 +49,7 @@ export const GROUPS = [
   {
     key: "about",
     title: "What this clan is for",
-    why: "What the clan is about and how strict it is. Choosing them can fill every setting below as a starting point to tune; they also open How it works here and the recruiting pitch. On their own they judge nothing.",
+    why: "What the clan does is the tabs you turn on: Clan Wars, ranked play, donations, trophy road. Playing together is said here, since the game cannot measure it. How strict the clan is sets where a starting point puts the minimums and the clocks.",
   },
   {
     key: "war",
@@ -69,7 +74,7 @@ export const GROUPS = [
   {
     key: "minimums",
     title: "Minimums",
-    why: "The least a member does to count as taking part in what the clan counts. Meeting them is needed to be promoted and to keep Elder, and it earns inactivity grace. Only minimums above zero apply; with none set, everyone meets them.",
+    why: "The least a member does to count as taking part in what the clan counts; each category's minimum is set on its own tab. Meeting them is needed to be promoted and to keep Elder, and it earns inactivity grace. Only minimums above zero apply; with none set, everyone meets them.",
     when: ANY_CATEGORY,
   },
   {
@@ -80,18 +85,21 @@ export const GROUPS = [
   {
     key: "band",
     title: "How many Elders",
+    advanced: true,
     why: "Elders as a share of the whole roster, leadership included. Nobody is promoted just to reach the lower share, and growth stops at the upper one.",
     when: RANKING,
   },
   {
     key: "promotion",
     title: "Promotion",
+    advanced: true,
     why: "Sustained, never a snapshot: a member is in the promotable set on several weekly reviews before an action is suggested. One missed review is tolerated; two in a row start the count again.",
     when: RANKING,
   },
   {
     key: "demotion",
     title: "Demotion",
+    advanced: true,
     why: "Sustained evidence, never a small rank movement, with two reasons: missing the minimums, or being outranked when a higher-ranked member takes the seat.",
     when: RANKING,
   },
@@ -112,8 +120,9 @@ export const GROUPS = [
   },
   {
     key: "actions",
-    title: "Actions",
-    why: "How the actions leaders take behave after a decision.",
+    title: "Checking what was done",
+    advanced: true,
+    why: "After a leader completes a promotion, demotion or removal, the record is checked for it.",
     when: [{ elder_mode: "categories" }, { removal_enabled: true }],
   },
   {
@@ -124,36 +133,77 @@ export const GROUPS = [
   },
 ];
 
+/**
+ * The editor's tabs, along the top. A category tab, inactivity and the
+ * two message tabs are switched on or off (`switch`, or `switches` when
+ * the tab holds several independent ones); a tab that is off shows only
+ * its switch. Every group sits on exactly one tab.
+ */
+export const TABS = [
+  { key: "about", title: "About", groups: ["about"] },
+  { key: "war", title: "Clan Wars", switch: "war_enabled", groups: ["war"] },
+  {
+    key: "ranked",
+    title: "Ranked play",
+    switch: "ranked_enabled",
+    groups: ["ranked"],
+  },
+  {
+    key: "donations",
+    title: "Donations",
+    switch: "donations_enabled",
+    groups: ["donations"],
+  },
+  {
+    key: "trophies",
+    title: "Trophy road",
+    switch: "trophies_enabled",
+    groups: ["trophies"],
+  },
+  {
+    key: "elder",
+    title: "Elder",
+    groups: [
+      "elder",
+      "minimums",
+      "band",
+      "promotion",
+      "demotion",
+      "members",
+      "actions",
+    ],
+  },
+  {
+    key: "removal",
+    title: "Inactivity",
+    switch: "removal_enabled",
+    groups: ["removal"],
+  },
+  {
+    key: "arrivals",
+    title: "Arrivals and departures",
+    switches: ["departures_enabled", "welcome_enabled"],
+    groups: ["departures"],
+  },
+  {
+    key: "messages",
+    title: "Announcements",
+    switches: ["announce_awards_enabled", "announce_rules_enabled"],
+    groups: ["messages"],
+  },
+];
+
+/** Fields of earlier versions no longer in the schema: a saved version
+ *  carrying one validates, and the value is dropped. The three measurable
+ *  goals are now the category tabs themselves (2026-09-25). */
+export const RETIRED_FIELDS = ["goal_war", "goal_climbing", "goal_donations"];
+
 const weightWhy =
   "Weights are relative: 60, 20 and 20 mean three fifths, one fifth and one fifth of the Elder score. Zero leaves the category out of it.";
 
 /** @type {Record<string, {group:string,label:string,unit:string,type:"integer"|"number"|"boolean"|"enum",min?:number,max?:number,options?:Array<{value:string,label:string}>,default:any,why:string,when?:Array<Record<string, any>>}>} */
 export const FIELDS = {
-  // ---- what the clan is for (declared; the settings below are what count)
-  goal_war: {
-    group: "about",
-    label: "Clan Wars",
-    unit: "on/off",
-    type: "boolean",
-    default: false,
-    why: "We fight the River Race together.",
-  },
-  goal_climbing: {
-    group: "about",
-    label: "Climbing",
-    unit: "on/off",
-    type: "boolean",
-    default: false,
-    why: "We push Trophy Road and Path of Legends.",
-  },
-  goal_donations: {
-    group: "about",
-    label: "Donations",
-    unit: "on/off",
-    type: "boolean",
-    default: false,
-    why: "We level each other's cards.",
-  },
+  // ---- what the clan is for: the category tabs, and one thing unmeasured
   goal_together: {
     group: "about",
     label: "Playing together",
@@ -173,7 +223,7 @@ export const FIELDS = {
       { value: "strict", label: "Strict: every week counts" },
     ],
     default: "standard",
-    why: "Sets how high the minimums and how short the clocks start when the settings are filled from the goals.",
+    why: "Where a starting point, or a tab you turn on, puts the minimums and the clocks. Change the numbers on each tab as you like.",
   },
 
   // ---- categories -------------------------------------------------------
@@ -256,9 +306,9 @@ export const FIELDS = {
     when: ANY_CATEGORY,
   },
   war_min_decks: {
-    group: "minimums",
-    label: "War decks played",
-    unit: "decks in the window",
+    group: "war",
+    label: "Minimum war decks",
+    unit: "decks in the minimums window",
     type: "integer",
     min: 0,
     max: 64,
@@ -267,9 +317,9 @@ export const FIELDS = {
     when: [{ war_enabled: true }],
   },
   ranked_min_battles: {
-    group: "minimums",
-    label: "Ranked battles",
-    unit: "battles in the window",
+    group: "ranked",
+    label: "Minimum ranked battles",
+    unit: "battles in the minimums window",
     type: "integer",
     min: 0,
     max: 200,
@@ -278,8 +328,8 @@ export const FIELDS = {
     when: [{ ranked_enabled: true }],
   },
   donations_min_weekly: {
-    group: "minimums",
-    label: "Donations",
+    group: "donations",
+    label: "Minimum donations",
     unit: "cards a week, on average",
     type: "integer",
     min: 0,
@@ -289,8 +339,8 @@ export const FIELDS = {
     when: [{ donations_enabled: true }],
   },
   trophies_min: {
-    group: "minimums",
-    label: "Trophies",
+    group: "trophies",
+    label: "Minimum trophies",
     unit: "trophies",
     type: "integer",
     min: 0,
@@ -609,7 +659,7 @@ export const FIELDS = {
     when: [{ elder_mode: "categories" }, { removal_enabled: true }],
   },
   renominate_removal_days: {
-    group: "actions",
+    group: "removal",
     label: "After a declined removal",
     unit: "days",
     type: "integer",
@@ -620,7 +670,7 @@ export const FIELDS = {
     when: [{ removal_enabled: true }],
   },
   renominate_promotion_days: {
-    group: "actions",
+    group: "promotion",
     label: "After a declined promotion",
     unit: "days",
     type: "integer",
@@ -631,7 +681,7 @@ export const FIELDS = {
     when: RANKING,
   },
   renominate_demotion_days: {
-    group: "actions",
+    group: "demotion",
     label: "After a declined demotion",
     unit: "days",
     type: "integer",
@@ -710,12 +760,14 @@ export function setMinimums(policy) {
 /**
  * Validate a candidate policy. Returns { ok, values, errors } where errors
  * are sentences a leader would need, keyed by the field that owns them.
- * Unknown keys are refused; missing keys take the starting value.
+ * Unknown keys are refused (a retired one is dropped); missing keys take
+ * the starting value.
  */
 export function validate(input = {}) {
   const errors = {};
   const values = defaults();
   for (const key of Object.keys(input ?? {})) {
+    if (RETIRED_FIELDS.includes(key)) continue;
     if (!FIELDS[key]) {
       errors[key] = "This is not a policy field.";
       continue;

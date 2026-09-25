@@ -1,6 +1,36 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { mockApi, signedIn } from "./fixtures.ts";
+import { FIELDS, GROUPS, TABS, policyFromGoals } from "@elixir-clan/engine";
+
+/** A saved policy as the editor reads it: a war clan, version 1. */
+const POLICY_VIEW = {
+  can_edit: true,
+  set: true,
+  members: 40,
+  min_members: 10,
+  big_enough: true,
+  current: {
+    set: true,
+    version: 1,
+    values: policyFromGoals(["war", "donations"], "standard"),
+    saved_at: "2026-09-20T12:00:00Z",
+    saved_by: "#20QQL8CCRU",
+    saved_by_name: "Ada",
+  },
+  tabs: TABS,
+  groups: GROUPS,
+  fields: FIELDS,
+  versions: [
+    {
+      version: 1,
+      saved_at: "2026-09-20T12:00:00Z",
+      saved_by: "#20QQL8CCRU",
+      saved_by_name: "Ada",
+      note: null,
+    },
+  ],
+};
 
 /** Nothing serious or critical, on every page a journey lands on. */
 async function accessible(page: Page, name: string) {
@@ -94,7 +124,7 @@ test.describe("signed in", () => {
     await expect(rail.getByRole("link", { name: /^Board/ })).toHaveCount(0);
   });
 
-  test("a clan with no policy yet: only the roster, Recruit, Scout, the policy editor and the clan's model", async ({
+  test("a clan with no policy yet: only the roster, Recruit, Scout, the policy editor and clan settings", async ({
     page,
   }) => {
     await mockApi(page, signedIn({}, { policy: { set: false } }));
@@ -103,7 +133,7 @@ test.describe("signed in", () => {
     await expect(rail.getByRole("link", { name: /^Policy/ })).toBeVisible();
     await expect(rail.getByRole("link", { name: /^Scout/ })).toBeVisible();
     await expect(rail.getByRole("link", { name: /^Recruit/ })).toBeVisible();
-    await expect(rail.getByRole("link", { name: /^Model/ })).toBeVisible();
+    await expect(rail.getByRole("link", { name: /^Settings/ })).toBeVisible();
     for (const name of [
       /^Actions/,
       /^Board/,
@@ -149,6 +179,89 @@ test.describe("signed in", () => {
       page.getByText("Clan management starts at 10 members"),
     ).toBeVisible();
     await expect(page.getByText(/This clan has 6\./)).toBeVisible();
+  });
+
+  test("the policy editor is tabs along the top: one at a time, each switched on or off", async ({
+    page,
+  }) => {
+    await mockApi(
+      page,
+      signedIn({ "GET /api/clans/2PQRJ8LV/policy": [200, POLICY_VIEW] }),
+    );
+    await page.goto("/clan/2PQRJ8LV");
+    await page
+      .locator(".rail")
+      .getByRole("link", { name: /^Policy/ })
+      .click();
+    const tabs = page.getByRole("tablist", { name: "Policy" });
+    await expect(
+      tabs.getByRole("tab", { name: /^Clan Wars, on/ }),
+    ).toBeVisible();
+    await expect(
+      tabs.getByRole("tab", { name: /^Ranked play, off/ }),
+    ).toBeVisible();
+    // About first; nothing from another tab on the page.
+    await expect(page.getByLabel(/War rate window/)).toHaveCount(0);
+    await tabs.getByRole("tab", { name: /^Clan Wars/ }).click();
+    await expect(page.getByLabel(/Minimum war decks/)).toHaveValue("8");
+    await tabs.getByRole("tab", { name: /^Ranked play/ }).click();
+    await expect(
+      page.getByText(/Off: this clan does not use it/),
+    ).toBeVisible();
+    await page.getByLabel("Count ranked play").check();
+    await expect(page.getByLabel(/Minimum ranked battles/)).toHaveValue("5");
+    await expect(
+      tabs.getByRole("tab", { name: /^Ranked play, on, changed/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/settings? changed: Count ranked play/),
+    ).toBeVisible();
+    await accessible(page, "policy tabs");
+  });
+
+  test("clan settings hold the clan's own model, for leaders", async ({
+    page,
+  }) => {
+    await mockApi(
+      page,
+      signedIn({
+        "GET /api/clans/2PQRJ8LV/model": [
+          200,
+          {
+            clan_tag: "#2PQRJ8LV",
+            purposes: { recruit_pitch: { label: "Recruiting pitch" } },
+            per_day: 20,
+            keep_days: 90,
+            uses: {
+              today: 0,
+              month: { count: 0, input_tokens: 0, output_tokens: 0 },
+              recent: [],
+            },
+            set: false,
+          },
+        ],
+      }),
+    );
+    await page.goto("/clan/2PQRJ8LV");
+    await page
+      .locator(".rail")
+      .getByRole("link", { name: /^Settings/ })
+      .click();
+    await expect(page).toHaveURL(/\/manage\/settings$/);
+    await expect(
+      page.getByRole("heading", { name: "Clan settings" }),
+    ).toBeVisible();
+    await expect(page.getByText("The clan’s own model")).toBeVisible();
+    await expect(page.getByLabel("Add the clan's key")).toHaveAttribute(
+      "type",
+      "password",
+    );
+    // The model's old address lands on settings.
+    await page.goto("/clan/2PQRJ8LV/manage/model");
+    await expect(
+      page.getByRole("heading", { name: "Clan settings" }),
+    ).toBeVisible();
+    await accessible(page, "clan settings");
   });
 
   test("@narrow the rail is a disclosure above the content", async ({

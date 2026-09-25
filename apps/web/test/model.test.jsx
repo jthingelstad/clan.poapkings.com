@@ -181,11 +181,11 @@ describe("the clan's model", () => {
     renderWithProviders(<Recruit clan={leaderClan} navigate={navigate} />);
     fireEvent.click(await screen.findByText("write the pitch"));
     fireEvent.click(screen.getByText("Add the clan's key"));
-    expect(navigate).toHaveBeenCalledWith("/clan/2PQRJ8LV/manage/model");
+    expect(navigate).toHaveBeenCalledWith("/clan/2PQRJ8LV/manage/settings");
     expect(screen.queryByRole("button", { name: "Draft it" })).toBeNull();
   });
 
-  test("the rail offers Model to leaders, with or without a policy, and to no one else", () => {
+  test("the rail offers clan settings to leaders, with or without a policy, and to no one else", () => {
     const me = (role, policy) => ({
       ok: true,
       selected: { clan_tag: "#2PQRJ8LV", role },
@@ -193,14 +193,15 @@ describe("the clan's model", () => {
       policy,
     });
     const keys = (m) => railItems(m).map((r) => r.key);
-    expect(keys(me("leader", { set: false }))).toContain("model");
+    expect(keys(me("leader", { set: false }))).toContain("settings");
     expect(keys(me("coLeader", { set: true, active: true }))).toContain(
-      "model",
+      "settings",
     );
     expect(keys(me("elder", { set: true, active: true }))).not.toContain(
-      "model",
+      "settings",
     );
-    expect(keys(me("member", { set: false }))).not.toContain("model");
-    expect(railKey("/clan/2PQRJ8LV/manage/model")).toBe("model");
+    expect(keys(me("member", { set: false }))).not.toContain("settings");
+    expect(railKey("/clan/2PQRJ8LV/manage/settings")).toBe("settings");
+    expect(railKey("/clan/2PQRJ8LV/manage/model")).toBe("settings");
   });
 });

@@ -846,3 +846,30 @@ Next uses, when wanted: a Leader Message in the clan's voice (through the
 chat filter), a season recap, and the weekly report once Elixir's mail
 door exists.
 
+## 2026-09-25 — The policy editor in tabs, and clan settings (Jamie)
+
+Jamie, updating POAP KINGS' policy: "it is too much… pages and pages",
+and adding a goal did not make anything appear or go. He asked for tabs
+along the top, each turned on or off, with that tab's settings in its own
+panel; and for the model page to be part of a clan settings page rather
+than its own thing.
+
+- **Why the goal did nothing:** the four goals were declarations. No
+  setting depended on them, and they only mattered through a "fill from
+  the goals" button. Now the measurable goals are the category tabs
+  themselves (turning on Clan Wars is saying the clan is for Clan Wars);
+  playing together, which the game cannot count, stays a switch on About.
+  The old goal fields are retired: saved versions still validate and the
+  values are dropped. "How it works here" now opens with what the clan is
+  for whenever it counts something.
+- **The tabs:** About (starting points, how strict, playing together, and
+  the tabs at a glance), Clan Wars, Ranked play, Donations, Trophy road
+  (each with its switch and its own settings, its minimum included),
+  Elder (with the rarely touched settings folded under "fine tuning"),
+  Inactivity, Arrivals and departures, Announcements. Turning a tab on
+  fills it from the clan's posture; the bar marks what is on, changed or
+  wrong, and a refused save opens the tab with the problem.
+- **Clan settings** (Manage ▸ Settings) is the leaders' page for what
+  belongs to the whole clan; the clan's own model is its first section,
+  and the doors' switches (sharing with Elixir, mail) go there next.
+

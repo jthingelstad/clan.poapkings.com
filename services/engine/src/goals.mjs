@@ -2,16 +2,17 @@
  * What a clan is FOR (round 2 of the build loop, 2026-09-25; from the
  * goals plan of 2026-09-13): a leader says what the clan is about and how
  * strict it is, and a whole starting policy follows, to tune before
- * saving. Goals are declared in the policy (`goal_*`, `posture`): they fill
- * the settings, open "How it works here" and seed the recruiting pitch,
- * and judge nothing on their own. The engine only ever reads the settings
- * they filled, so a leader who tunes a number is never overruled.
+ * saving. Since the tabbed editor (2026-09-25) the measurable goals ARE
+ * the categories the clan counts (`declaredGoals`); only playing together
+ * is its own field (`goal_together`), with `posture`. Goals open "How it
+ * works here" and seed the recruiting pitch, and judge nothing on their
+ * own; a leader who tunes a number is never overruled.
  *
  * Pure and deterministic: the same goals and posture always give the same
  * policy.
  */
 
-import { defaults, validate } from "./policy.mjs";
+import { FIELDS, FIELD_KEYS, TABS, defaults, validate } from "./policy.mjs";
 
 /** What a clan can be for. Several can be on at once; real clans mix. */
 export const GOALS = {
@@ -101,7 +102,7 @@ const by = (posture, table) => table[posture] ?? table.standard;
 export function policyFromGoals(goals = [], posture = "standard") {
   const on = new Set(goals.filter((g) => GOALS[g]));
   const v = defaults();
-  for (const g of GOAL_KEYS) v[`goal_${g}`] = on.has(g);
+  v.goal_together = on.has("together");
   v.posture = POSTURES[posture] ? posture : "standard";
 
   if (on.has("war")) {
@@ -166,9 +167,50 @@ export function policyFromGoals(goals = [], posture = "standard") {
   return checked.values;
 }
 
-/** The goals a policy declares, in order. */
-export const declaredGoals = (policy) =>
-  GOAL_KEYS.filter((g) => policy?.[`goal_${g}`] === true);
+/** The goal a category tab stands for. */
+const CATEGORY_GOAL = {
+  war: "war",
+  ranked: "climbing",
+  trophies: "climbing",
+  donations: "donations",
+};
+
+/**
+ * The starting values for one tab as it is turned on: that tab's
+ * settings (and, for a category, its Elder weight) from the starting
+ * policy of what the clan already counts plus this category, at the
+ * clan's posture. Everything else in the draft is left alone.
+ */
+export function tabStart(values, tabKey) {
+  const tab = TABS.find((t) => t.key === tabKey);
+  if (!tab) return {};
+  const goals = new Set(declaredGoals(values));
+  if (CATEGORY_GOAL[tabKey]) goals.add(CATEGORY_GOAL[tabKey]);
+  const start = policyFromGoals([...goals], values?.posture ?? "standard");
+  return Object.fromEntries(
+    FIELD_KEYS.filter(
+      (k) =>
+        tab.groups.includes(FIELDS[k].group) ||
+        (CATEGORY_GOAL[tabKey] && k === `elder_weight_${tabKey}`),
+    ).map((k) => [k, start[k]]),
+  );
+}
+
+/**
+ * The goals a policy declares, in order: the measurable ones are the
+ * categories it counts (climbing is ranked play or trophy road), and
+ * playing together is said on its own, since the game cannot measure it.
+ */
+export function declaredGoals(policy) {
+  const on = {
+    war: policy?.war_enabled === true,
+    climbing:
+      policy?.ranked_enabled === true || policy?.trophies_enabled === true,
+    donations: policy?.donations_enabled === true,
+    together: policy?.goal_together === true,
+  };
+  return GOAL_KEYS.filter((g) => on[g]);
+}
 
 /** A goal as a word in a sentence: Clan Wars is a name and keeps its
  *  capitals; the others are plain words. */

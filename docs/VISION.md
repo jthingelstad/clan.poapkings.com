@@ -133,8 +133,8 @@ clan Elixir only watches rather than records works with less.
 
 Sign in with Elixir; the roster with roles and statistics; "You here", every
 member's own numbers week by week and what their clan makes of them; the clan's
-versioned policy, started from what the clan is for (goals and a posture,
-or a preset) and tuned from there (categories, minimums, Elder by hand or
+versioned policy, in tabs switched on or off (a starting point, then each
+category, Elder, inactivity and the rest), tuned from there (categories, minimums, Elder by hand or
 by a weighted mix, the inactivity clock, departures, welcomes); actions for leaders, elders and members
 (assigned or open to a role, completed or declined), with the words for the
 game ready (a clan chat line, or a Clan Leader Message for leaders), each
@@ -143,9 +143,9 @@ of what raised it, who took it and anyone's comments, and outcomes verified
 from the record; holds, Away, tiered notes; Standing with "How it works here"; awards as a catalog
 of kinds and a members' trophy case; recruiting copy in two formats; lines for members to invite their leaders and
 clanmates;
-scouting an applicant; the clan's own model, on its own Anthropic key,
-drafting the recruiting pitch for a leader to edit; feedback to the
-maintainer. See `AGENTS.md` for how.
+scouting an applicant; clan settings, where the clan's own model, on its
+own Anthropic key, is added to draft the recruiting pitch for a leader to
+edit; feedback to the maintainer. See `AGENTS.md` for how.
 
 ## Themes ahead (not yet ordered)
 

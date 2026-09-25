@@ -1,7 +1,7 @@
 /**
  * What the rail offers depends on who is looking and on the clan's policy:
  * until a leader saves one, and while the clan has fewer than 10 members,
- * only the roster, Recruit, Scout, the policy editor and the clan's model
+ * only the roster, Recruit, Scout, the policy editor and clan settings
  * exist (nothing in clan management runs). Manage for leaders and
  * co-leaders, Awards and Scout also for elders, Away when the policy lets
  * members mark it, Maintain for the product's maintainer. Two items the
@@ -85,13 +85,13 @@ export function railItems(me) {
         icon: "file-text",
         to: `${base}/manage/policy`,
       });
-      // The clan's own model: its Anthropic key, for words (Recruit's
-      // pitch today). Any clan, with or without a policy, like Recruit.
+      // Clan settings: what belongs to the whole clan (the clan's own
+      // model first). Any clan, with or without a policy, like Recruit.
       items.push({
-        key: "model",
-        label: "Model",
-        icon: "key-round",
-        to: `${base}/manage/model`,
+        key: "settings",
+        label: "Settings",
+        icon: "settings",
+        to: `${base}/manage/settings`,
       });
     }
     if (elder) {
@@ -159,5 +159,6 @@ export function railKey(path) {
   if (!m[1]) return "clan";
   if (["me", "actions", "standing", "trophies", "recruit"].includes(m[1]))
     return m[1];
+  if (m[2] === "model") return "settings";
   return !m[2] || m[2] === "inbox" ? "actions" : m[2];
 }

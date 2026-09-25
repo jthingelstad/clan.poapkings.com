@@ -274,10 +274,10 @@ function CopyCard({ channel, title, note, value }) {
 const DRAFT_ERROR = {
   no_model_key: "The clan has no model key yet.",
   model_key_refused:
-    "Anthropic stopped accepting the clan's key. Add it again in Model.",
-  model_key_unreadable: "The clan's key needs to be added again in Model.",
+    "Anthropic stopped accepting the clan's key. Add it again in Settings.",
+  model_key_unreadable: "The clan's key needs to be added again in Settings.",
   model_unavailable:
-    "The chosen model is no longer available to this key. Pick another in Model.",
+    "The chosen model is no longer available to this key. Pick another in Settings.",
   model_daily_limit:
     "The clan's model has drafted as many times as it may today. Try again tomorrow.",
 };
@@ -285,14 +285,14 @@ const DRAFT_ERROR = {
 /**
  * The clan's own model drafting the pitch: the words fill the editor, the
  * leader edits them, and nothing is saved until they save. The clan's
- * key lives in Manage ▸ Model.
+ * key lives in Manage ▸ Settings.
  */
 function DraftWithModel({ clan, model, navigate, current, onDraft }) {
   const [ask, setAsk] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [previous, setPrevious] = useState(null);
-  const modelPath = `/clan/${clan.clan_tag.slice(1)}/manage/model`;
+  const modelPath = `/clan/${clan.clan_tag.slice(1)}/manage/settings`;
   const toModel = (e) => {
     e.preventDefault();
     navigate?.(modelPath);
@@ -319,7 +319,7 @@ function DraftWithModel({ clan, model, navigate, current, onDraft }) {
       setResult({
         error:
           e.error === "model_key_owner_left"
-            ? `The clan's key was added by ${e.set_by_name}, who no longer leads the clan. Add a key of yours in Model.`
+            ? `The clan's key was added by ${e.set_by_name}, who no longer leads the clan. Add a key of yours in Settings.`
             : (DRAFT_ERROR[e.error] ??
               e.message ??
               "The clan's model did not answer. Try again in a minute."),

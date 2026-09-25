@@ -562,10 +562,11 @@ test("standing for members: evidence in a player's terms, no internals; private 
   assert.ok(!/\b(score|percentile|rank|slot)\b/i.test(JSON.stringify(s.body)));
   assert.ok(s.body.you);
   assert.equal(s.body.you.inactivity, null);
-  // How the clan runs, from its policy, for every member.
+  // How the clan runs, from its policy, for every member, opening with
+  // what the clan is for (the categories it counts).
   assert.deepEqual(
     s.body.how.map((x) => x.key),
-    ["counts", "minimums", "elder", "removal"],
+    ["about", "counts", "minimums", "elder", "removal"],
   );
   // A leader keeps where everyone stands to leaders: a member still sees
   // how the clan runs and their own line.

@@ -33,6 +33,8 @@ import {
   validate,
   FIELDS,
   GROUPS,
+  TABS,
+  RETIRED_FIELDS,
   MIN_MEMBERS,
   audienceOf,
   awayCandidates,
@@ -159,8 +161,13 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     if (current)
       return {
         set: true,
-        // A field added since the version was saved takes its starting value.
-        values: { ...defaults(), ...current.values },
+        // A field added since the version was saved takes its starting
+        // value; a field retired since is dropped.
+        values: Object.fromEntries(
+          Object.entries({ ...defaults(), ...current.values }).filter(
+            ([k]) => !RETIRED_FIELDS.includes(k),
+          ),
+        ),
         version: current.version,
         saved_at: current.saved_at,
         saved_by: current.saved_by,
@@ -921,6 +928,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           saved_by_name:
             policy.saved_by_name ?? names.get(policy.saved_by) ?? null,
         },
+        tabs: TABS,
         groups: GROUPS,
         fields: FIELDS,
         versions: versions

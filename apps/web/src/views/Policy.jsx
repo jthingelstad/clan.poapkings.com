@@ -3,7 +3,7 @@ import { manageApi } from "../api.js";
 import { keys, useInvalidate, usePolicy } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 import { TooFew } from "../components/TooFew.jsx";
-import { PRESETS, declaredGoals, policyFromGoals } from "@elixir-clan/engine";
+import { PRESETS, policyFromGoals, tabStart } from "@elixir-clan/engine";
 
 /** Whether a group or field applies under the draft (engine `applies`). */
 const applies = (when, values) =>
@@ -12,15 +12,23 @@ const applies = (when, values) =>
     Object.entries(clause).every(([k, v]) => values?.[k] === v),
   );
 
+const switchesOf = (tab) =>
+  [tab.switch, ...(tab.switches ?? [])].filter(Boolean);
+
 /**
- * The policy editor: every field with its help text (the documentation of
- * the rules IS this page), shown only where it applies under the draft, a
- * preview of the last reviews under the draft beside the current policy,
- * and the versions. Until a leader saves the first version nothing in clan
- * management runs; everything starts off.
+ * The policy editor, in tabs along the top (Jamie, 2026-09-25: one long
+ * page was too much). About holds the starting points, how strict the
+ * clan is and what it does; each category (Clan Wars, ranked play,
+ * donations, trophy road) is its own tab, switched on or off, with its
+ * own settings; then Elder, inactivity, arrivals and departures, and
+ * announcements. A tab that is off shows only its switch; turning one on
+ * fills its settings from the clan's posture, to tune. Every field keeps
+ * its help text (the documentation of the rules IS this page). The save
+ * bar, the preview and the versions sit below whichever tab is open.
  */
 export function Policy({ clan }) {
   const [draft, setDraft] = useState(null);
+  const [tab, setTab] = useState("about");
   const [errors, setErrors] = useState({});
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -30,8 +38,8 @@ export function Policy({ clan }) {
   const policy = usePolicy(clan.clan_tag);
   const view = policy.data ?? null;
   // The draft starts from what the server has; a saved policy is the
-  // new start. `load` after a save refetches, and the effect resets.
-  // A saved policy changes the judged board too: the whole clan refetches.
+  // new start. A saved policy changes the judged board too: the whole
+  // clan refetches.
   const invalidate = useInvalidate();
   const load = () => invalidate(keys.clan(clan.clan_tag));
   useEffect(() => {
@@ -51,25 +59,49 @@ export function Policy({ clan }) {
       </div>
     );
 
-  const changed = Object.keys(draft).filter(
+  const tabs = view.tabs;
+  const fieldsOf = (t) =>
+    Object.keys(view.fields).filter((k) =>
+      t.groups.includes(view.fields[k].group),
+    );
+  const changed = Object.keys(view.fields).filter(
     (k) => draft[k] !== view.current.values[k],
   );
   // The first save is a policy even with nothing changed.
   const canSave = !view.set || changed.length > 0;
   const set = (key, value) => setDraft((d) => ({ ...d, [key]: value }));
+  const current = tabs.find((t) => t.key === tab) ?? tabs[0];
+
+  /** A tab's switch: turning it on fills the tab from the clan's posture. */
+  const flip = (t, on) => {
+    setDraft((d) =>
+      on ? { ...d, ...tabStart(d, t.key) } : { ...d, [t.switch]: false },
+    );
+    setPreview(null);
+  };
+  const fill = (goals, posture, key) => {
+    setDraft(policyFromGoals(goals, posture));
+    setPreview(null);
+    setErrors({});
+    trackEvent("clan.policy_preset", key);
+  };
+  const failed = (r, what) => {
+    const errs = r.data?.errors ?? {};
+    setErrors(errs);
+    // Open the first tab that holds a field with a problem.
+    const first = tabs.find((t) => fieldsOf(t).some((k) => errs[k]));
+    if (first) setTab(first.key);
+    setMessage(
+      Object.keys(errs).length ? "Fix the fields marked on the tabs." : what,
+    );
+  };
 
   const doPreview = async () => {
     setBusy(true);
     setMessage("");
     const r = await manageApi.previewPolicy(clan.clan_tag, draft);
     setBusy(false);
-    if (!r.ok) {
-      setErrors(r.data?.errors ?? {});
-      setMessage(
-        r.data?.errors ? "Fix the fields marked below." : "Preview failed.",
-      );
-      return;
-    }
+    if (!r.ok) return failed(r, "Preview failed.");
     setErrors({});
     trackEvent("clan.policy_previewed");
     setPreview(r.data);
@@ -79,13 +111,7 @@ export function Policy({ clan }) {
     setMessage("");
     const r = await manageApi.savePolicy(clan.clan_tag, draft, note || null);
     setBusy(false);
-    if (!r.ok) {
-      setErrors(r.data?.errors ?? {});
-      setMessage(
-        r.data?.errors ? "Fix the fields marked below." : "Save failed.",
-      );
-      return;
-    }
+    if (!r.ok) return failed(r, "Save failed.");
     setErrors({});
     setPreview(null);
     setNote("");
@@ -94,8 +120,17 @@ export function Policy({ clan }) {
     load();
   };
 
+  /** How a tab reads on the bar: its state, and whether it has edits. */
+  const stateOf = (t) => {
+    const sw = switchesOf(t);
+    if (t.key === "elder")
+      return draft.elder_mode === "categories" ? "ranked" : "by hand";
+    if (!sw.length) return null;
+    return sw.some((k) => draft[k] === true) ? "on" : "off";
+  };
+
   return (
-    <div style={{ display: "grid", gap: "20px" }}>
+    <div className="grid gap-4">
       {view.set ? (
         <p className="page-head__note m-0">
           {`Version ${view.current.version}, saved ${view.current.saved_at?.slice(0, 10)} by ${view.current.saved_by_name ?? view.current.saved_by}.`}{" "}
@@ -106,182 +141,183 @@ export function Policy({ clan }) {
         <div className="callout" role="note">
           <span>
             This clan has no policy yet, so nothing in clan management runs: no
-            actions, no standing, no inactivity clock, no awards. Everything
-            below starts off. Turn on what your clan does and save; members then
-            see how the clan runs on their Standing page.
+            actions, no standing, no inactivity clock, no awards. Start from
+            what the clan is for, or turn on the tabs for what it does, and
+            save; members then see how the clan runs on their Standing page.
           </span>
         </div>
       )}
-      {view.can_edit ? (
-        <section className="panel">
-          <div className="panel__head">Start from what the clan is for</div>
-          <div className="panel__body grid gap-3">
-            <p className="page__lede m-0">
-              Pick a starting point and every setting below is filled from it,
-              yours to change before you save. Or tick what the clan is for
-              under the first heading and fill from that.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.key}
-                  type="button"
-                  className="btn btn--sm"
-                  onClick={() => {
-                    setDraft(policyFromGoals(p.goals, p.posture));
-                    setPreview(null);
-                    trackEvent("clan.policy_preset", p.key);
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                className="btn btn--sm btn--quiet"
-                disabled={declaredGoals(draft).length === 0}
-                onClick={() => {
-                  setDraft(
-                    policyFromGoals(declaredGoals(draft), draft.posture),
-                  );
-                  setPreview(null);
-                  trackEvent("clan.policy_preset", "goals");
-                }}
-              >
-                Fill from the goals below
-              </button>
-            </div>
-            {view.set ? (
-              <p className="page-head__note m-0">
-                Filling replaces every setting in the draft; the count of
-                changed fields and the preview show what would move before you
-                save.
-              </p>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-      {view.groups.map((g) => {
-        if (!applies(g.when, draft)) return null;
-        const fields = Object.entries(view.fields).filter(
-          ([, f]) => f.group === g.key && applies(f.when, draft),
-        );
-        if (!fields.length) return null;
-        return (
-          <section key={g.key} className="panel">
-            <div className="panel__head">{g.title}</div>
-            <div
-              className="panel__body"
-              style={{ display: "grid", gap: "14px" }}
+
+      <div className="segmented flex-wrap" role="tablist" aria-label="Policy">
+        {tabs.map((t) => {
+          const state = stateOf(t);
+          const edited = fieldsOf(t).some((k) => changed.includes(k));
+          const wrong = fieldsOf(t).some((k) => errors[k]);
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              id={`tab-${t.key}`}
+              aria-label={[
+                t.title,
+                state,
+                edited ? "changed" : null,
+                wrong ? "needs a fix" : null,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+              aria-selected={t.key === current.key}
+              aria-controls="policy-panel"
+              onClick={() => setTab(t.key)}
             >
-              <p className="page__lede" style={{ margin: 0 }}>
-                {g.why}
-              </p>
-              {fields.map(([key, f]) => (
-                <div key={key} id={key} style={{ display: "grid", gap: "4px" }}>
-                  <label
-                    className="field-label"
-                    htmlFor={`f-${key}`}
-                    style={{ fontWeight: 600 }}
-                  >
-                    {f.label}{" "}
-                    {f.type === "integer" || f.type === "number" ? (
-                      <span className="page-head__note">
-                        ({f.unit}, {f.min}–{f.max})
-                      </span>
-                    ) : null}
-                  </label>
-                  {f.type === "enum" ? (
-                    <select
-                      id={`f-${key}`}
-                      className="input max-w-[420px]"
-                      value={draft[key]}
-                      disabled={!view.can_edit}
-                      onChange={(e) => set(key, e.target.value)}
-                      aria-invalid={Boolean(errors[key])}
-                    >
-                      {f.options.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : f.type === "boolean" ? (
-                    <label
-                      style={{
-                        display: "inline-flex",
-                        gap: "8px",
-                        alignItems: "center",
-                        width: "fit-content",
-                      }}
-                    >
-                      <input
-                        id={`f-${key}`}
-                        type="checkbox"
-                        checked={Boolean(draft[key])}
-                        disabled={!view.can_edit}
-                        onChange={(e) => set(key, e.target.checked)}
-                      />
-                      <span>{draft[key] ? "on" : "off"}</span>
-                    </label>
-                  ) : (
-                    <input
-                      id={`f-${key}`}
-                      className="input"
-                      type="number"
-                      step={f.type === "integer" ? 1 : 0.01}
-                      min={f.min}
-                      max={f.max}
-                      value={draft[key]}
-                      disabled={!view.can_edit}
-                      onChange={(e) =>
-                        set(
-                          key,
-                          e.target.value === ""
-                            ? ""
-                            : f.type === "integer"
-                              ? parseInt(e.target.value, 10)
-                              : parseFloat(e.target.value),
-                        )
-                      }
-                      style={{ maxWidth: "160px" }}
-                      aria-invalid={Boolean(errors[key])}
-                    />
-                  )}
-                  <div className="page-head__note">{f.why}</div>
-                  {errors[key] ? (
-                    <div
-                      className="field-error"
-                      role="alert"
-                      style={{ color: "var(--bad)" }}
-                    >
-                      {errors[key]}
-                    </div>
+              {state === "on" || state === "off" ? (
+                <span
+                  aria-hidden="true"
+                  className={`mr-1.5 inline-block size-2 rounded-full ${state === "on" ? "bg-[var(--ok)]" : "border border-[var(--ink-faint)]"}`}
+                />
+              ) : null}
+              {t.title}
+              {state && state !== "on" && state !== "off" ? (
+                <span className="text-[var(--ink-faint)]"> · {state}</span>
+              ) : null}
+              {wrong ? (
+                <span aria-hidden="true" className="ml-1 text-[var(--bad)]">
+                  !
+                </span>
+              ) : edited ? (
+                <span aria-hidden="true" className="ml-1 text-[var(--accent)]">
+                  •
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
+      <section
+        className="panel"
+        role="tabpanel"
+        id="policy-panel"
+        aria-labelledby={`tab-${current.key}`}
+      >
+        <div className="panel__head flex-wrap gap-2">
+          <span>{current.title}</span>
+          {current.switch ? (
+            <label className="ml-auto inline-flex items-center gap-2 whitespace-nowrap">
+              <input
+                type="checkbox"
+                className="size-4 shrink-0"
+                aria-label={view.fields[current.switch].label}
+                checked={draft[current.switch] === true}
+                disabled={!view.can_edit}
+                onChange={(e) => flip(current, e.target.checked)}
+              />
+              <span>{view.fields[current.switch].label}</span>
+            </label>
+          ) : null}
+        </div>
+        <div className="panel__body grid gap-5">
+          {current.key === "about" ? (
+            <About
+              view={view}
+              tabs={tabs}
+              stateOf={stateOf}
+              onFill={fill}
+              onOpen={setTab}
+            />
+          ) : null}
+          {(() => {
+            // One group of the open tab: its help once, then its fields; a
+            // help shared by fields in a row (the Elder weights) says it once.
+            const groupBlock = (gk) => {
+              const g = view.groups.find((x) => x.key === gk);
+              if (!g || !applies(g.when, draft)) return null;
+              const keysHere = fieldsOf({ groups: [gk] }).filter(
+                (k) =>
+                  k !== current.switch && applies(view.fields[k].when, draft),
+              );
+              const off = current.switch && draft[current.switch] !== true;
+              return (
+                <div key={gk} className="grid gap-3">
+                  {current.groups.length > 1 ? (
+                    <h2 className="label m-0">{g.title}</h2>
                   ) : null}
+                  <p className="page__lede m-0">{g.why}</p>
+                  {off ? (
+                    <p className="page-head__note m-0">
+                      Off: this clan does not use it. Turn it on above to set it
+                      up.
+                    </p>
+                  ) : (
+                    keysHere.map((k, i) => (
+                      <Field
+                        key={k}
+                        name={k}
+                        f={view.fields[k]}
+                        help={
+                          view.fields[keysHere[i + 1]]?.why !==
+                          view.fields[k].why
+                        }
+                        value={draft[k]}
+                        error={errors[k]}
+                        disabled={!view.can_edit}
+                        onChange={(v) => set(k, v)}
+                      />
+                    ))
+                  )}
                 </div>
-              ))}
-            </div>
-          </section>
-        );
-      })}
+              );
+            };
+            const isAdvanced = (gk) =>
+              view.groups.find((x) => x.key === gk)?.advanced === true;
+            const main = current.groups.filter((gk) => !isAdvanced(gk));
+            const fine = current.groups.filter(
+              (gk) =>
+                isAdvanced(gk) &&
+                applies(view.groups.find((x) => x.key === gk)?.when, draft),
+            );
+            const fineKeys = fieldsOf({ groups: fine });
+            return (
+              <>
+                {main.map(groupBlock)}
+                {fine.length ? (
+                  <details
+                    key={`${current.key}-fine`}
+                    open={fineKeys.some((k) => errors[k])}
+                  >
+                    <summary className="label cursor-pointer">
+                      Fine tuning:{" "}
+                      {fine
+                        .map(
+                          (gk) =>
+                            view.groups.find((x) => x.key === gk)?.title ?? gk,
+                        )
+                        .join(", ")
+                        .toLowerCase()}
+                    </summary>
+                    <div className="mt-4 grid gap-5">
+                      {fine.map(groupBlock)}
+                    </div>
+                  </details>
+                ) : null}
+              </>
+            );
+          })()}
+        </div>
+      </section>
+
       {view.can_edit ? (
         <div className="panel">
-          <div className="panel__body" style={{ display: "grid", gap: "10px" }}>
+          <div className="panel__body grid gap-2.5">
             <div className="page-head__note">
               {!view.set
                 ? "Saving creates version 1: clan management starts from it."
                 : changed.length
-                  ? `${changed.length} field${changed.length === 1 ? "" : "s"} changed: ${changed.join(", ")}`
+                  ? `${changed.length} setting${changed.length === 1 ? "" : "s"} changed: ${changed.map((k) => view.fields[k].label).join(", ")}.`
                   : "No changes."}
             </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                flexWrap: "wrap",
-                alignItems: "center",
-              }}
-            >
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 className="btn"
@@ -291,11 +327,10 @@ export function Policy({ clan }) {
                 Preview the last reviews
               </button>
               <input
-                className="input"
+                className="input flex-[1_1_200px]"
                 placeholder="why this change (optional)"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                style={{ flex: "1 1 200px" }}
               />
               <button
                 type="button"
@@ -311,12 +346,13 @@ export function Policy({ clan }) {
           </div>
         </div>
       ) : null}
+
       {view.versions.length ? (
-        <section>
-          <div className="label" style={{ marginBottom: "8px" }}>
-            Versions
-          </div>
-          <ul style={{ margin: 0, paddingLeft: "18px" }}>
+        <details>
+          <summary className="label cursor-pointer">
+            Versions ({view.versions.length})
+          </summary>
+          <ul className="mt-2 mb-0 pl-[18px]">
             {view.versions.map((v) => (
               <li key={v.version}>
                 v{v.version} · {v.saved_at?.slice(0, 16).replace("T", " ")} ·{" "}
@@ -326,7 +362,133 @@ export function Policy({ clan }) {
               </li>
             ))}
           </ul>
-        </section>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+/** The About tab: where to start, and what the clan does at a glance. */
+function About({ view, tabs, stateOf, onFill, onOpen }) {
+  return (
+    <>
+      {view.can_edit ? (
+        <div className="grid gap-2">
+          <h2 className="label m-0">Start from what the clan is for</h2>
+          <p className="page__lede m-0">
+            Pick a starting point and every tab is filled from it, yours to
+            change before you save.
+            {view.set
+              ? " It replaces the whole draft; the changed settings and the preview show what would move."
+              : ""}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className="btn btn--sm"
+                onClick={() => onFill(p.goals, p.posture, p.key)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="grid gap-2">
+        <h2 className="label m-0">What the clan does</h2>
+        <ul className="m-0 grid list-none gap-1 p-0">
+          {tabs
+            .filter((t) => t.key !== "about")
+            .map((t) => (
+              <li key={t.key}>
+                <button
+                  type="button"
+                  className="btn--text"
+                  onClick={() => onOpen(t.key)}
+                >
+                  {t.title}
+                </button>{" "}
+                <span className="page-head__note">{stateOf(t) ?? ""}</span>
+              </li>
+            ))}
+        </ul>
+      </div>
+      <h2 className="label m-0">How strict, and what the game cannot count</h2>
+    </>
+  );
+}
+
+/** One setting with its help and its problem, if any. */
+function Field({ name, f, help = true, value, error, disabled, onChange }) {
+  const id = `f-${name}`;
+  return (
+    <div id={name} className="grid gap-1">
+      {f.type === "boolean" ? (
+        <label className="flex items-center gap-2 font-semibold">
+          <input
+            id={id}
+            type="checkbox"
+            className="size-4 shrink-0"
+            checked={Boolean(value)}
+            disabled={disabled}
+            onChange={(e) => onChange(e.target.checked)}
+          />
+          <span>{f.label}</span>
+        </label>
+      ) : (
+        <label className="field-label font-semibold" htmlFor={id}>
+          {f.label}{" "}
+          {f.type === "integer" || f.type === "number" ? (
+            <span className="page-head__note">
+              ({f.unit}, {f.min}–{f.max})
+            </span>
+          ) : null}
+        </label>
+      )}
+      {f.type === "enum" ? (
+        <select
+          id={id}
+          className="input max-w-[420px]"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          aria-invalid={Boolean(error)}
+        >
+          {f.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      ) : f.type === "boolean" ? null : (
+        <input
+          id={id}
+          className="input max-w-[160px]"
+          type="number"
+          step={f.type === "integer" ? 1 : 0.01}
+          min={f.min}
+          max={f.max}
+          value={value}
+          disabled={disabled}
+          onChange={(e) =>
+            onChange(
+              e.target.value === ""
+                ? ""
+                : f.type === "integer"
+                  ? parseInt(e.target.value, 10)
+                  : parseFloat(e.target.value),
+            )
+          }
+          aria-invalid={Boolean(error)}
+        />
+      )}
+      {help ? <div className="page-head__note">{f.why}</div> : null}
+      {error ? (
+        <div className="field-error text-[var(--bad)]" role="alert">
+          {error}
+        </div>
       ) : null}
     </div>
   );
@@ -364,11 +526,11 @@ function Preview({ preview }) {
     b ? `${b.floor}–${b.ceil} (target ${b.target})` : "none (Elders by hand)";
   return (
     <div>
-      <div className="label" style={{ margin: "8px 0" }}>
+      <div className="label my-2">
         Preview · {preview.draft.boundaries.length} reviews · {moved.length}{" "}
         member{moved.length === 1 ? "" : "s"} would read differently
       </div>
-      <div className="page-head__note" style={{ marginBottom: "8px" }}>
+      <div className="page-head__note mb-2">
         {preview.current
           ? `Elder band now ${bandText(preview.current.band)}; under the draft ${bandText(preview.draft.band)}.`
           : `No policy yet. Under the draft, the Elder band is ${bandText(preview.draft.band)}.`}
@@ -398,7 +560,7 @@ function Preview({ preview }) {
         </div>
       ) : (
         <p className="page__lede">
-          Nobody's verdict changes over the last reviews.
+          Nobody&rsquo;s verdict changes over the last reviews.
         </p>
       )}
     </div>

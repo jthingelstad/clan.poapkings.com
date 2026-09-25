@@ -194,10 +194,12 @@ test("next steps tell a member the one or two things that would move them", () =
 test("how it works here is written from the policy, and leaves out what the clan does not do", () => {
   const all = describePolicy(policy);
   const text = JSON.stringify(all);
+  // What the clan is for opens it: the categories it counts are its goals.
   assert.deepEqual(
     all.map((s) => s.key),
-    ["counts", "minimums", "elder", "removal"],
+    ["about", "counts", "minimums", "elder", "removal"],
   );
+  assert.match(all[0].lines[0], /^This clan is about Clan Wars/);
   assert.match(text, /Clan Wars 55%/);
   assert.match(text, /Donations 30%/);
   assert.match(

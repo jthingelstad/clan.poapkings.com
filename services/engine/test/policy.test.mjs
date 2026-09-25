@@ -135,3 +135,46 @@ test("diff names what changed with labels", () => {
     { key: "at_risk_days", label: "At risk", before: 7, after: 6 },
   ]);
 });
+
+test("the editor's tabs hold every group exactly once, and each switch is an on/off field on its own tab", async () => {
+  const { TABS } = await import("../src/policy.mjs");
+  const placed = TABS.flatMap((t) => t.groups);
+  assert.deepEqual(
+    [...placed].sort(),
+    GROUPS.map((g) => g.key).sort(),
+    "every group on one tab",
+  );
+  assert.equal(new Set(placed).size, placed.length, "no group on two tabs");
+  for (const t of TABS)
+    for (const key of [t.switch, ...(t.switches ?? [])].filter(Boolean)) {
+      assert.equal(FIELDS[key]?.type, "boolean", `${t.key} switch ${key}`);
+      assert.ok(t.groups.includes(FIELDS[key].group), `${key} on ${t.key}`);
+    }
+  // Each category's own settings, its minimum included, are on its tab.
+  for (const [field, tab] of [
+    ["war_min_decks", "war"],
+    ["ranked_min_battles", "ranked"],
+    ["donations_min_weekly", "donations"],
+    ["trophies_min", "trophies"],
+  ])
+    assert.ok(
+      TABS.find((t) => t.key === tab).groups.includes(FIELDS[field].group),
+    );
+});
+
+test("the measurable goals are the categories counted; a saved version's retired goal fields are dropped, not refused", async () => {
+  const { declaredGoals } = await import("../src/goals.mjs");
+  const { RETIRED_FIELDS } = await import("../src/policy.mjs");
+  const v = {
+    ...defaults(),
+    war_enabled: true,
+    trophies_enabled: true,
+    goal_together: true,
+  };
+  assert.deepEqual(declaredGoals(v), ["war", "climbing", "together"]);
+  assert.deepEqual(declaredGoals(defaults()), []);
+  const old = validate({ ...v, goal_war: true, goal_donations: true });
+  assert.equal(old.ok, true, JSON.stringify(old.errors));
+  for (const k of RETIRED_FIELDS) assert.equal(k in old.values, false);
+  assert.equal(validate({ nonsense: 1 }).ok, false);
+});

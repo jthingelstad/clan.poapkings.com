@@ -7,7 +7,7 @@ import { RoleChip } from "../components/RoleChip.jsx";
 import { Policy } from "./Policy.jsx";
 import { Scout } from "./Scout.jsx";
 import { Awards } from "./Awards.jsx";
-import { Model } from "./Model.jsx";
+import { Settings } from "./Settings.jsx";
 import { TooFew } from "../components/TooFew.jsx";
 
 const TITLES = {
@@ -16,7 +16,8 @@ const TITLES = {
   policy: "Policy",
   awards: "Awards",
   scout: "Scout",
-  model: "Model",
+  settings: "Clan settings",
+  model: "Clan settings",
 };
 
 const BUCKET_LABEL = {
@@ -33,7 +34,7 @@ export function Manage({ clan, tab, navigate, who }) {
   // own thing.
   const { state, load, query } = useManage(
     clan.clan_tag,
-    !["policy", "scout", "awards", "model"].includes(tab),
+    !["policy", "scout", "awards", "settings", "model"].includes(tab),
   );
 
   if (state.signedOut) {
@@ -77,11 +78,12 @@ export function Manage({ clan, tab, navigate, who }) {
         <Scout clan={clan} />
       </>
     );
-  if (tab === "model")
+  // The clan's model moved into clan settings; its old address lands there.
+  if (tab === "settings" || tab === "model")
     return (
       <>
         {head}
-        <Model clan={clan} />
+        <Settings clan={clan} />
       </>
     );
   if (tab === "awards")

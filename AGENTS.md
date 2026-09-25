@@ -54,7 +54,7 @@ chosen: `docs/VISION.md`. Read it before proposing a feature.
 apps/web/          React 19 + Vite SPA on Elixir's kit (TanStack Router + Query,
                    Tailwind v4 over Elixir's tokens): /, /clans, /clan/<TAG>,
                    /clan/<TAG>/actions, /clan/<TAG>/standing, /clan/<TAG>/trophies,
-                   /clan/<TAG>/recruit, /clan/<TAG>/manage/{board,history,policy,awards,scout,model},
+                   /clan/<TAG>/recruit, /clan/<TAG>/manage/{board,history,policy,awards,scout,settings},
                    /you, /you/away, /feedback, /maintain/feedback, /refused/<reason>
 services/engine/   the management engine, PURE: policy schema, facts, standing,
                    evaluate, render, awards, recruit, chat, words. No I/O, no clock.
@@ -218,18 +218,36 @@ moves, cards stamp the version that judged them. `validate()` refuses
 nonsense in a leader's words. A clan with no saved version has no policy:
 every management route answers `409 no_policy`, `/api/me` carries
 `policy: { set: false }`, and the rail offers only the roster, Recruit,
-Scout and (to leaders) the policy editor, whose first save is version 1.
+Scout and (to leaders) the policy editor and clan settings, whose first
+policy save is version 1.
+
+**The editor is tabs along the top** (Jamie, 2026-09-25: one long page was
+too much, and ticking a goal changed nothing on it). `TABS` in `policy.mjs`
+places every group on exactly one tab: About; one tab per category (Clan
+Wars, Ranked play, Donations, Trophy road), each switched on or off by its
+`*_enabled` field and holding its own settings, its minimum included;
+Elder (the mode, the weights, tenure, the minimums' window and rule, what
+members see, and folded "fine tuning": how many Elders, promotion,
+demotion, checking what was done, the groups marked `advanced`);
+Inactivity (switched by `removal_enabled`); Arrivals and departures; and
+Announcements. A tab that is off shows only its switch; turning one on
+fills that tab from the clan's posture (`tabStart` in `goals.mjs`), to
+tune. The tab bar marks each tab on or off, changed, or needing a fix, and
+a refused save opens the tab that holds the problem.
 
 **What the clan is for** (2026-09-25, `services/engine/src/goals.mjs`): the
-policy's first group declares goals (`goal_war`, `goal_climbing`,
-`goal_donations`, `goal_together`) and a `posture` (relaxed, standard,
-strict). They judge nothing: `policyFromGoals(goals, posture)` fills every
-setting as a starting point to tune (the editor's presets, "a war clan",
+measurable goals ARE the categories the clan counts (`declaredGoals`: Clan
+Wars, climbing for ranked play or trophy road, donations); only playing
+together, which the game cannot measure, is its own field
+(`goal_together`), with a `posture` (relaxed, standard, strict). The
+earlier `goal_war`, `goal_climbing` and `goal_donations` fields are
+`RETIRED_FIELDS`: a saved version carrying them validates and they are
+dropped on read. Goals judge nothing: `policyFromGoals(goals, posture)`
+fills every tab as a starting point (the About tab's presets, "a war clan",
 "a social clan" and so on, are goals plus a posture), "How it works here"
 opens with them, and a leader writing the first recruiting pitch starts
-from `pitchFromGoals`. A goal the game cannot measure (playing together)
-is declared, never counted. The web app imports the engine for this, so
-presets are computed in one place.
+from `pitchFromGoals`. The web app imports the engine for this, so presets
+are computed in one place.
 
 **The smallest clan a policy engages with is `MIN_MEMBERS` = 10** (Jamie,
 2026-09-25: a clan takes no part in Clan Wars below 10, and a policy has
@@ -309,9 +327,14 @@ draft for the editor, never saved by itself.
 ## The clan's own model (2026-09-25)
 
 Bring your own tokens (VISION, principle 8): Elixir Clan funds no model.
-A leader or co-leader adds the clan's **Anthropic API key** on Manage ▸
-Model (`/clan/<TAG>/manage/model`, `GET|PUT|DELETE /api/clans/<TAG>/model`),
-for any clan, with or without a policy, like Recruit. Then the clan's
+A leader or co-leader adds the clan's **Anthropic API key** in **Clan
+settings** (Manage ▸ Settings, `/clan/<TAG>/manage/settings`; the old
+`/manage/model` address lands there; `GET|PUT|DELETE
+/api/clans/<TAG>/model`), for any clan, with or without a policy, like
+Recruit. Clan settings is the leaders' page for what belongs to the whole
+clan rather than to how it runs (Jamie, 2026-09-25); the model is its
+first section, and what the doors bring (what the clan shares with Elixir,
+its mail) belongs there next. Then the clan's
 model may write **words, never judgments**:
 
 - **What it may write** is a closed list (`PURPOSES` in
@@ -494,7 +517,7 @@ link is its own copy.
 ## Roles in Manage
 
 From the roster, as the gate resolves them. Leader and co-leader: Manage
-(board, history, policy, awards, scout, the clan's model), the leaders'
+(board, history, policy, clan settings, awards, scout), the leaders'
 actions, holds, leader notes, and every note. Elder: the elders' actions, elder notes (write and
 read), awards (read; grant what elders may), scout. Everyone in the clan,
 once there is an active policy: Actions (their own), Standing ("How it works
