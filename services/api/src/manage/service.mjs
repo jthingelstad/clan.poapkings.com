@@ -41,6 +41,8 @@ import {
   leaderMessage,
   goalsInSentence,
   declaredGoals,
+  countedCategories,
+  memberWeeks,
   welcomesFrom,
 } from "@elixir-clan/engine";
 import { newId } from "./ledger.mjs";
@@ -696,6 +698,117 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     evaluateClan,
 
     noteSize,
+
+    /**
+     * "You here": one member's own view of themselves in this clan. Their
+     * numbers week by week and this week so far work for any clan (they
+     * are statistics); what the clan's policy makes of them is added only
+     * when the policy is active. One participation read and one roster
+     * read, judged here on the spot: opening it never raises an action.
+     * Only the viewer's own lines: no one else's, no notes about them, no
+     * removal action about them.
+     */
+    async memberView(clanTag, who, token) {
+      const t = now();
+      const part = await fetchParticipation(mcp, token, clanTag);
+      await noteSize(clanTag, part.members.length);
+      const roster = await fetchRoster(mcp, token, clanTag);
+      const you = memberWeeks(part, who.player_tag, roster, new Date(t));
+      if (!you) throw new ManageError(404, "not_on_roster");
+      const policy = await policyFor(clanTag);
+      const members = part.members.length;
+      const active = policy.set && members >= MIN_MEMBERS;
+      const holds = await ledger.holds(clanTag);
+      const hold = holds.find((h) => h.player_tag === who.player_tag) ?? null;
+      let clan = null;
+      if (active) {
+        const verdicts = evaluate({
+          participation: part,
+          policy: policy.values,
+          now: new Date(t),
+          holds: holds.map((h) => ({
+            player_tag: h.player_tag,
+            kind: h.kind ?? "leader",
+            until: h.until ?? null,
+          })),
+          policy_version: policy.version,
+          trophies: policy.values.trophies_enabled
+            ? trophiesFrom(roster)
+            : null,
+        });
+        const mine = verdicts.members.find(
+          (m) => m.player_tag === who.player_tag,
+        );
+        const ranked = ranksElder(policy.values);
+        const rows = ranked ? standingForMembers(verdicts, policy.values) : [];
+        const minimums = mine.facts.minimums;
+        clan = {
+          version: policy.version,
+          goals: declaredGoals(policy.values),
+          counted: countedCategories(policy.values),
+          ranks_elder: ranked,
+          status:
+            rows.find((r) => r.player_tag === who.player_tag)?.status ?? null,
+          evidence: participationPhrase(mine, policy.values),
+          next: nextSteps(mine, policy.values),
+          minimums: {
+            set: minimums.set,
+            met: minimums.met,
+            passes: minimums.passes,
+            unknown: minimums.unknown,
+            rule: policy.values.minimums_rule,
+            window_weeks: policy.values.minimums_window_weeks,
+          },
+          tenure_min_days: ranked ? policy.values.tenure_min_days : null,
+          inactivity: policy.values.removal_enabled
+            ? {
+                state:
+                  mine.removal.state === "recommended"
+                    ? "at_risk"
+                    : mine.removal.state,
+                days_idle: mine.facts.days_idle,
+                at_risk_days: policy.values.at_risk_days,
+              }
+            : null,
+        };
+      }
+      const open_actions = active
+        ? (await ledger.cards(clanTag)).filter(
+            (c) => c.status === "proposed" && canAct(c, who),
+          ).length
+        : 0;
+      const trophies = active
+        ? (await ledger.grants(clanTag))
+            .filter((g) => g.player_tag === who.player_tag)
+            .sort(
+              (a, b) =>
+                b.season_id - a.season_id || (a.rank ?? 1) - (b.rank ?? 1),
+            )
+            .map((g) => ({
+              season_id: g.season_id,
+              award_id: g.award_id,
+              name: g.name,
+              rank: g.rank ?? 1,
+              manual: g.manual === true,
+            }))
+        : [];
+      return {
+        clan_tag: clanTag,
+        clan_name: part.name ?? roster?.name ?? null,
+        as_of: part.meta?.as_of ?? null,
+        freshness_seconds: part.meta?.freshness_seconds ?? null,
+        members,
+        min_members: MIN_MEMBERS,
+        policy: { set: policy.set, active },
+        you,
+        clan,
+        open_actions,
+        hold: hold
+          ? { kind: hold.kind ?? "leader", until: hold.until ?? null }
+          : null,
+        trophies,
+      };
+    },
 
     /** Open actions this person may take, for the rail's count: a ledger
      *  read, no evaluation. */

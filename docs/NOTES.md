@@ -768,3 +768,14 @@ request logs and analytics mask action ids as they did card ids.
   chat line. Completing a message action logs that it was sent; once
   Elixir's door 3 exists it can also become a `clan_message` fact.
 
+## 2026-09-25 — Round 4: You here (Jamie)
+
+Every member gets their own page in each clan: this week so far and the
+last weeks (battles, ranked, donations, war decks of those asked, points),
+trophies today, and their time here. It is statistics, so it works for any
+clan, even with no policy or below 10 members; with an active policy it adds
+what the clan makes of the numbers (status, what would move them, minimums,
+days toward Elder, their clock), their actions waiting, their hold or away,
+and their trophies. It reads the record once and judges on the spot, so
+opening it never raises an action, and it holds only the viewer's own lines.
+

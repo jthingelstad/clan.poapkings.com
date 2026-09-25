@@ -175,6 +175,7 @@ describe("feedback", () => {
       );
     expect(keys("leader")).toEqual([
       "clan",
+      "me",
       "actions",
       "standing",
       "trophies",
@@ -190,6 +191,7 @@ describe("feedback", () => {
     ]);
     expect(keys("elder")).toEqual([
       "clan",
+      "me",
       "actions",
       "standing",
       "trophies",
@@ -202,6 +204,7 @@ describe("feedback", () => {
     ]);
     expect(keys("member")).toEqual([
       "clan",
+      "me",
       "actions",
       "standing",
       "trophies",
@@ -215,6 +218,7 @@ describe("feedback", () => {
     const noPolicy = { set: false };
     expect(keys("leader", noPolicy)).toEqual([
       "clan",
+      "me",
       "recruit",
       "policy",
       "scout",
@@ -223,6 +227,7 @@ describe("feedback", () => {
     ]);
     expect(keys("elder", noPolicy)).toEqual([
       "clan",
+      "me",
       "recruit",
       "scout",
       "you",
@@ -230,6 +235,7 @@ describe("feedback", () => {
     ]);
     expect(keys("member", noPolicy)).toEqual([
       "clan",
+      "me",
       "recruit",
       "you",
       "feedback",
@@ -250,6 +256,7 @@ describe("feedback", () => {
     expect(railKey("/clan/2PQRJ8LV/actions")).toBe("actions");
     expect(railKey("/clan/2PQRJ8LV/manage/awards")).toBe("awards");
     expect(railKey("/clan/2PQRJ8LV/trophies")).toBe("trophies");
+    expect(railKey("/clan/2PQRJ8LV/me")).toBe("me");
     expect(railKey("/you/away")).toBe("away");
     expect(railKey("/feedback/abc")).toBe("feedback");
   });

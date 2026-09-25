@@ -131,7 +131,8 @@ clan Elixir only watches rather than records works with less.
 
 ## What it does today
 
-Sign in with Elixir; the roster with roles and statistics; the clan's
+Sign in with Elixir; the roster with roles and statistics; "You here", every
+member's own numbers week by week and what their clan makes of them; the clan's
 versioned policy, started from what the clan is for (goals and a posture,
 or a preset) and tuned from there (categories, minimums, Elder by hand or
 by a weighted mix, the inactivity clock, departures, welcomes); actions for leaders, elders and members

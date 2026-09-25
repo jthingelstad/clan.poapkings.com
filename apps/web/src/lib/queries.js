@@ -38,6 +38,7 @@ export const keys = {
   standing: (tag) => ["clan", tag, "standing"],
   trophies: (tag) => ["clan", tag, "trophies"],
   actions: (tag) => ["clan", tag, "actions"],
+  memberView: (tag) => ["clan", tag, "me"],
   memberNotes: (tag, player) => ["clan", tag, "member", player, "notes"],
   memberAwards: (tag, player) => ["clan", tag, "member", player, "awards"],
   maintain: ["maintain", "feedback"],
@@ -135,6 +136,9 @@ export const useStanding = (tag) =>
     queryKey: keys.standing(tag),
     queryFn: answered(() => manageApi.standing(tag)),
   });
+
+export const useMemberView = (tag) =>
+  useGated(keys.memberView(tag), () => manageApi.memberView(tag));
 
 export const useActions = (tag) =>
   useGated(keys.actions(tag), (refresh) => manageApi.actions(tag, refresh));

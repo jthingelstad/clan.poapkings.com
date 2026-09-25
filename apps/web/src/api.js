@@ -54,6 +54,8 @@ export const manageApi = {
   removeNote: (tag, noteId) => del(`${clanBase(tag)}/notes/${noteId}`),
   standing: (tag) => get(`${clanBase(tag)}/standing`),
   trophies: (tag) => get(`${clanBase(tag)}/trophies`),
+  // "You here": the member's own numbers and place in this clan.
+  memberView: (tag) => get(`${clanBase(tag)}/me`),
   scout: (tag, playerTag) => post(`${clanBase(tag)}/scout`, { tag: playerTag }),
   // Recruiting (2026-09-13): the pitch, the facts, the copy.
   recruit: (tag, refresh = false) =>

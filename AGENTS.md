@@ -403,6 +403,22 @@ The agent team reads logs from the host, read-only:
 (`review` picks declines, quick withdrawals, flagged outcomes and anything
 commented).
 
+## You here (2026-09-25)
+
+Every member's own page in a clan (`/clan/<TAG>/me`, `GET
+/api/clans/<TAG>/me`, `memberWeeks` in `services/engine/src/member.mjs`):
+this week so far and week by week (battles, ranked battles, donations, war
+decks against those asked, points), trophies today, and time here (join and
+role changes from the roster's events). These are statistics, so the page
+works for any clan, with no policy or below 10 members. Once the policy is
+active it adds what the clan makes of them: what it counts, the member's
+status and evidence, what would move them, their minimums met or not, days
+toward Elder, their own inactivity clock, their actions waiting, their hold
+or away, and their trophies here. One participation read and one roster
+read, judged on the spot with `evaluate`: opening it never raises an
+action. Only the viewer's own lines: no one else's, no notes, no removal
+action about them.
+
 ## Roles in Manage
 
 From the roster, as the gate resolves them. Leader and co-leader: Manage

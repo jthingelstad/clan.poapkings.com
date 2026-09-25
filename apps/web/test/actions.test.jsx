@@ -250,3 +250,111 @@ describe("clan leader messages", () => {
     );
   });
 });
+
+describe("you here", () => {
+  test("a member sees their week, what the clan makes of it, and their time here", async () => {
+    const { YouHere } = await import("../src/views/YouHere.jsx");
+    vi.spyOn(manageApi, "memberView").mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        clan_tag: "#2PQRJ8LV",
+        clan_name: "Example Clan",
+        as_of: "2026-09-12T19:58:00Z",
+        freshness_seconds: 60,
+        members: 24,
+        min_members: 10,
+        policy: { set: true, active: true },
+        you: {
+          player_tag: "#8QCV",
+          name: "Sleepy",
+          role: "member",
+          this_week: {
+            from: "2026-09-07T00:00:00Z",
+            complete: false,
+            battles: 10,
+            ranked_battles: 2,
+            donations: 100,
+          },
+          this_war_week: {
+            season_id: 136,
+            section_index: 0,
+            open: true,
+            decks: 8,
+            decks_asked: null,
+            points: 1600,
+          },
+          weeks: [
+            {
+              from: "2026-08-31T00:00:00Z",
+              complete: true,
+              battles: 20,
+              ranked_battles: 0,
+              donations: 200,
+            },
+            {
+              from: "2026-09-07T00:00:00Z",
+              complete: false,
+              battles: 10,
+              ranked_battles: 2,
+              donations: 100,
+            },
+          ],
+          war_weeks: [
+            {
+              season_id: 135,
+              section_index: 4,
+              is_colosseum: true,
+              open: false,
+              decks: 16,
+              decks_asked: 16,
+              points: 3200,
+            },
+          ],
+          trophies: 7000,
+          time_here: {
+            joined_observed_at: "2026-08-20T00:00:00Z",
+            tenure_known: true,
+            days: 23,
+            recording_since: "2026-05-01T00:00:00Z",
+            events: [],
+          },
+        },
+        clan: {
+          version: 1,
+          goals: ["war"],
+          counted: ["war", "donations"],
+          ranks_elder: true,
+          status: "participating",
+          evidence: "100% war decks over 4 war weeks",
+          next: ["5 more days in the clan before Elder consideration."],
+          minimums: {
+            set: { war: 1 },
+            met: { war: true },
+            passes: true,
+            unknown: false,
+            rule: "any",
+            window_weeks: 2,
+          },
+          tenure_min_days: 28,
+          inactivity: null,
+        },
+        open_actions: 1,
+        hold: null,
+        trophies: [],
+      },
+    });
+    renderWithProviders(<YouHere clan={clan} navigate={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByText("How you are doing here")).toBeTruthy(),
+    );
+    expect(screen.getByText("Participating")).toBeTruthy();
+    expect(screen.getByText(/5 more days in the clan/)).toBeTruthy();
+    expect(screen.getByText(/23 of the 28 days/)).toBeTruthy();
+    expect(screen.getByText(/1 action waiting for you/)).toBeTruthy();
+    expect(screen.getByText(/8 this war week/)).toBeTruthy();
+    expect(screen.getByText(/16 of 16/)).toBeTruthy();
+    expect(screen.getByText(/Joined 2026-08-20: 23 days/)).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/\bcard\b/i);
+  });
+});

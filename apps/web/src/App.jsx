@@ -44,6 +44,7 @@ import { Away } from "./views/Away.jsx";
 import { Recruit } from "./views/Recruit.jsx";
 import { Trophies } from "./views/Trophies.jsx";
 import { Actions } from "./views/Actions.jsx";
+import { YouHere } from "./views/YouHere.jsx";
 import { Feedback, FeedbackItem } from "./views/Feedback.jsx";
 import { MaintainItem, MaintainQueue } from "./views/Maintain.jsx";
 
@@ -63,7 +64,7 @@ export const clanPath = (tag) => `/clan/${String(tag).replace(/^#/, "")}`;
  *  section (roster by default) and the Manage tab. */
 export function parseClanPath(path) {
   const m =
-    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|actions|standing|trophies|recruit)(?:\/([a-z-]+))?)?\/?$/.exec(
+    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|me|actions|standing|trophies|recruit)(?:\/([a-z-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
@@ -199,6 +200,8 @@ const clanRoute = createRoute({
       name: clan.acting_as_name,
       role: clan.role,
     };
+    if (parsed.section === "me")
+      return <YouHere key={clan.clan_tag} clan={clan} navigate={navigate} />;
     // Actions are everyone's; the leaders' old Inbox address lands here.
     if (
       parsed.section === "actions" ||

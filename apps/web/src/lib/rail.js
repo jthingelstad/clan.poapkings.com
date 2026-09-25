@@ -24,6 +24,13 @@ export function railItems(me) {
   const set = policy?.active ?? policy?.set === true;
   if (clan) {
     items.push({ key: "clan", label: "Clan", icon: "users", to: base });
+    // "You here": your own numbers in this clan, with or without a policy.
+    items.push({
+      key: "me",
+      label: "You here",
+      icon: "activity",
+      to: `${base}/me`,
+    });
     // Actions: what waits for you, as who you are in this clan.
     if (set)
       items.push({
@@ -137,12 +144,12 @@ export function railKey(path) {
   if (path.startsWith("/feedback")) return "feedback";
   if (path.startsWith("/maintain")) return "maintain";
   const m =
-    /^\/clan\/[0-9A-Za-z]+(?:\/(actions|standing|trophies|recruit|manage)(?:\/([a-z-]+))?)?\/?$/.exec(
+    /^\/clan\/[0-9A-Za-z]+(?:\/(me|actions|standing|trophies|recruit|manage)(?:\/([a-z-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
   if (!m[1]) return "clan";
-  if (["actions", "standing", "trophies", "recruit"].includes(m[1]))
+  if (["me", "actions", "standing", "trophies", "recruit"].includes(m[1]))
     return m[1];
   return !m[2] || m[2] === "inbox" ? "actions" : m[2];
 }

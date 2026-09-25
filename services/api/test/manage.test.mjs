@@ -1456,3 +1456,55 @@ test("leader messages: saving a policy tells the clan how it runs, and a newer v
   );
   assert.equal(noReason.status, 400);
 });
+
+// ---- "You here": a member's own page (round 4) -------------------------------
+
+test("you here: your own numbers week by week and what your clan makes of them, nothing about anyone else", async () => {
+  const h = harness({
+    players: [
+      player({ player_tag: "#8QCV", name: "Sleepy", clan_role: "member" }),
+    ],
+    part: partClan(),
+  });
+  const cookies = await leader(h);
+  const r = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/me");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.you.player_tag, "#8QCV");
+  assert.equal(r.body.you.weeks.length, 6);
+  assert.equal(r.body.you.this_week.complete, false);
+  assert.ok(r.body.you.this_war_week.open);
+  assert.ok(r.body.you.war_weeks.some((w) => w.decks_asked === 16));
+  assert.deepEqual(r.body.policy, { set: true, active: true });
+  assert.deepEqual(r.body.clan.counted, ["war", "ranked", "donations"]);
+  assert.deepEqual(Object.keys(r.body.clan.minimums.set), ["war", "ranked"]);
+  assert.equal(r.body.clan.inactivity.state, "at_risk");
+  assert.ok(r.body.clan.next.length >= 1);
+  // Only the viewer: no other member's tag anywhere in the answer.
+  const text = JSON.stringify(r.body);
+  for (const other of ["#O1", "#O2", "#20QQL8CCRU"])
+    assert.ok(!text.includes(other), other);
+  // Opening it raised no action.
+  assert.deepEqual(await h.ledger.cards("#2PQRJ8LV"), []);
+});
+
+test("you here: with no policy, or below 10 members, it is your statistics alone", async () => {
+  const none = harness({ part: partClan(), policy: null });
+  const nc = await leader(none);
+  const a = await api(none, nc, "GET", "/api/clans/2PQRJ8LV/me");
+  assert.equal(a.status, 200);
+  assert.deepEqual(a.body.policy, { set: false, active: false });
+  assert.equal(a.body.clan, null);
+  assert.ok(a.body.you.weeks.length > 0);
+  const small = harness({
+    part: participation([king, ...others.slice(0, 5)], {
+      clan_tag: "#2PQRJ8LV",
+    }),
+  });
+  const sc = await leader(small);
+  const b = await api(small, sc, "GET", "/api/clans/2PQRJ8LV/me");
+  assert.equal(b.status, 200);
+  assert.deepEqual(b.body.policy, { set: true, active: false });
+  assert.equal(b.body.members, 6);
+  assert.equal(b.body.clan, null);
+  assert.deepEqual(b.body.trophies, []);
+});

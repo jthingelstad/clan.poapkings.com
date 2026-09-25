@@ -630,6 +630,9 @@ export function createHandler({
         );
       if (method === "GET" && rest === "/history")
         return json(200, await manage.history(tag, who, token));
+      // "You here": a member's own numbers and place in this clan.
+      if (method === "GET" && rest === "/me")
+        return json(200, await manage.memberView(tag, who, token));
       // A member's own away: their page, their word, the policy's cap.
       if (rest === "/me/away") {
         if (method === "GET") return json(200, await manage.myAway(tag, who));
