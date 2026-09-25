@@ -50,6 +50,15 @@ export const ME = {
   open_cards: 2,
   feedback_unseen: 1,
   maintainer: false,
+  // The selected clan's policy: saved, ranking Elder, tracking inactivity.
+  policy: {
+    set: true,
+    version: 1,
+    ranks_elder: true,
+    removal: true,
+    away: true,
+    members_see_standing: true,
+  },
 };
 
 export const ROSTER = {
@@ -123,8 +132,9 @@ export async function mockApi(page: Page, routes: Record<string, Answer>) {
  *  picking a clan changes what /api/me answers, as the Lambda does. */
 export function signedIn(
   overrides: Record<string, Answer> = {},
+  { policy = ME.policy }: { policy?: Record<string, unknown> } = {},
 ): Record<string, Answer> {
-  let me = { ...ME };
+  let me = { ...ME, policy };
   return {
     "GET /api/me": () => [200, me],
     "POST /api/select": (route) => {
@@ -141,20 +151,28 @@ export function signedIn(
       {
         as_of: "2026-09-12T17:55:00Z",
         freshness_seconds: 300,
-        enabled: true,
+        policy_version: 1,
+        ranks_elder: true,
+        how: [
+          {
+            key: "elder",
+            title: "Elder",
+            lines: ["Elder is earned by participation: Clan Wars 100%."],
+          },
+        ],
         rows: [
           {
             player_tag: "#UQ8LP2R9C",
             name: "Ben",
-            status: "elder",
-            evidence: "war 4/4",
+            status: "holding",
+            evidence: "100% war decks over 4 war weeks",
           },
         ],
         you: {
-          status: "elder",
-          evidence: "war 4/4, ranked 12",
+          status: null,
+          evidence: "100% war decks over 4 war weeks",
           next: [],
-          inactivity: false,
+          inactivity: null,
         },
       },
     ],

@@ -68,9 +68,8 @@ test.describe("signed in", () => {
     // Standing, through the rail.
     await rail.getByRole("link", { name: /^Standing/ }).click();
     await expect(page).toHaveURL(/\/standing$/);
-    await expect(
-      page.getByRole("heading", { name: "Elder standing" }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Standing" })).toBeVisible();
+    await expect(page.getByText("How it works here")).toBeVisible();
     await rendered(page);
 
     // Feedback: compose and send.
@@ -92,6 +91,19 @@ test.describe("signed in", () => {
     await expect(rail).toContainText("Second Clan");
     // A member: no Manage group.
     await expect(rail.getByRole("link", { name: /^Inbox/ })).toHaveCount(0);
+  });
+
+  test("a clan with no policy yet: only the roster, Recruit, Scout and the policy editor", async ({
+    page,
+  }) => {
+    await mockApi(page, signedIn({}, { policy: { set: false } }));
+    await page.goto("/clan/2PQRJ8LV");
+    const rail = page.locator(".rail");
+    await expect(rail.getByRole("link", { name: /^Policy/ })).toBeVisible();
+    await expect(rail.getByRole("link", { name: /^Scout/ })).toBeVisible();
+    await expect(rail.getByRole("link", { name: /^Recruit/ })).toBeVisible();
+    for (const name of [/^Inbox/, /^Standing/, /^Trophies/, /^Away/])
+      await expect(rail.getByRole("link", { name })).toHaveCount(0);
   });
 
   test("@narrow the rail is a disclosure above the content", async ({
