@@ -58,9 +58,28 @@ Parameters:
       message each; SNS asks it to confirm once). Empty means no
       subscription; the topic exists either way. PRESERVED.
 
+  ElixirIntegrationKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: >-
+      Elixir Clan's own Elixir integration key (svt_, permission clans:read),
+      for the morning evaluation with nobody signed in. Minted locally and
+      staged with --param once; its value is never printed. Empty means no
+      scheduled evaluation. PRESERVED.
+  ScheduleEnabled:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      Whether the daily evaluation rule exists. Stays false until the
+      execution role may manage an EventBridge rule (infra/IAM.md);
+      then set true once. PRESERVED.
+
 Conditions:
   HasSiteCert: !Not [!Equals [!Ref SiteCertificateArn, ""]]
   HasFeedbackEmail: !Not [!Equals [!Ref FeedbackNotifyEmail, ""]]
+  HasSchedule: !Equals [!Ref ScheduleEnabled, "true"]
 
 Resources:
   # ------------------------------------------------------------ durable state
@@ -176,6 +195,7 @@ Resources:
           SESSION_SECRET: !Sub "{{resolve:secretsmanager:${AppSecretName}:SecretString:session_secret}}"
           MAINTAINER_TAGS: !Ref MaintainerTags
           FEEDBACK_TOPIC_ARN: !Ref FeedbackTopic
+          ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
 
   # The HTTP API, spelled out (2026-09-12): the quick-create form
   # (`Target`) owns its own $default stage, and a stage owned that way
@@ -239,6 +259,34 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${Api}/*
+
+  # The morning evaluation (2026-09-25, door 1): every clan with a
+  # policy is evaluated at 11:00 UTC (06:00 Central in summer, 05:00 in
+  # winter), after the war day's reset, on Clan's own Elixir integration
+  # key, so actions wait for leaders and a closed season's awards are
+  # granted without anyone visiting. The function tells this event from an
+  # HTTP one by its payload.
+  EvaluateSchedule:
+    Type: AWS::Events::Rule
+    Condition: HasSchedule
+    Properties:
+      Name: elixir-clan-evaluate
+      Description: Elixir Clan - evaluate every clan with a policy, daily
+      ScheduleExpression: cron(0 11 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ApiFunction.Arn
+          Id: evaluate
+          Input: '{"scheduled":"evaluate"}'
+
+  EvaluateSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Condition: HasSchedule
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EvaluateSchedule.Arn
 
   # ------------------------------------------------------------ the site
   WebBucket:

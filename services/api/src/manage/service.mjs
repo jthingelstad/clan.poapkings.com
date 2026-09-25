@@ -1276,6 +1276,22 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       return decided;
     },
 
+    /**
+     * The morning evaluation (door 1): this clan's policy against the
+     * record, read on Clan's own Elixir integration key, raising and
+     * withdrawing actions as a visit would. Nobody is signed in, so
+     * nothing is shared with Elixir; a clan without a policy, or below 10
+     * members, is refused as on any visit.
+     */
+    async evaluateOnSchedule(clanTag, key) {
+      const { verdicts } = await evaluateClan({
+        clanTag,
+        token: key,
+        force: true,
+      });
+      return { members: verdicts?.members?.length ?? null };
+    },
+
     // ---- sharing with Elixir (door 3) --------------------------------------
     sharingView: (clanTag, who) => sharing.view(clanTag, who),
     saveSharing: (clanTag, who, values) => sharing.save(clanTag, who, values),

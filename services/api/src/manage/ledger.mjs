@@ -28,6 +28,9 @@
  *                            manage/model.mjs), who added it, the model;
  *                            outside the ByClan index on purpose, so no
  *                            listing of a clan's items ever carries it
+ *   schedule#<clan>          the clan is on the morning evaluation's list
+ *                            (partition schedule#clans of the index): put
+ *                            when a policy is saved or evaluated
  *   sharing#<clan>           what the clan shares with Elixir: one switch
  *                            per attested fact type (door 3), who set them
  *   model_call#<clan>#<at>#<id>
@@ -66,6 +69,7 @@ import { timedStore } from "../trace.mjs";
 
 const clanKey = (tag) => `clan#${tag}`;
 const FEEDBACK_PARTITION = "feedback#queue";
+const SCHEDULE_PARTITION = "schedule#clans";
 export const newId = () => randomBytes(9).toString("base64url");
 const pad = (n) => String(n).padStart(6, "0");
 let logSeq = 0;
@@ -155,6 +159,13 @@ export function createMemoryLedger() {
 }
 
 function ledgerOver(io) {
+  const scheduleClan = (clanTag) =>
+    io.put({
+      pk: `schedule#${clanTag}`,
+      gsi1pk: SCHEDULE_PARTITION,
+      gsi1sk: clanTag,
+      clan_tag: clanTag,
+    });
   const remove =
     io.remove ??
     (async (pk) => {
@@ -190,7 +201,14 @@ function ledgerOver(io) {
       };
       await io.put(item);
       await io.put({ pk: `policy#${clanTag}`, version, saved_at });
+      await scheduleClan(clanTag);
       return stripKeys(item);
+    },
+    // ---- the morning evaluation's list (door 1) ------------------------
+    async scheduledClans() {
+      return (await io.listByPartition(SCHEDULE_PARTITION, "")).map(
+        (i) => i.clan_tag,
+      );
     },
     // ---- the clan's size: one number, from the latest roster or
     // participation read, so the policy gate needs no Elixir read ------
@@ -221,6 +239,9 @@ function ledgerOver(io) {
         gsi1sk: "verdicts#latest",
         snapshot,
       });
+      // A clan evaluated under a policy is on the morning's list (a policy
+      // saved before the list existed joins at its next evaluation).
+      await scheduleClan(clanTag);
     },
     // ---- cards ---------------------------------------------------------
     async cards(clanTag) {
@@ -458,6 +479,7 @@ function ledgerOver(io) {
       await remove(`awards#${clanTag}`);
       await remove(`recruit#${clanTag}`);
       await remove(`model_key#${clanTag}`);
+      await remove(`schedule#${clanTag}`);
       return all.length;
     },
   };

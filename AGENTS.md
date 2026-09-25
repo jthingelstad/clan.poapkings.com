@@ -412,7 +412,8 @@ The rail is Elixir's console rail, groups and all.
 Not features here, by decision (Jamie): premise-fingerprint re-nomination,
 member shields, the weekly digest; **alt accounts are Elixir's knowledge**
 (a fact request to Elixir if ever needed, never recorded here); Discord
-webhooks are deferred. Scheduled evaluation is the next push.
+webhooks are deferred. Scheduled evaluation: see "The morning
+evaluation".
 
 ## Actions (2026-09-25)
 
@@ -567,9 +568,10 @@ and notes (tiered `leader` / `elder`), and the uses of the clan's model
 (`model_call#`, 90 days). Tags and summaries, never Elixir payloads. The
 clan's sealed model key (`model_key#`) is the one clan item outside the
 index. `ledger.deleteClan` removes the set, the key included; call it when
-a clan's last verified leader disconnects. Evaluation is on demand with the
-signed-in person's token, cached five minutes per clan; no background job
-and no stored Elixir credential.
+a clan's last verified leader disconnects. Evaluation runs on demand with
+the signed-in person's token, cached five minutes per clan, and each
+morning on Elixir Clan's own integration key (see "The morning
+evaluation"); no person's token is ever stored for it.
 
 ## Elixir JSON API operations this app depends on
 
@@ -745,12 +747,29 @@ this checkout, an objective run or an interactive session, claims the
 lease before the first edit and releases it clean. Feedback is Close the
 Loop's daily duty.
 
-## Next push
+## The morning evaluation (2026-09-25, door 1)
 
-Scheduled evaluation on the leader's refresh grant so cards (and a closed
-season's grants) are waiting in the morning for every clan with a policy;
-the ledger needs no migration for it. Read `../elixir-family/MAP.md` §5
-first.
+Every clan with a policy is evaluated daily at 11:00 UTC, after the war
+day's reset, so actions wait for leaders and a closed season's awards are
+granted without anyone visiting. EventBridge invokes the one function with
+`{"scheduled":"evaluate"}` (`EvaluateSchedule` in the template;
+`services/api/src/scheduled.mjs`); it reads Elixir on Elixir Clan's OWN
+integration key (`elixir-clan`, permission `clans:read`, JSON API 2.3.0),
+never a person's token, and runs the same `evaluateClan` a visit runs,
+then the awards evaluation. Nothing is shared with Elixir (sharing is a
+person's act). One clan's failure never stops the rest; the run writes
+one JSON line (`scheduled: "evaluate"`, each clan's result, never the
+key). The list is `schedule#<clan>` in the `schedule#clans` partition of
+the index, put when a policy is saved or evaluated.
+
+The key is the NoEcho stack parameter `ElixirIntegrationKey` (PRESERVED,
+env `ELIXIR_INTEGRATION_KEY`), minted locally and provisioned through
+Elixir's `{integration}` migrate op with only its digest, then staged once
+with `--param`; nobody reads it. Empty means the run does nothing and
+says so. The rule exists only when `ScheduleEnabled` is `true`, which
+needs the execution role's `events:*` statement on `rule/elixir-clan-*`
+(`infra/scripts/iam-policies.mjs`): an administrator change
+(`infra/IAM.md`), then `--param=ScheduleEnabled=true` once.
 
 ---
 

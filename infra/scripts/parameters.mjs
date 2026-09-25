@@ -28,6 +28,8 @@ export const PRESERVED_PARAMETERS = [
   "SiteCertificateArn",
   "MaintainerTags",
   "FeedbackNotifyEmail",
+  "ElixirIntegrationKey",
+  "ScheduleEnabled",
 ];
 
 /**

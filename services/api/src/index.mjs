@@ -14,6 +14,7 @@ import { createAwardsService } from "./manage/awards.mjs";
 import { createRecruitService } from "./manage/recruit.mjs";
 import { createModelService } from "./manage/model.mjs";
 import { createAnthropicClient } from "./anthropic.mjs";
+import { createScheduledRun } from "./scheduled.mjs";
 import { createScout } from "./manage/scout.mjs";
 import { createFeedbackService } from "./feedback.mjs";
 import { createSnsNotifier } from "./notify.mjs";
@@ -49,15 +50,25 @@ const model = createModelService({
   rosterFor: (token, clanTag) => fetchRoster(mcp, token, clanTag),
 });
 
-export const handler = createHandler({
+const manage = createManageService({ ledger, mcp });
+const awards = createAwardsService({
+  ledger,
+  participationFor: (token, clanTag) => fetchParticipation(mcp, token, clanTag),
+});
+
+// The morning evaluation, on Clan's own Elixir integration key (door 1).
+const scheduled = createScheduledRun({
+  ledger,
+  manage,
+  awards,
+  integrationKey: process.env.ELIXIR_INTEGRATION_KEY ?? "",
+});
+
+const http = createHandler({
   mcp,
   model,
-  manage: createManageService({ ledger, mcp }),
-  awards: createAwardsService({
-    ledger,
-    participationFor: (token, clanTag) =>
-      fetchParticipation(mcp, token, clanTag),
-  }),
+  manage,
+  awards,
   scout: createScout({ mcp }),
   recruit: createRecruitService({ ledger, mcp, model }),
   feedback: createFeedbackService({
@@ -87,3 +98,8 @@ export const handler = createHandler({
   appUrl: env("APP_URL").replace(/\/$/, ""),
   elixirUrl,
 });
+
+/** One function: HTTP from the API, and the daily rule's event, which
+ *  no HTTP request can produce (API Gateway's event has its own shape). */
+export const handler = (event, context) =>
+  event?.scheduled === "evaluate" ? scheduled() : http(event, context);

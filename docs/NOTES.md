@@ -895,3 +895,19 @@ round **Elixir's door, then Clan**, with Drop in its own session.
   digest, so a key never passes through anyone. Drop already has one
   (`elixir-drop`); its facts need `facts:write` added in Drop's round.
 
+## 2026-09-25 — Door 1: the morning evaluation (Jamie)
+
+Jamie deferred making Drop Elixir-only ("this is complicated, we'll come
+back to it later") and took the runner-up: door 1. Elixir (JSON API 2.3.0)
+lets an integration holding `clans:read` read any recorded clan's
+participation and roster. Elixir Clan got its own integration key
+(`elixir-clan`), minted locally and provisioned by digest (Jamie asked the
+agent to provision the family's keys rather than do it himself), staged as
+the NoEcho `ElixirIntegrationKey`. Every clan with a policy is evaluated
+daily at 11:00 UTC; nothing is shared with Elixir on that run.
+
+**Waiting on Jamie:** the execution role's `events:*` statement for the
+rule (`infra/IAM.md`, "The morning evaluation's rule"), then
+`--param=ScheduleEnabled=true` once. Until then everything is deployed and
+the run simply is not scheduled.
+

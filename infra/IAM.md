@@ -41,6 +41,24 @@ smoke and inspect the live stack, policies, private bucket controls, and alarms.
 Keep the security acceptance issue open until a subsequent natural deployment
 also succeeds. Do not manufacture a deployment failure or member action.
 
+## The morning evaluation's rule (2026-09-25)
+
+The execution policy gained one statement: the `events:*` actions a
+stack needs to manage an EventBridge rule, on `rule/elixir-clan-*` only.
+The runtime role and its boundary are unchanged: EventBridge invokes the
+function through a resource policy the stack already may write
+(`lambda:AddPermission` on `elixir-clan-*`). Apply it with the
+administrator flow above (`secure-iam.mjs validate`, `apply`, `verify`),
+then turn the rule on once:
+
+```sh
+AWS_PROFILE=cloud-engineer node infra/scripts/deploy.mjs --skip-web \
+  --param=ScheduleEnabled=true
+```
+
+Until then `ScheduleEnabled` stays `false` and the template creates no
+rule, so nothing needs the new permission.
+
 ## Rollback and recovery
 
 Keep the pre-change `before.json` outside Git. It contains policy/trust metadata,

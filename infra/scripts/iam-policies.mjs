@@ -119,6 +119,25 @@ export function executionPolicyFor(accountId) {
         Resource: `arn:aws:sns:${REGION}:${accountId}:elixir-clan-*`,
       },
       {
+        // The morning evaluation's rule (2026-09-25, door 1): the stack
+        // manages only its own elixir-clan-* rules.
+        Effect: "Allow",
+        Action: [
+          "events:DescribeRule",
+          "events:PutRule",
+          "events:DeleteRule",
+          "events:EnableRule",
+          "events:DisableRule",
+          "events:PutTargets",
+          "events:RemoveTargets",
+          "events:ListTargetsByRule",
+          "events:TagResource",
+          "events:UntagResource",
+          "events:ListTagsForResource",
+        ],
+        Resource: `arn:aws:events:${REGION}:${accountId}:rule/elixir-clan-*`,
+      },
+      {
         Effect: "Allow",
         Action: ["s3:*"],
         Resource: [`arn:aws:s3:::${webBucket}`, `arn:aws:s3:::${webBucket}/*`],
