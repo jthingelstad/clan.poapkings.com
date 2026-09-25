@@ -68,6 +68,12 @@ const analyzer = new AccessAnalyzerClient(config);
 // Exact pre-change document from the clean source reviewed for #48.
 const reviewedLegacyExecutionHash =
   "af5ee40726132c763957368f52f6461a401815b3c8f1d3366660fbf3f1557a3f";
+// Earlier corrected sources this one may replace, each reviewed and live
+// in its day: #48's scoped policy, before the morning evaluation's
+// events statement (2026-09-25; the live document, read and hashed).
+const reviewedPriorExecutionHashes = [
+  "e76031fc609bc170de3868cbd9e1aee77c1290123b23853a0b9018b1ea19e107",
+];
 const policyHash = (document) =>
   createHash("sha256")
     .update(JSON.stringify(comparablePolicy(document)))
@@ -188,9 +194,10 @@ if (command === "validate") {
     assert.ok(
       [
         reviewedLegacyExecutionHash,
+        ...reviewedPriorExecutionHashes,
         policyHash(executionPolicyFor(accountId)),
       ].includes(policyHash(before.execution.policy)),
-      "Execution policy differs from both reviewed pre-change and corrected source; stop for review",
+      "Execution policy differs from every reviewed earlier version and the corrected source; stop for review",
     );
     await writeFile(
       path.join(snapshot, "before.json"),
