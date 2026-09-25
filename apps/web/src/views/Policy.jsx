@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { manageApi } from "../api.js";
 import { keys, useInvalidate, usePolicy } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
+import { TooFew } from "../components/TooFew.jsx";
 
 /** Whether a group or field applies under the draft (engine `applies`). */
 const applies = (when, values) =>
@@ -36,6 +37,18 @@ export function Policy({ clan }) {
     if (view) setDraft(view.current.values);
   }, [view]);
   if (!view || !draft) return <p className="page__lede">Loading the policy…</p>;
+  // Below the smallest clan a policy engages with there is nothing to set.
+  if (view.big_enough === false)
+    return (
+      <div className="grid gap-4">
+        {view.set ? (
+          <p className="page-head__note m-0">
+            {`Version ${view.current.version} is kept and picks up again when the clan has ${view.min_members} members.`}
+          </p>
+        ) : null}
+        <TooFew members={view.members} min={view.min_members} />
+      </div>
+    );
 
   const changed = Object.keys(draft).filter(
     (k) => draft[k] !== view.current.values[k],

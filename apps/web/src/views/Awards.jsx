@@ -2,6 +2,7 @@ import { Fresh, ago } from "elixir-mcp/packages/ui/src/index.ts";
 import { useState } from "react";
 import { manageApi } from "../api.js";
 import { useAwards } from "../lib/queries.js";
+import { TooFew } from "../components/TooFew.jsx";
 import { trackEvent } from "../analytics.js";
 
 /**
@@ -13,7 +14,7 @@ import { trackEvent } from "../analytics.js";
  */
 export function Awards({ clan }) {
   const [editing, setEditing] = useState(false);
-  const { state, load } = useAwards(clan.clan_tag);
+  const { state, load, query } = useAwards(clan.clan_tag);
 
   if (state.signedOut) {
     window.location.assign("/?error=session_expired");
@@ -25,6 +26,10 @@ export function Awards({ clan }) {
         <span>Awards are for the leaders and elders.</span>
       </div>
     );
+  if (state.error === "too_few_members") {
+    const d = query.data?.data ?? {};
+    return <TooFew members={d.members} min={d.min_members} />;
+  }
   if (state.error)
     return (
       <div className="callout callout--warn" role="alert">

@@ -646,3 +646,17 @@ one by one:
   a test keeps product source free of any clan's specifics (`1b531c4`).
   Judge Fairly measures each clan against its own policy, not against
   elixir-bot.
+
+## 2026-09-25 — Below 10 members, Elixir Clan is a statistics view (Jamie)
+
+A clan takes no part in Clan Wars until it has 10 members, and a policy
+has nothing to engage with at 1, 3 or 5. So below `MIN_MEMBERS` = 10 a
+clan is visible (the roster and every member's statistics; Recruit and
+Scout, which judge nobody in the clan) but none of clan management or
+awards applies: no policy can be created or previewed, and a saved one
+pauses, kept, answering `409 too_few_members`, and resumes when the clan
+is back at 10 (the next evaluation re-reads the size). The size is the
+latest roster or participation read, kept as one number per clan
+(`clan_size#<clan>`), so the gate costs no Elixir read. Recruit and Scout
+staying open below 10 is this session's call, easy to flip.
+

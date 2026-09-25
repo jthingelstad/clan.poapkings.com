@@ -9,7 +9,8 @@
  * clan, like the management evaluation; any member opening the trophy
  * case runs it, so grants do not wait on a leader visiting Manage. Like
  * every management function, nothing here runs until the clan has a
- * policy, and a clan starts with no awards.
+ * policy, nor while it is below MIN_MEMBERS (10), and a clan starts with
+ * no awards.
  */
 
 import {
@@ -19,7 +20,13 @@ import {
   evaluateAwards,
   validateAwards,
 } from "@elixir-clan/engine";
-import { ManageError, EVALUATION_TTL_MS } from "./service.mjs";
+import {
+  ManageError,
+  EVALUATION_TTL_MS,
+  noteClanSize,
+  tooFewMembers,
+} from "./service.mjs";
+import { MIN_MEMBERS } from "@elixir-clan/engine";
 
 const LEADERS = new Set(["leader", "coLeader"]);
 const ELDER_PLUS = new Set(["leader", "coLeader", "elder"]);
@@ -31,10 +38,17 @@ export function createAwardsService({
 }) {
   const isLeader = (who) => LEADERS.has(who.role);
 
-  /** Nothing in clan management runs before a policy is saved. */
-  async function requirePolicy(clanTag) {
+  /** Nothing in clan management runs before a policy is saved, nor while
+   *  the clan is below MIN_MEMBERS. An evaluation passes `size: false`
+   *  and decides from its own participation read. */
+  async function requirePolicy(clanTag, { size = true } = {}) {
     if (!(await ledger.currentPolicy(clanTag)))
       throw new ManageError(409, "no_policy");
+    if (size) {
+      const known = await ledger.clanSize(clanTag);
+      if (known && known.members < MIN_MEMBERS)
+        throw tooFewMembers(known.members);
+    }
   }
 
   async function configFor(clanTag) {
@@ -61,14 +75,22 @@ export function createAwardsService({
     const t = now();
     const config = await configFor(clanTag);
     const cached = await ledger.latestAwardsSnapshot(clanTag);
+    // A clan last seen below the minimum is re-read, never served a cache.
+    const known = await ledger.clanSize(clanTag);
+    const small = known !== null && known.members < MIN_MEMBERS;
     if (
       !force &&
+      !small &&
       cached &&
       cached.config_version === config.version &&
       t - Date.parse(cached.evaluated_at) < EVALUATION_TTL_MS
     )
       return { result: cached, config, cached: true };
     const participation = await participationFor(token, clanTag);
+    // Too small for awards: remember the size and grant nothing.
+    await noteClanSize(ledger, clanTag, participation.members.length, t);
+    if (participation.members.length < MIN_MEMBERS)
+      throw tooFewMembers(participation.members.length);
     const grants = await ledger.grants(clanTag);
     const result = evaluateAwards({
       participation,
@@ -115,7 +137,7 @@ export function createAwardsService({
     /** Manage ▸ Awards: races, seasons, grants, and the document. */
     async manageView(clanTag, who, token, { refresh = false } = {}) {
       if (!ELDER_PLUS.has(who.role)) throw new ManageError(403, "elders_only");
-      await requirePolicy(clanTag);
+      await requirePolicy(clanTag, { size: false });
       const { result, config, cached } = await evaluateClan({
         clanTag,
         token,
@@ -284,7 +306,7 @@ export function createAwardsService({
      * are written by whoever looks first.
      */
     async trophyCase(clanTag, who, token) {
-      await requirePolicy(clanTag);
+      await requirePolicy(clanTag, { size: false });
       const { config } = await evaluateClan({ clanTag, token });
       const grants = (await ledger.grants(clanTag)).map(shape);
       const seasons = new Map();

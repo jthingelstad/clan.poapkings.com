@@ -232,6 +232,11 @@ describe("feedback", () => {
       "you",
       "feedback",
     ]);
+    // A saved policy on a clan below 10 members is paused: the same rail
+    // as no policy at all.
+    const paused = { set: true, active: false, members: 7, away: false };
+    expect(keys("leader", paused)).toEqual(keys("leader", noPolicy));
+    expect(keys("member", paused)).toEqual(keys("member", noPolicy));
     // Away only when the policy offers it.
     expect(keys("member", { ...withPolicy, away: false })).not.toContain(
       "away",

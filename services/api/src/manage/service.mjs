@@ -7,6 +7,10 @@
  * Nothing here runs for a clan until a leader or co-leader has saved its
  * policy (Jamie, 2026-09-25): every management call refuses with
  * `409 no_policy` before then, and the policy editor is the one way in.
+ * Nor below MIN_MEMBERS (10, as Clan Wars): no policy can be created, and
+ * a saved one pauses, kept, with `409 too_few_members`, until the clan is
+ * back at that size. The size is the latest roster or participation read,
+ * kept as one number in the ledger so the gate costs no Elixir read.
  */
 
 import {
@@ -29,6 +33,7 @@ import {
   validate,
   FIELDS,
   GROUPS,
+  MIN_MEMBERS,
 } from "@elixir-clan/engine";
 import { newId } from "./ledger.mjs";
 
@@ -46,12 +51,43 @@ const ELDER_PLUS = new Set(["leader", "coLeader", "elder"]);
 const DAY_MS = 86400_000;
 
 export class ManageError extends Error {
-  constructor(status, code, message) {
+  constructor(status, code, message, detail = null) {
     super(message ?? code);
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
 }
+
+/** Below the smallest clan a policy engages with: say how many there are. */
+export const tooFewMembers = (members) =>
+  new ManageError(409, "too_few_members", null, {
+    members,
+    min_members: MIN_MEMBERS,
+  });
+
+const SIZE_STALE_MS = 3600_000;
+
+/** Remember a clan's member count from a read already made; written only
+ *  when it changed or the last note is over an hour old. */
+export async function noteClanSize(ledger, clanTag, members, t) {
+  if (!Number.isInteger(members)) return;
+  const known = await ledger.clanSize(clanTag);
+  if (
+    known &&
+    known.members === members &&
+    t - Date.parse(known.observed_at) < SIZE_STALE_MS
+  )
+    return;
+  await ledger.saveClanSize(clanTag, {
+    members,
+    observed_at: new Date(t).toISOString(),
+  });
+}
+
+/** The roster's member count, as the roster states it. */
+export const rosterSize = (roster) =>
+  roster ? (roster.member_count ?? roster.members?.length ?? null) : null;
 
 /** One call, eight weeks: the record every evaluation reads. */
 export async function fetchParticipation(mcp, token, clanTag) {
@@ -129,11 +165,34 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     };
   }
 
-  /** The saved policy, or `409 no_policy`: no management without one. */
-  async function requirePolicy(clanTag) {
+  const noteSize = (clanTag, members) =>
+    noteClanSize(ledger, clanTag, members, now());
+
+  /** The saved policy, or `409 no_policy`: no management without one;
+   *  and `409 too_few_members` while the clan's noted size is below
+   *  MIN_MEMBERS. An evaluation passes `size: false` and re-reads the
+   *  size from its own participation read, so a clan that grew resumes. */
+  async function requirePolicy(clanTag, { size = true } = {}) {
     const policy = await policyFor(clanTag);
     if (!policy.set) throw new ManageError(409, "no_policy");
+    if (size) {
+      const known = await ledger.clanSize(clanTag);
+      if (known && known.members < MIN_MEMBERS)
+        throw tooFewMembers(known.members);
+    }
     return policy;
+  }
+
+  /** The clan's member count now: one roster read (noted), else the last
+   *  noted count when Elixir cannot answer. */
+  async function currentSize(clanTag, token) {
+    const roster = token ? await fetchRoster(mcp, token, clanTag) : null;
+    const members = rosterSize(roster);
+    if (members !== null) {
+      await noteSize(clanTag, members);
+      return members;
+    }
+    return (await ledger.clanSize(clanTag))?.members ?? null;
   }
 
   /** Tag -> trophies today, when the policy counts trophy road. */
@@ -175,11 +234,15 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     participation = null,
   }) {
     const t = now();
-    const policy = await requirePolicy(clanTag);
+    const policy = await requirePolicy(clanTag, { size: false });
     const cached = await ledger.latestVerdicts(clanTag);
+    // A clan last seen below the minimum is re-read, never served a cache.
+    const known = await ledger.clanSize(clanTag);
+    const small = known !== null && known.members < MIN_MEMBERS;
     if (
       !force &&
       !participation &&
+      !small &&
       cached &&
       cached.policy_version === policy.version &&
       t - Date.parse(cached.evaluated_at) < EVALUATION_TTL_MS
@@ -188,6 +251,12 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
 
     const part =
       participation ?? (await fetchParticipation(mcp, token, clanTag));
+    // Too small to judge: remember the size and stop, before any card moves.
+    if (!participation) {
+      await noteSize(clanTag, part.members.length);
+      if (part.members.length < MIN_MEMBERS)
+        throw tooFewMembers(part.members.length);
+    }
     // The roster carries today's trophies and the join/leave events; read
     // only when the policy needs one of them.
     const needsRoster =
@@ -401,9 +470,13 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
     policyFor,
     evaluateClan,
 
+    noteSize,
+
     /** Open cards, for the rail's count: a ledger read, no evaluation. */
     async openCardCount(clanTag) {
       if (!(await policyFor(clanTag)).set) return 0;
+      const size = await ledger.clanSize(clanTag);
+      if (size && size.members < MIN_MEMBERS) return 0;
       return (await ledger.cards(clanTag)).filter(
         (c) => c.status === "proposed",
       ).length;
@@ -413,28 +486,40 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
      *  is set, and the switches that decide which pages exist. */
     async policySummary(clanTag) {
       const policy = await policyFor(clanTag);
+      const members = (await ledger.clanSize(clanTag))?.members ?? null;
+      // Active: saved, and the clan not known to be below the minimum.
+      const active = policy.set && !(members !== null && members < MIN_MEMBERS);
       return {
         set: policy.set,
+        active,
         version: policy.version,
-        ranks_elder: policy.set && ranksElder(policy.values),
-        removal: policy.set && policy.values.removal_enabled,
+        members,
+        min_members: MIN_MEMBERS,
+        ranks_elder: active && ranksElder(policy.values),
+        removal: active && policy.values.removal_enabled,
         away:
-          policy.set &&
+          active &&
           policy.values.removal_enabled &&
           policy.values.away_max_days > 0,
         members_see_standing:
-          policy.set && policy.values.members_see_standing === true,
+          active && policy.values.members_see_standing === true,
       };
     },
 
-    /** The policy editor's data: fields with help, groups, current values, versions. */
-    async policyView(clanTag, who) {
+    /** The policy editor's data: fields with help, groups, current values,
+     *  versions, and whether the clan is big enough for a policy at all. */
+    async policyView(clanTag, who, token = null) {
       const policy = await policyFor(clanTag);
+      const members = await currentSize(clanTag, token);
       const versions = await ledger.policyVersions(clanTag);
       const names = await knownNames(clanTag);
       return {
         can_edit: isLeader(who),
         set: policy.set,
+        members,
+        min_members: MIN_MEMBERS,
+        // Unknown (Elixir did not answer) never blocks; the save checks.
+        big_enough: members === null || members >= MIN_MEMBERS,
         current: {
           ...policy,
           saved_by_name:
@@ -455,8 +540,11 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       };
     },
 
-    async savePolicy(clanTag, who, input, note) {
+    async savePolicy(clanTag, who, input, note, token = null) {
       requireLeader(who);
+      const members = await currentSize(clanTag, token);
+      if (members !== null && members < MIN_MEMBERS)
+        throw tooFewMembers(members);
       const checked = validate(input);
       if (!checked.ok)
         throw Object.assign(new ManageError(400, "invalid_policy"), {
@@ -490,6 +578,9 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           r.status === 401 ? 401 : 502,
           r.status === 401 ? "session_expired" : "elixir_unavailable",
         );
+      await noteSize(clanTag, r.body.members.length);
+      if (r.body.members.length < MIN_MEMBERS)
+        throw tooFewMembers(r.body.members.length);
       const current = await policyFor(clanTag);
       const roster =
         checked.values.trophies_enabled || current.values.trophies_enabled
@@ -614,6 +705,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
       // events, each leave carrying what this ledger says about it, and
       // a welcome line a leader can paste for a join.
       const roster = token ? await fetchRoster(mcp, token, clanTag) : null;
+      if (roster) await noteSize(clanTag, rosterSize(roster));
       const byTag = (tag) =>
         cards.filter((c) => c.player_tag === tag && c.type === "departure");
       // Who a tag is, when the event itself does not say: the roster for
@@ -864,10 +956,12 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
      * not use.
      */
     async standing(clanTag, who, token) {
-      const policy = await requirePolicy(clanTag);
+      const policy = await requirePolicy(clanTag, { size: false });
       const how = describePolicy(policy.values);
       const ranked = ranksElder(policy.values);
-      if (!ranked && !policy.values.removal_enabled)
+      if (!ranked && !policy.values.removal_enabled) {
+        // Nothing to evaluate: the noted size alone says whether it runs.
+        await requirePolicy(clanTag);
         return {
           policy_version: policy.version,
           how,
@@ -875,6 +969,7 @@ export function createManageService({ ledger, mcp, now = () => Date.now() }) {
           rows: null,
           you: null,
         };
+      }
       const { verdicts } = await evaluateClan({ clanTag, token, who });
       const showRows =
         ranked && (policy.values.members_see_standing || isLeader(who));

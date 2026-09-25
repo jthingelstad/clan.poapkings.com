@@ -1,4 +1,5 @@
 import { useTrophies } from "../lib/queries.js";
+import { TooFew } from "../components/TooFew.jsx";
 
 const place = (rank) =>
   rank === 1 ? "1st" : rank === 2 ? "2nd" : rank === 3 ? "3rd" : `${rank}th`;
@@ -10,13 +11,22 @@ const place = (rank) =>
  * the app.
  */
 export function Trophies({ clan, who }) {
-  const { state } = useTrophies(clan.clan_tag);
+  const { state, query } = useTrophies(clan.clan_tag);
   const head = (
     <div className="page-head items-center">
       <h1 className="page__title">Trophies</h1>
       <span className="page-head__note">{clan.name ?? clan.clan_tag}</span>
     </div>
   );
+  if (state.error === "too_few_members") {
+    const d = query.data?.data ?? {};
+    return (
+      <>
+        {head}
+        <TooFew members={d.members} min={d.min_members} />
+      </>
+    );
+  }
   if (state.error === "no_policy")
     return (
       <>

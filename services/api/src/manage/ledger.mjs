@@ -2,6 +2,9 @@
  * The clan ledger: everything Elixir Clan stores ABOUT a clan, all of it
  * items of one clan in the one table, listed through the ByClan index.
  *
+ *   clan_size#<clan>         the member count at the latest roster or
+ *                            participation read, and when (the policy
+ *                            gate: nothing runs below MIN_MEMBERS)
  *   policy#<clan>            the pointer: { version }
  *   policy#<clan>#v<n>       one immutable version: values, who, when
  *   verdicts#<clan>          the latest verdict snapshot (small; evidence
@@ -18,7 +21,7 @@
  *                            no member list), a few hours
  *   awards#<clan>            the pointer: { version }
  *   awards#<clan>#v<n>       one immutable awards document: the clan's
- *                            awards (kind, name, parameters), publish flag
+ *                            awards (kind, name, parameters)
  *   award#<clan>#<season>#<award id>#<tag>
  *                            a grant: rank, metric, note, who; computed
  *                            grants are facts of the record, manual ones
@@ -173,6 +176,23 @@ function ledgerOver(io) {
       await io.put(item);
       await io.put({ pk: `policy#${clanTag}`, version, saved_at });
       return stripKeys(item);
+    },
+    // ---- the clan's size: one number, from the latest roster or
+    // participation read, so the policy gate needs no Elixir read ------
+    async clanSize(clanTag) {
+      const item = await io.get(`clan_size#${clanTag}`);
+      return item
+        ? { members: item.members, observed_at: item.observed_at }
+        : null;
+    },
+    async saveClanSize(clanTag, { members, observed_at }) {
+      await io.put({
+        pk: `clan_size#${clanTag}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: "clan_size",
+        members,
+        observed_at,
+      });
     },
     // ---- verdicts ------------------------------------------------------
     async latestVerdicts(clanTag) {

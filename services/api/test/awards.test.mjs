@@ -105,8 +105,16 @@ const amy = member("#8QCV", {
   tenureDays: 25,
   war: [0, 0, 0, 0, 14, 8],
 });
+// Members who played no war and donated nothing: the clan is big enough
+// for awards (10), and they never reach a podium.
+const quiet = Array.from({ length: 9 }, (_, i) =>
+  member(`#Q${i}`, {
+    war: [0, 0, 0, 0, 0, 0],
+    donations: [0, 0, 0, 0, 0, 0],
+  }),
+);
 const partClan = () =>
-  participation([king, levy, amy], {
+  participation([king, levy, amy, ...quiet], {
     clan_tag: "#2PQRJ8LV",
     name: "Example Clan",
   });
@@ -383,4 +391,28 @@ test("awards: a clan starts with none, and nothing runs before it has a policy",
     none.mcp.calls.filter((c) => c[0] === "clans_participation").length,
     0,
   );
+});
+
+test("awards: below 10 members nothing is judged or granted, and the trophy case says why", async () => {
+  const h = harness({
+    part: participation([king, levy, amy], {
+      clan_tag: "#2PQRJ8LV",
+      name: "Example Clan",
+    }),
+  });
+  const cookies = await signedIn(h);
+  for (const path of [`${BASE}/manage`, "/api/clans/2PQRJ8LV/trophies"]) {
+    const r = await api(h, cookies, "GET", path);
+    assert.equal(r.status, 409, path);
+    assert.equal(r.body.error, "too_few_members", path);
+    assert.equal(r.body.members, 3, path);
+  }
+  assert.deepEqual(await h.ledger.grants("#2PQRJ8LV"), []);
+  const pick = await api(h, cookies, "POST", `${BASE}/grants`, {
+    award_id: "clan_honour",
+    player_tag: "UQ8LP2R9C",
+    season_id: 135,
+  });
+  assert.equal(pick.status, 409);
+  assert.equal(pick.body.error, "too_few_members");
 });

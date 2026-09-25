@@ -26,7 +26,14 @@ const DAY = 86400_000;
 
 /** A door that also answers clans_participation and the scout's live reads. */
 function door({ players, part, profile = null, log = null, roster = null }) {
-  const mcp = fakeMcp({ players, roster });
+  // The roster states the clan's size as the participation read does.
+  const mcp = fakeMcp({
+    players,
+    roster: roster ?? {
+      ...rosterBody([]),
+      member_count: part?.members?.length ?? 0,
+    },
+  });
   const inner = mcp.callTool.bind(mcp);
   mcp.callTool = async (token, name, args) => {
     mcp.calls.push([name, token, args]);
@@ -153,7 +160,11 @@ test("manage: a leader opens Manage; one participation read, cards raised, cache
 test("manage: the board explains held judgments from an existing cached snapshot", async () => {
   const h = harness({
     part: participation(
-      [king, member("#HELD", { war: [null, null, null, null, null, null] })],
+      [
+        king,
+        ...others,
+        member("#HELD", { war: [null, null, null, null, null, null] }),
+      ],
       { clan_tag: "#2PQRJ8LV" },
     ),
   });
@@ -700,6 +711,7 @@ test("ManageError carries a status and code", () => {
 
 const leftEvents = (extra = []) => ({
   ...rosterBody([]),
+  member_count: 12,
   events_recorded_since: "2026-09-03T00:00:00.000Z",
   recent_events: [
     {
@@ -992,4 +1004,90 @@ test("away: a member marks themselves away within the policy's cap; the clock pa
     until: new Date(NOW.getTime() + 2 * DAY).toISOString(),
   });
   assert.equal(off.status, 403);
+});
+
+// ---- the smallest clan a policy engages with (Jamie, 2026-09-25) ------------
+
+const smallClan = (n) =>
+  participation([king, ...others.slice(0, n - 1)], {
+    clan_tag: "#2PQRJ8LV",
+    name: "Example Clan",
+  });
+
+test("below 10 members Elixir Clan is a statistics view: the roster works, no policy can be created", async () => {
+  const h = harness({ part: smallClan(6), policy: null });
+  const cookies = await leader(h);
+  const roster = await api(h, cookies, "GET", "/api/roster?clan=2PQRJ8LV");
+  assert.equal(roster.status, 200);
+  const view = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/policy");
+  assert.equal(view.status, 200);
+  assert.equal(view.body.members, 6);
+  assert.equal(view.body.min_members, 10);
+  assert.equal(view.body.big_enough, false);
+  const save = await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/policy", {
+    values: EXAMPLE_POLICY,
+  });
+  assert.equal(save.status, 409);
+  assert.deepEqual(save.body, {
+    error: "too_few_members",
+    members: 6,
+    min_members: 10,
+  });
+  assert.equal(await h.ledger.currentPolicy("#2PQRJ8LV"), null);
+  const preview = await api(
+    h,
+    cookies,
+    "POST",
+    "/api/clans/2PQRJ8LV/policy/preview",
+    { values: EXAMPLE_POLICY },
+  );
+  assert.equal(preview.body.error, "too_few_members");
+  // Scout still reads an applicant; it judges nobody in the clan.
+  assert.equal(
+    (await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/scout", { tag: "2PP" }))
+      .status,
+    200,
+  );
+  const me = await api(h, cookies, "GET", "/api/me");
+  assert.equal(me.body.policy.members, 6);
+  assert.equal(me.body.policy.active, false);
+});
+
+test("a clan with a policy that falls below 10 pauses, keeps its policy, and resumes at 10", async () => {
+  const ledger = ledgerWithPolicy(
+    createMemoryLedger(),
+    "#2PQRJ8LV",
+    EXAMPLE_POLICY,
+  );
+  const small = harness({ part: smallClan(8), ledger });
+  const sc = await leader(small);
+  for (const path of [
+    "/api/clans/2PQRJ8LV/manage",
+    "/api/clans/2PQRJ8LV/standing",
+    "/api/clans/2PQRJ8LV/history",
+    "/api/clans/2PQRJ8LV/members/2PP/notes",
+  ]) {
+    const r = await api(small, sc, "GET", path);
+    assert.equal(r.status, 409, path);
+    assert.equal(r.body.error, "too_few_members", path);
+    assert.equal(r.body.members, 8, path);
+  }
+  // Nothing was judged: no card, no snapshot, the policy kept.
+  assert.deepEqual(await ledger.cards("#2PQRJ8LV"), []);
+  assert.equal(await ledger.latestVerdicts("#2PQRJ8LV"), null);
+  assert.equal((await ledger.currentPolicy("#2PQRJ8LV")).version, 1);
+  const me = await api(small, sc, "GET", "/api/me");
+  assert.equal(me.body.policy.set, true);
+  assert.equal(me.body.policy.active, false);
+  assert.equal(me.body.open_cards, 0);
+  // The clan grows back to 12: the next evaluation re-reads and resumes.
+  const grown = harness({ part: partClan(), ledger });
+  const gc = await leader(grown);
+  const r = await api(grown, gc, "GET", "/api/clans/2PQRJ8LV/manage");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal((await ledger.clanSize("#2PQRJ8LV")).members, 12);
+  assert.equal(
+    (await api(grown, gc, "GET", "/api/me")).body.policy.active,
+    true,
+  );
 });

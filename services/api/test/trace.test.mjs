@@ -52,7 +52,10 @@ const capture = async (fn, cap) => {
 test("every request ends with one JSON line naming the route, the status, the time, and each Elixir call with its request_id; plus Server-Timing", async () => {
   const now = () => NOW.getTime();
   const part = participation(
-    [member("#20QQL8CCRU", { name: "Ada", role: "leader" })],
+    [
+      member("#20QQL8CCRU", { name: "Ada", role: "leader" }),
+      ...Array.from({ length: 9 }, (_, i) => member(`#M${i}`)),
+    ],
     {
       clan_tag: "#2PQRJ8LV",
     },

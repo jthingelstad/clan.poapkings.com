@@ -192,3 +192,22 @@ describe("standing", () => {
     expect(document.body.textContent).not.toMatch(/Holding Elder/);
   });
 });
+
+describe("below 10 members", () => {
+  test("Standing says clan management starts at 10 and why", async () => {
+    vi.spyOn(manageApi, "standing").mockResolvedValue({
+      ok: false,
+      status: 409,
+      data: { error: "too_few_members", members: 6, min_members: 10 },
+    });
+    renderWithProviders(
+      <Standing clan={poap} who={{ player_tag: "#X", role: "member" }} />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText("Clan management starts at 10 members"),
+      ).toBeTruthy(),
+    );
+    expect(screen.getByText(/This clan has 6\./)).toBeTruthy();
+  });
+});

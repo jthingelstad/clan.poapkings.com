@@ -1,7 +1,8 @@
 /**
  * What the rail offers depends on who is looking and on the clan's policy:
- * until a leader saves one, only the roster, Recruit, Scout and the policy
- * editor exist (nothing in clan management runs). Manage for leaders and
+ * until a leader saves one, and while the clan has fewer than 10 members,
+ * only the roster, Recruit, Scout and the policy editor exist (nothing in
+ * clan management runs). Manage for leaders and
  * co-leaders, Awards and Scout also for elders, Away when the policy lets
  * members mark it, Maintain for the product's maintainer. Two items the
  * reader can see at once never share a label.
@@ -18,7 +19,9 @@ export function railItems(me) {
   if (me?.ok && me.clans?.length > 1)
     items.push({ key: "clans", label: "Clans", icon: "layers", to: "/clans" });
   const policy = me?.policy ?? null;
-  const set = policy?.set === true;
+  // Active: a saved policy on a clan of at least 10 (an older /api/me
+  // without the flag reads as its `set`).
+  const set = policy?.active ?? policy?.set === true;
   if (clan) {
     items.push({ key: "clan", label: "Clan", icon: "users", to: base });
     if (set)

@@ -53,6 +53,9 @@ export const ME = {
   // The selected clan's policy: saved, ranking Elder, tracking inactivity.
   policy: {
     set: true,
+    active: true,
+    members: 12,
+    min_members: 10,
     version: 1,
     ranks_elder: true,
     removal: true,

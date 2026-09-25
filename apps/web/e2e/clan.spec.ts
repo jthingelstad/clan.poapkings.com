@@ -106,6 +106,43 @@ test.describe("signed in", () => {
       await expect(rail.getByRole("link", { name })).toHaveCount(0);
   });
 
+  test("a clan below 10 members is a statistics view: the policy editor says so", async ({
+    page,
+  }) => {
+    await mockApi(
+      page,
+      signedIn(
+        {
+          "GET /api/clans/2PQRJ8LV/policy": [
+            200,
+            {
+              can_edit: true,
+              set: false,
+              members: 6,
+              min_members: 10,
+              big_enough: false,
+              current: { set: false, values: {}, version: 0 },
+              groups: [],
+              fields: {},
+              versions: [],
+            },
+          ],
+        },
+        { policy: { set: false, active: false, members: 6 } },
+      ),
+    );
+    await page.goto("/clan/2PQRJ8LV");
+    const rail = page.locator(".rail");
+    for (const name of [/^Inbox/, /^Standing/, /^Trophies/])
+      await expect(rail.getByRole("link", { name })).toHaveCount(0);
+    await rail.getByRole("link", { name: /^Policy/ }).click();
+    await expect(page).toHaveURL(/\/manage\/policy$/);
+    await expect(
+      page.getByText("Clan management starts at 10 members"),
+    ).toBeVisible();
+    await expect(page.getByText(/This clan has 6\./)).toBeVisible();
+  });
+
   test("@narrow the rail is a disclosure above the content", async ({
     page,
   }) => {

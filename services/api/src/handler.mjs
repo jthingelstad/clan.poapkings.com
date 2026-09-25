@@ -513,6 +513,13 @@ export function createHandler({
       return json(502, { error: "elixir_unavailable" });
     }
     const body = shapeRoster(r.body, { yourTags: clan.your_tags });
+    // The roster read is also how the policy gate learns the clan's size.
+    if (manage)
+      await manage
+        .noteSize(clanTag, body.member_count)
+        .catch((e) =>
+          log.warn?.("clan_size_note_failed", { error: e.message }),
+        );
     // Bounded: only clans in the set are ever cached, one entry each.
     const rosters = {};
     for (const c of gated.gate.clans) {
@@ -630,7 +637,7 @@ export function createHandler({
         }
       }
       if (method === "GET" && rest === "/policy")
-        return json(200, await manage.policyView(tag, who));
+        return json(200, await manage.policyView(tag, who, token));
       if (method === "POST" && rest === "/policy")
         return json(
           200,
@@ -639,6 +646,7 @@ export function createHandler({
             who,
             body.values ?? {},
             body.note ?? null,
+            token,
           ),
         );
       if (method === "POST" && rest === "/policy/preview")
@@ -748,6 +756,7 @@ export function createHandler({
         return json(err.status, {
           error: err.code,
           ...(err.errors ? { errors: err.errors } : {}),
+          ...(err.detail ?? {}),
         });
       }
       throw err;

@@ -1,5 +1,6 @@
 import { Fresh } from "elixir-mcp/packages/ui/src/index.ts";
 import { useStanding } from "../lib/queries.js";
+import { TooFew } from "../components/TooFew.jsx";
 
 const STATUS = {
   holding: ["Holding Elder", "chip--ok"],
@@ -21,11 +22,13 @@ export function Standing({ clan, who }) {
     ? standing.isError
       ? { error: true }
       : { loading: true }
-    : env.status === 409
-      ? { noPolicy: true }
-      : !env.ok
-        ? { error: true }
-        : { data: env.data };
+    : env.status === 409 && env.data?.error === "too_few_members"
+      ? { tooFew: env.data }
+      : env.status === 409
+        ? { noPolicy: true }
+        : !env.ok
+          ? { error: true }
+          : { data: env.data };
   const head = (
     <div className="page-head" style={{ alignItems: "center" }}>
       <h1 className="page__title">Standing</h1>
@@ -44,6 +47,13 @@ export function Standing({ clan, who }) {
       <>
         {head}
         <p className="page__lede">Reading the record…</p>
+      </>
+    );
+  if (state.tooFew)
+    return (
+      <>
+        {head}
+        <TooFew members={state.tooFew.members} min={state.tooFew.min_members} />
       </>
     );
   if (state.noPolicy)

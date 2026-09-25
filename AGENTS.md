@@ -36,7 +36,9 @@ It is a general clan-management tool for any Clash Royale clan (Jamie,
    or copy is shaped by one clan: a clan's rules, awards and words live in
    its saved policy, awards and pitch. Until a leader or co-leader saves a
    policy, no clan-management function runs (members still see the roster
-   and its statistics; Recruit and Scout work). A test fails if product
+   and its statistics; Recruit and Scout work). Below **10 members** (as
+   Clan Wars) Elixir Clan is a statistics view: no policy can be created,
+   and a saved one pauses, kept, until the clan is back at 10. A test fails if product
    source names a clan, a real player, one clan's awards or website, or
    elixir-bot (`services/engine/test/no-clan-specifics.test.mjs`).
 7. **An app, not a publisher.** Every route under `/api/clans` needs a
@@ -210,6 +212,17 @@ every management route answers `409 no_policy`, `/api/me` carries
 `policy: { set: false }`, and the rail offers only the roster, Recruit,
 Scout and (to leaders) the policy editor, whose first save is version 1.
 
+**The smallest clan a policy engages with is `MIN_MEMBERS` = 10** (Jamie,
+2026-09-25: a clan takes no part in Clan Wars below 10, and a policy has
+nothing to judge at 1, 3 or 5). Below it no policy can be created or
+previewed, and a saved one pauses: every management and awards route
+answers `409 too_few_members` with `{ members, min_members }`, nothing is
+evaluated, carded or granted, and `/api/me`'s `policy.active` is false, so
+the rail is the no-policy rail. The size is the clan's latest roster or
+participation read, noted as one number (`clan_size#<clan>`) so the gate
+costs no Elixir read; an evaluation re-reads it from its own participation
+read, so a clan that grows back to 10 resumes on the next visit.
+
 ## Awards
 
 Season recognition as per-clan configuration: a CATALOG OF KINDS, never a
@@ -328,7 +341,7 @@ below co-leader ever sees a removal card or who is on a clock.
 ## What is stored, second push
 
 The `elixir-clan` table gains, per clan, through the `ByClan` index:
-policy versions, the latest verdict snapshot (evidence summaries only,
+the member count at the latest read (`clan_size#`), policy versions, the latest verdict snapshot (evidence summaries only,
 overwritten each evaluation), cards (kept: this ledger is how a leave is
 told from a kick), holds, and notes (tiered `leader` / `elder`). Tags and
 summaries, never Elixir payloads. `ledger.deleteClan` removes the set; call

@@ -19,6 +19,15 @@
 
 export const POLICY_SCHEMA_VERSION = 2;
 
+/**
+ * The smallest clan a policy engages with (Jamie, 2026-09-25): as a clan
+ * takes no part in Clan Wars until it has 10 members, a policy has nothing
+ * to judge at 1, 3 or 5. Below it a clan is still here (its roster and
+ * every member's statistics, Recruit, Scout), but no policy can be created,
+ * and a saved one pauses, kept, until the clan is back at this size.
+ */
+export const MIN_MEMBERS = 10;
+
 export const CATEGORIES = ["war", "ranked", "donations", "trophies"];
 
 export const CATEGORY_LABELS = {

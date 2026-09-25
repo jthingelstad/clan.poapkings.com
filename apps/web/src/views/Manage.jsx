@@ -8,6 +8,7 @@ import { Policy } from "./Policy.jsx";
 import { Scout } from "./Scout.jsx";
 import { Awards } from "./Awards.jsx";
 import { trackEvent } from "../analytics.js";
+import { TooFew } from "../components/TooFew.jsx";
 
 const TITLES = {
   inbox: "Inbox",
@@ -36,7 +37,7 @@ export function Manage({ clan, tab, navigate, who }) {
   const [open, setOpen] = useState(null); // member sheet
   // The judged board, read for every tab but the three that read their
   // own thing.
-  const { state, load } = useManage(
+  const { state, load, query } = useManage(
     clan.clan_tag,
     tab !== "policy" && tab !== "scout" && tab !== "awards",
   );
@@ -99,6 +100,15 @@ export function Manage({ clan, tab, navigate, who }) {
         </div>
       </>
     );
+  if (state.error === "too_few_members") {
+    const d = query.data?.data ?? {};
+    return (
+      <>
+        {head}
+        <TooFew members={d.members} min={d.min_members} />
+      </>
+    );
+  }
   if (state.error === "no_policy")
     return (
       <>
