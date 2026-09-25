@@ -595,7 +595,13 @@ overwritten each evaluation), actions (`card#`, kept: this ledger is how a
 leave is told from a kick; each carries its `number`) and each action's
 log (`action_log#`), holds,
 and notes (tiered `leader` / `elder`), and the uses of the clan's model
-(`model_call#`, 90 days). Tags and summaries, never Elixir payloads. The
+(`model_call#`, 90 days). Tags and summaries, never Elixir payloads.
+**Names ride beside tags** (Jamie, 2026-09-25, closing Guard the Door's
+question of 2026-09-20): a member's in-game name on their actions, and
+the acting person's name on what they did (`saved_by_name`,
+`decided_by_name`, `granted_by_name`, a log entry's `by.name`), as it was
+at the time. In-game names are public, and an action's page and log are
+unreadable as bare tags; nothing here is published outside the app. The
 clan's sealed model key (`model_key#`) and the action-number counter
 (`action_seq#`) are the clan items outside the index. `ledger.deleteClan` removes the set, the key included; call it when
 a clan's last verified leader disconnects. Evaluation runs on demand with

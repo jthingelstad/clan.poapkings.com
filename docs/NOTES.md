@@ -967,3 +967,13 @@ line per action; the morning email lists numbers and links the one
 action's page when only one is waiting. An address answers only those
 the action is for; for anyone else it is "no such action here", the
 same as a number the clan does not have.
+
+## 2026-09-25 — Names beside tags (Jamie)
+
+Guard the Door asked on 2026-09-20 whether Clan may keep people's in-game
+names beside their tags (who saved a version, decided an action, granted
+an award, wrote a log entry), since the storage rule said "tags and
+summaries". Jamie: keep them. Names are public in the game, the action
+pages and logs are unreadable without them, and with no public documents
+since today (rule 7) nothing carries them outside the app. AGENTS.md's
+storage section says so.
