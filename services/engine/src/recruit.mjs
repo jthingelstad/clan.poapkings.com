@@ -1,20 +1,16 @@
 /**
- * Recruiting: elixir-bot's promotion-content job (runtime/jobs/_promotion.py,
- * prompts/lanes/recruiting.md, agent/prompt_builders._promote_system) as a
- * page every member can use. The bot composed copy for five channels with
- * a model every Friday and posted it to #recruiting for members to reuse;
- * this product has no model and no channel, so the copy is written from
- * templates over two things: the clan's own PITCH (a leader's words,
- * versioned like policy) and live FACTS from the game (one live read of the
- * clan through Elixir, cached). The bot's hard rules are kept as
- * `validateCopy`: the Discord title line ends with "Required Trophies: [N]",
- * the Reddit title carries "[N]" for r/RoyaleRecruit's automod, the Reddit
- * body never carries an invite link, no backticks anywhere, and the plain
- * channels are plain text.
+ * Recruiting: copy any member can paste, written from templates over two
+ * things: the clan's own PITCH (a leader's words, versioned like policy)
+ * and live FACTS from the game (one live read of the clan through Elixir,
+ * cached). Two formats (Jamie, 2026-09-25): a PERSONAL note to send one
+ * person by email or message, and a public POST for a recruiting forum
+ * such as a Discord server's recruiting channel or r/RoyaleRecruit. The
+ * post carries the forums' requirements on its own: the clan's required
+ * trophies in brackets in the title (and as "Required Trophies: [N]" in the
+ * body), and no invite link in the body.
  *
- * Voice, from the lane prompt: a real member recruiting on behalf of the
- * clan, "we" and "our clan", the clan the star, Elixir a feature, real
- * numbers used sparingly. Pure: pitch + facts in, copy out.
+ * Every clan starts with an empty pitch: nothing is said for a clan until
+ * its leaders say it. Pure: pitch + facts in, copy out.
  */
 
 export const RECRUIT_SCHEMA_VERSION = 1;
@@ -49,51 +45,26 @@ export const PITCH_FIELDS = {
     max: 200,
     optional: true,
     url: true,
-    why: "Linked from the copy that allows links (never the Reddit body). Leave empty for none.",
+    why: "Linked from the personal note and the post. Leave empty for none.",
   },
   contact: {
     label: "How to get in",
     max: 120,
     optional: true,
-    why: '"Request to join in game", "DM the leader", a Discord invite: whatever the clan wants said.',
+    why: '"Request to join in game", "DM the leader", a Discord invite: whatever the clan wants said. Invite links are left out of the public post, where forums remove them.',
   },
 };
 
-/** The starting pitch: POAP KINGS' own words for that clan (from
- *  prompts/lanes/recruiting.md), and for every other clan a plain start
- *  that names nobody else, links nowhere and promises nothing that clan
- *  has not said (Jamie 2026-09-24). */
-export function defaultPitch(clanTag = null) {
-  if (clanTag !== "#J2RGCRVG")
-    return {
-      schema: RECRUIT_SCHEMA_VERSION,
-      tagline: "Play your war days, climb together",
-      about:
-        "A Clash Royale clan that shows up for Clan Wars. Real life comes first; playing your war days is what we ask.",
-      points: [
-        "Active in River Race every week",
-        "Elixir tracks wars, milestones and awards so nobody's effort goes unseen",
-      ],
-      looking_for: "Active players who play their war days.",
-      website_url: "",
-      contact: "Request to join in game.",
-    };
+/** A clan's pitch before its leaders write one: empty. */
+export function defaultPitch() {
   return {
     schema: RECRUIT_SCHEMA_VERSION,
-    tagline: "Compete, belong, be remembered",
-    about:
-      "We are a tight-knit Clash Royale clan serious about Clan Wars and built on purpose, not just filled. Real life comes first; showing up on war days is what we ask.",
-    points: [
-      "Serious about River Race and climbing the war ladder",
-      "A Free Pass Royale for the top war contributor every season",
-      "POAPs: collectible proof of seasons, milestones and clan history",
-      "Elixir tracks wars, milestones and awards so nobody's effort goes unseen",
-      "Warm, low-drama, worth staying in for the long run",
-    ],
-    looking_for:
-      "Active players who want to climb, play their war days and build something lasting.",
-    website_url: "https://poapkings.com",
-    contact: "Request to join in game, or find us at poapkings.com.",
+    tagline: "",
+    about: "",
+    points: [],
+    looking_for: "",
+    website_url: "",
+    contact: "",
   };
 }
 
@@ -121,8 +92,7 @@ export function validatePitch(input = {}) {
       else if (lines.some((l) => l.length > f.max))
         errors[key] = `Each point is at most ${f.max} characters.`;
       else if (lines.some((l) => l.includes("`")))
-        errors[key] =
-          "No backticks: they break the copy on Reddit and Discord.";
+        errors[key] = "No backticks: they break the copy on the forums.";
       values[key] = lines.slice(0, MAX_POINTS).map((l) => l.slice(0, f.max));
       continue;
     }
@@ -131,7 +101,7 @@ export function validatePitch(input = {}) {
     else if (v.length > f.max)
       errors[key] = `${f.label} is at most ${f.max} characters.`;
     else if (v.includes("`"))
-      errors[key] = "No backticks: they break the copy on Reddit and Discord.";
+      errors[key] = "No backticks: they break the copy on the forums.";
     else if (f.url && v && !/^https:\/\/[^\s]+$/.test(v))
       errors[key] = "A website is an https:// address.";
     values[key] = v.slice(0, f.max) || null;
@@ -216,7 +186,7 @@ const floorText = (facts) =>
   floor(facts) === null ? "" : `${n(floor(facts))} trophies to join. `;
 const clanName = (facts) => facts?.name ?? "our clan";
 
-/** One or two numbers, the way the bot was told to use them: sparingly. */
+/** One or two numbers from the game, used sparingly. */
 function numbers(facts) {
   const bits = [];
   if (facts?.war_trophies) bits.push(`${n(facts.war_trophies)} war trophies`);
@@ -232,10 +202,13 @@ function slots(facts) {
     : "Full at the moment; ask and we will tell you when a slot opens.";
 }
 
+/** Invite links are removed from the public post: forums remove the post. */
+const INVITE_RE =
+  /https?:\/\/(?:www\.)?(?:discord\.gg|discord\.com\/invite)\S*/gi;
+
 /**
- * The five channels the bot wrote for, from the pitch and the facts.
- * Deterministic: the same inputs give the same copy, and a member can
- * edit it before posting.
+ * The two formats, from the pitch and the facts. Deterministic: the same
+ * inputs give the same copy, and a member can edit it before sending.
  */
 export function recruitCopy(pitch, facts) {
   const name = clanName(facts);
@@ -244,111 +217,70 @@ export function recruitCopy(pitch, facts) {
   const nums = numbers(facts);
   const site = pitch.website_url ? ` ${pitch.website_url}` : "";
   const points = pitch.points ?? [];
+  const contact = pitch.contact || "Request to join in game.";
 
-  const message =
-    `${name} is recruiting: ${pitch.tagline.toLowerCase()}. ${floorText(facts)}${pitch.looking_for}${site}`.trim();
-
-  const social = [
-    `${name} (${tag}) is looking for ${pitch.looking_for.replace(/\.$/, "").replace(/^Active players/, "active players")}.`,
-    pitch.about.split(/(?<=\.)\s+/)[0],
-    nums.length ? `${nums.join(", ")}.` : null,
-    f !== null ? `${n(f)} trophies to join.${site}` : site.trim() || null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const email = {
+  const personal = {
     subject: `Join ${name}: ${pitch.tagline}`,
     body: [
-      `${pitch.about}`,
+      pitch.about,
       points.length
         ? `What makes us different: ${points.map((p) => p.replace(/\.$/, "")).join("; ")}.`
         : null,
       `${pitch.looking_for} ${floorText(facts)}${slots(facts)}`.trim(),
       nums.length ? `Where we stand today: ${nums.join(", ")}.` : null,
-      `${pitch.contact ?? "Request to join in game."}${site ? ` More at${site}.` : ""}`,
+      `${contact}${tag ? ` Search ${tag} in game.` : ""}${site ? ` More at${site}.` : ""}`,
     ]
       .filter(Boolean)
       .join("\n\n"),
   };
 
-  const discordTitle = `${name}${tag ? ` (${tag})` : ""}: ${pitch.tagline}${f !== null ? ` Required Trophies: [${f}]` : ""}`;
-  const discord = [
-    `**${discordTitle}**`,
-    pitch.about,
-    ...points.map((p) => `- ${p}`),
-    `${pitch.looking_for} ${slots(facts)}`.trim(),
-    nums.length ? `Today: ${nums.join(", ")}.` : null,
-    `${pitch.contact ?? "Request to join in game."}${site}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const reddit = {
-    title: `${name} ${tag} - ${pitch.tagline}${f !== null ? ` [${f}]` : ""}`,
+  const post = {
+    title: `${name}${tag ? ` ${tag}` : ""} - ${pitch.tagline}${f !== null ? ` [${f}]` : ""}`,
     body: [
       pitch.about,
       points.length
         ? `**What makes us different**\n${points.map((p) => `- ${p}`).join("\n")}`
         : null,
-      `**Who we want**\n${pitch.looking_for} ${floorText(facts)}${slots(facts)}`.trim(),
+      `**Who we want**\n${pitch.looking_for} ${slots(facts)}`.trim(),
+      f !== null ? `Required Trophies: [${f}]` : null,
       nums.length ? `**Where we stand**\n${nums.join(", ")}.` : null,
-      `**How to join**\n${(pitch.contact ?? "Request to join in game.").replace(/https?:\/\/discord\S+/gi, "(ask for the invite)")}${tag ? ` Search ${tag} in game.` : ""}`,
+      `**How to join**\n${contact.replace(INVITE_RE, "(ask for the invite)")}${tag ? ` Search ${tag} in game.` : ""}${site}`,
     ]
       .filter(Boolean)
       .join("\n\n"),
   };
 
-  return { message, social, email, discord, reddit };
+  return { personal, post };
 }
 
 /**
- * elixir-bot's validator (_validate_promote_content_or_raise), carried:
- * what a member is allowed to paste where. Returns a list of problems,
- * empty when the copy passes.
+ * What a member may paste where, checked on the copy as it stands (a
+ * member can edit before copying). Returns a list of problems, empty when
+ * the copy passes.
  */
 export function validateCopy(copy, requiredTrophies) {
   const problems = [];
   const all = [
-    copy.message,
-    copy.social,
-    copy.email?.subject,
-    copy.email?.body,
-    copy.discord,
-    copy.reddit?.title,
-    copy.reddit?.body,
+    copy.personal?.subject,
+    copy.personal?.body,
+    copy.post?.title,
+    copy.post?.body,
   ];
   if (all.some((t) => String(t ?? "").includes("`")))
     problems.push("no backticks in any field");
   if (requiredTrophies !== null && requiredTrophies !== undefined) {
-    const need = `Required Trophies: [${requiredTrophies}]`;
-    const first =
-      String(copy.discord ?? "")
-        .split("\n")
-        .find((l) => l.trim()) ?? "";
-    const unwrapped = first
-      .trim()
-      .replace(/^\*\*(.*)\*\*$/, "$1")
-      .trim();
-    if (!unwrapped.endsWith(need))
-      problems.push(`discord first line must end with ${need}`);
-    if (!String(copy.reddit?.title ?? "").includes(`[${requiredTrophies}]`))
-      problems.push(`reddit title must include [${requiredTrophies}]`);
+    if (!String(copy.post?.title ?? "").includes(`[${requiredTrophies}]`))
+      problems.push(`the post title carries [${requiredTrophies}]`);
+    if (
+      !String(copy.post?.body ?? "").includes(
+        `Required Trophies: [${requiredTrophies}]`,
+      )
+    )
+      problems.push(`the post says Required Trophies: [${requiredTrophies}]`);
   }
-  if (/discord\.gg|discord\.com\/invite/i.test(String(copy.reddit?.body ?? "")))
-    problems.push("reddit body must not carry an invite link");
-  for (const [k, t] of [
-    ["message", copy.message],
-    ["social", copy.social],
-    ["email", copy.email?.body],
-  ])
-    if (/\*\*|^- /m.test(String(t ?? "")))
-      problems.push(`${k} must be plain text`);
-  const words = (t) =>
-    String(t ?? "")
-      .split(/\s+/)
-      .filter(Boolean).length;
-  if (words(copy.message) > 40) problems.push("message over 40 words");
-  if (words(copy.social) > 80) problems.push("social over 80 words");
+  if (new RegExp(INVITE_RE.source, "i").test(String(copy.post?.body ?? "")))
+    problems.push("the post body carries no invite link");
+  if (/\*\*|^- /m.test(String(copy.personal?.body ?? "")))
+    problems.push("the personal note is plain text");
   return problems;
 }

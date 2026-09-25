@@ -18,22 +18,34 @@ import {
   signIn,
   cookieHeader,
   rosterBody,
+  seedVersion,
 } from "./fakes.mjs";
 
 const CLAN = {
   tag: "#J2RGCRVG",
-  name: "POAP KINGS",
+  name: "Example Clan",
   members: 47,
   requiredTrophies: 5000,
   clanScore: 61234,
   clanWarTrophies: 3210,
   donationsPerWeek: 8400,
-  memberList: [{ name: "King Thing", trophies: 9000, donations: 300 }],
+  memberList: [{ name: "Ada", trophies: 9000, donations: 300 }],
+};
+
+/** A clan's own pitch, saved by a leader. */
+const PITCH = {
+  schema: 1,
+  tagline: "Steady wars, friendly chat",
+  about: "A clan that plays together every week.",
+  points: ["Wars every week"],
+  looking_for: "Active players.",
+  website_url: null,
+  contact: "Request to join in game.",
 };
 
 function harness({
   players = [player()],
-  ledger = createMemoryLedger(),
+  ledger = seedVersion(createMemoryLedger(), "recruit", "#J2RGCRVG", PITCH),
   live,
 } = {}) {
   const clock = { t: Date.parse("2026-09-13T12:00:00Z") };
@@ -98,7 +110,7 @@ const api = async (h, cookies, method, path, body) => {
 const signedIn = async (h) => cookieHeader((await signIn(h)).sessionCookie);
 const PATH = "/api/clans/J2RGCRVG/recruit";
 
-test("recruit: a member gets the pitch, live facts and five channels that pass the validator; the live read is cached", async () => {
+test("recruit: a member gets the pitch, live facts and both formats, passing the checks; the live read is cached", async () => {
   const h = harness({
     players: [
       player({ player_tag: "#8QCV", name: "Amy", clan_role: "member" }),
@@ -108,16 +120,15 @@ test("recruit: a member gets the pitch, live facts and five channels that pass t
   const r = await api(h, c, "GET", PATH);
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.can_edit, false);
-  assert.equal(r.body.pitch_version, 0);
+  assert.equal(r.body.pitch_version, 1);
   assert.equal(r.body.facts.source, "live");
   assert.equal(r.body.facts.required_trophies, 5000);
   assert.equal(r.body.facts.open_slots, 3);
   assert.deepEqual(r.body.problems, []);
-  assert.match(r.body.copy.discord, /Required Trophies: \[5000\]\*\*/);
-  assert.match(r.body.copy.reddit.title, /\[5000\]$/);
-  assert.ok(
-    r.body.copy.message && r.body.copy.social && r.body.copy.email.body,
-  );
+  assert.deepEqual(Object.keys(r.body.copy), ["personal", "post"]);
+  assert.match(r.body.copy.post.title, /\[5000\]$/);
+  assert.match(r.body.copy.post.body, /Required Trophies: \[5000\]/);
+  assert.ok(r.body.copy.personal.subject && r.body.copy.personal.body);
   assert.equal(h.state.liveCalls, 1);
   await api(h, c, "GET", PATH);
   assert.equal(h.state.liveCalls, 1, "cached for hours");
@@ -149,7 +160,7 @@ test("recruit: a pending live read is passed through with the recorded roster st
   assert.equal(r.body.facts.description, "in-game description");
   assert.equal(r.body.facts.required_trophies, null);
   assert.equal(r.body.pending.retry_after_s, 30);
-  assert.doesNotMatch(r.body.copy.discord, /Required Trophies/);
+  assert.doesNotMatch(r.body.copy.post.body, /Required Trophies/);
   assert.deepEqual(r.body.problems, []);
   // Now the read lands.
   h.state.live = { ok: true, body: { data: CLAN } };
@@ -166,6 +177,13 @@ test("recruit: a leader saves a pitch as a new version and the copy follows; bad
   const ledger = createMemoryLedger();
   const lead = harness({ ledger });
   const lc = await signedIn(lead);
+  // A clan starts with no pitch and so no copy: nothing is said for it.
+  const empty = await api(lead, lc, "GET", PATH);
+  assert.equal(empty.status, 200);
+  assert.equal(empty.body.pitch_version, 0);
+  assert.equal(empty.body.copy, null);
+  assert.equal(empty.body.pitch.tagline, "");
+  assert.equal(empty.body.facts.required_trophies, 5000);
   const saved = await api(lead, lc, "POST", PATH, {
     values: {
       tagline: "War first, drama never",
@@ -181,10 +199,13 @@ test("recruit: a leader saves a pitch as a new version and the copy follows; bad
   assert.equal(saved.body.version, 1);
   const view = await api(lead, lc, "GET", PATH);
   assert.equal(view.body.pitch_version, 1);
-  assert.match(view.body.copy.reddit.title, /War first, drama never \[5000\]$/);
-  assert.match(view.body.copy.discord, /- Four decks a day\n- Elders earn it/);
+  assert.match(view.body.copy.post.title, /War first, drama never \[5000\]$/);
+  assert.match(
+    view.body.copy.post.body,
+    /- Four decks a day\n- Elders earn it/,
+  );
   assert.doesNotMatch(
-    view.body.copy.discord,
+    view.body.copy.post.body,
     /https:\/\//,
     "no website, no link",
   );

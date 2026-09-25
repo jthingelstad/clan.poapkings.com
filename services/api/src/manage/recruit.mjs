@@ -3,7 +3,9 @@
  * like policy), the facts the copy uses (one live read of the clan through
  * Elixir's live_fetch, cached for hours because every member's page open
  * must not spend a live read; the recorded roster fills in while a fresh
- * read is pending), and the five channels' copy from the engine.
+ * read is pending), and the copy from the engine: a personal note and a
+ * public post. Recruit works before a clan has a policy; the copy waits on
+ * a pitch, which every clan starts without.
  */
 
 import {
@@ -35,7 +37,7 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
         saved_by: current.saved_by,
       };
     return {
-      values: defaultPitch(clanTag),
+      values: defaultPitch(),
       version: 0,
       saved_at: null,
       saved_by: null,
@@ -99,7 +101,7 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
   return {
     pitchFor,
 
-    /** The page: pitch, facts, the five channels, and the editor's fields. */
+    /** The page: pitch, facts, the two formats, and the editor's fields. */
     async view(clanTag, who, token, { refresh = false } = {}) {
       const pitch = await pitchFor(clanTag);
       const { facts, read_at, pending, cached } = await factsFor(
@@ -109,7 +111,8 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
           refresh: refresh && isLeader(who),
         },
       );
-      const copy = recruitCopy(pitch.values, facts);
+      // No copy until a leader has written the clan's words.
+      const copy = pitch.version > 0 ? recruitCopy(pitch.values, facts) : null;
       const versions = await ledger.pitchVersions(clanTag);
       return {
         clan_tag: clanTag,
@@ -122,7 +125,9 @@ export function createRecruitService({ ledger, mcp, now = () => Date.now() }) {
         facts_cached: cached,
         pending,
         copy,
-        problems: validateCopy(copy, facts?.required_trophies ?? null),
+        problems: copy
+          ? validateCopy(copy, facts?.required_trophies ?? null)
+          : [],
         versions: versions
           .map((v) => ({
             version: v.version,

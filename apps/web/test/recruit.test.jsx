@@ -10,22 +10,22 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const poap = { clan_tag: "#J2RGCRVG", name: "POAP KINGS", role: "member" };
+const poap = { clan_tag: "#J2RGCRVG", name: "Example Clan", role: "member" };
 const view = (extra = {}) => ({
   clan_tag: "#J2RGCRVG",
   can_edit: false,
   pitch: {
-    tagline: "Compete, belong, be remembered",
+    tagline: "Steady wars, friendly chat",
     about: "About us.",
-    points: ["Serious about war"],
+    points: ["Wars every week"],
     looking_for: "Active players.",
-    website_url: "https://poapkings.com",
+    website_url: "https://example.org",
     contact: "Request in game.",
   },
-  pitch_version: 0,
+  pitch_version: 1,
   fields: {},
   facts: {
-    name: "POAP KINGS",
+    name: "Example Clan",
     tag: "#J2RGCRVG",
     type: "inviteOnly",
     members: 47,
@@ -34,7 +34,7 @@ const view = (extra = {}) => ({
     clan_score: 61234,
     war_trophies: 3210,
     donations_per_week: 8400,
-    top_trophies: [{ name: "King Thing", value: 9000 }],
+    top_trophies: [{ name: "Ada", value: 9000 }],
     top_donors: [],
     source: "live",
   },
@@ -42,12 +42,11 @@ const view = (extra = {}) => ({
   facts_cached: true,
   pending: null,
   copy: {
-    message: "POAP KINGS is recruiting.",
-    social: "Social.",
-    email: { subject: "Join POAP KINGS", body: "Body." },
-    discord:
-      "**POAP KINGS (#J2RGCRVG): Compete Required Trophies: [5000]**\nbody",
-    reddit: { title: "POAP KINGS #J2RGCRVG - Compete [5000]", body: "body" },
+    personal: { subject: "Join Example Clan", body: "Body." },
+    post: {
+      title: "Example Clan #J2RGCRVG - Steady wars [5000]",
+      body: "About us.\n\nRequired Trophies: [5000]",
+    },
   },
   problems: [],
   versions: [],
@@ -55,7 +54,7 @@ const view = (extra = {}) => ({
 });
 
 describe("recruit", () => {
-  test("shows the facts, the pitch, and five channels a member can edit, reset and copy", async () => {
+  test("shows the facts, the pitch, and the two formats a member can edit, reset and copy", async () => {
     vi.spyOn(manageApi, "recruit").mockResolvedValue({
       ok: true,
       status: 200,
@@ -64,33 +63,36 @@ describe("recruit", () => {
     const write = vi.fn().mockResolvedValue();
     Object.assign(navigator, { clipboard: { writeText: write } });
     renderWithProviders(<Recruit clan={poap} />);
-    expect(await screen.findByText(/47 of 50 · 3 open/)).toBeTruthy();
+    expect(await screen.findByText(/47 members · 3 open/)).toBeTruthy();
     expect(screen.getByText(/5,000 trophies · invite only/)).toBeTruthy();
-    expect(screen.getByText("Compete, belong, be remembered")).toBeTruthy();
-    const discord = screen.getByLabelText("Discord post");
-    expect(discord.value).toMatch(/Required Trophies: \[5000\]/);
-    expect(screen.getByLabelText("Reddit post").value).toMatch(
-      /^Title: POAP KINGS #J2RGCRVG/,
+    expect(screen.getByText("Steady wars, friendly chat")).toBeTruthy();
+    const post = screen.getByLabelText("Public post");
+    expect(post.value).toMatch(/^Title: Example Clan #J2RGCRVG - .* \[5000\]/);
+    expect(post.value).toMatch(/Required Trophies: \[5000\]/);
+    expect(screen.getByLabelText("Personal note").value).toMatch(
+      /^Subject: Join Example Clan/,
     );
-    fireEvent.change(discord, { target: { value: "my own words" } });
+    expect(screen.queryByLabelText("Discord post")).toBeNull();
+    expect(screen.queryByLabelText("Reddit post")).toBeNull();
+    fireEvent.change(post, { target: { value: "my own words" } });
     fireEvent.click(
-      screen.getByRole("button", { name: "Copy the discord post" }),
+      screen.getByRole("button", { name: "Copy the public post" }),
     );
     await waitFor(() => expect(write).toHaveBeenCalledWith("my own words"));
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
-    expect(screen.getByLabelText("Discord post").value).toMatch(
+    expect(screen.getByLabelText("Public post").value).toMatch(
       /Required Trophies/,
     );
     expect(screen.queryByText("edit the pitch")).toBeNull();
   });
 
-  test("a pending live read says so and the record stands in; a rule break is shown", async () => {
+  test("a pending live read says so and the record stands in; an edited-away requirement is shown", async () => {
     vi.spyOn(manageApi, "recruit").mockResolvedValue({
       ok: true,
       status: 200,
       data: view({
         facts: {
-          name: "POAP KINGS",
+          name: "Example Clan",
           members: 47,
           open_slots: 3,
           required_trophies: null,
@@ -99,13 +101,39 @@ describe("recruit", () => {
           source: "recorded",
         },
         pending: { retry_after_s: 30 },
-        problems: ["reddit title must include [5000]"],
+        problems: ["the post title carries [5000]"],
       }),
     });
     renderWithProviders(<Recruit clan={poap} />);
     expect(await screen.findByText(/fresh read queued/)).toBeTruthy();
     expect(screen.getByText(/not in the record yet/)).toBeTruthy();
-    expect(screen.getByText(/breaks a rule: reddit title/)).toBeTruthy();
+    expect(
+      screen.getByText(/Check before posting: the post title carries/),
+    ).toBeTruthy();
+  });
+
+  test("before a leader writes the pitch there is no copy", async () => {
+    vi.spyOn(manageApi, "recruit").mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: view({
+        pitch: {
+          tagline: "",
+          about: "",
+          points: [],
+          looking_for: "",
+          website_url: "",
+          contact: "",
+        },
+        pitch_version: 0,
+        copy: null,
+      }),
+    });
+    renderWithProviders(<Recruit clan={poap} />);
+    expect(
+      await screen.findByText(/has not written the clan's pitch yet/),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("Public post")).toBeNull();
   });
 
   test("the rail offers Recruit to every member", () => {

@@ -5,31 +5,25 @@ import { useRecruit } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
 
 /**
- * Recruit: elixir-bot's #recruiting channel as a page every member can
- * use. The clan's pitch (a leader's words), the facts the game states
- * today (one live read, cached), and copy for the five channels the bot
- * wrote for: a short message, a social post, an email, a Discord post and
- * a Reddit post for r/RoyaleRecruit. Every piece is editable before it is
- * copied and comes back to the clan's words with one click. The bot's
- * rules are checked and shown, never silently applied.
+ * Recruit: a page every member can use. The clan's pitch (a leader's
+ * words), the facts the game states today (one live read, cached), and
+ * copy in two formats: a personal note for one person by email or
+ * message, and a public post for a recruiting forum. The post carries the
+ * forums' requirements itself: the required trophies in brackets, and no
+ * invite link in the body. Every piece is editable before it is copied and
+ * comes back to the clan's words with one click. Until a leader writes the
+ * pitch there is no copy: nothing is said for a clan it has not said.
  */
-const CHANNELS = [
-  ["message", "Short message", "A text or a chat line: one or two sentences."],
+const FORMATS = [
   [
-    "social",
-    "Social post",
-    "Twitter, Instagram, a status: a few sentences, plain.",
-  ],
-  ["email", "Email", "Subject and a short pitch."],
-  [
-    "discord",
-    "Discord post",
-    "For another server's recruiting channel. The title line ends with the required trophies in brackets.",
+    "personal",
+    "Personal note",
+    "For one person, by email or message. Plain text; the subject is for email.",
   ],
   [
-    "reddit",
-    "Reddit post",
-    "r/RoyaleRecruit: the title carries [trophies] for the automod; the body never carries an invite link.",
+    "post",
+    "Public post",
+    "For a recruiting forum, such as a Discord recruiting channel or r/RoyaleRecruit. The title carries the required trophies in brackets and the body says Required Trophies: [N], as the forums ask; invite links are left out of the body.",
   ],
 ];
 
@@ -107,7 +101,7 @@ export function Recruit({ clan }) {
         <div className="panel__body fields" style={{ rowGap: "6px" }}>
           <span className="label">Members</span>
           <span>
-            {f?.members ?? "?"} of 50
+            {f?.members ?? "?"} members
             {f ? ` · ${f.open_slots} open` : ""}
           </span>
           <span className="label">To join</span>
@@ -119,7 +113,7 @@ export function Recruit({ clan }) {
               ? ` · ${f.type === "inviteOnly" ? "invite only" : f.type}`
               : ""}
           </span>
-          <span className="label">Standing</span>
+          <span className="label">Clan numbers</span>
           <span>
             {f?.war_trophies
               ? `${f.war_trophies.toLocaleString()} war trophies`
@@ -158,9 +152,7 @@ export function Recruit({ clan }) {
         <div className="panel__head" style={{ gap: "8px", flexWrap: "wrap" }}>
           <span>The pitch</span>
           <span className="page-head__note">
-            {d.pitch_version === 0
-              ? "the starting words until a leader saves a version"
-              : `v${d.pitch_version}`}
+            {d.pitch_version === 0 ? "not written yet" : `v${d.pitch_version}`}
           </span>
           {d.can_edit ? (
             <button
@@ -169,37 +161,47 @@ export function Recruit({ clan }) {
               style={{ marginLeft: "auto" }}
               onClick={() => setEditing(true)}
             >
-              edit the pitch
+              {d.pitch_version === 0 ? "write the pitch" : "edit the pitch"}
             </button>
           ) : null}
         </div>
-        <div className="panel__body" style={{ display: "grid", gap: "6px" }}>
-          <div style={{ fontWeight: 600 }}>{d.pitch.tagline}</div>
-          <div>{d.pitch.about}</div>
-          <ul style={{ margin: "4px 0 0", paddingLeft: "18px" }}>
-            {d.pitch.points.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-          <div className="page-head__note">{d.pitch.looking_for}</div>
-        </div>
+        {d.pitch_version === 0 ? (
+          <div className="panel__body page-head__note">
+            {d.can_edit
+              ? "Write what your clan is, in your words: a tagline, a few sentences, what makes it different and who you want. The copy below follows from it and today's numbers."
+              : "A leader has not written the clan's pitch yet, so there is no copy to share."}
+          </div>
+        ) : (
+          <div className="panel__body" style={{ display: "grid", gap: "6px" }}>
+            <div style={{ fontWeight: 600 }}>{d.pitch.tagline}</div>
+            <div>{d.pitch.about}</div>
+            <ul style={{ margin: "4px 0 0", paddingLeft: "18px" }}>
+              {d.pitch.points.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+            <div className="page-head__note">{d.pitch.looking_for}</div>
+          </div>
+        )}
       </section>
 
-      {d.problems?.length ? (
+      {d.copy && d.problems?.length ? (
         <div className="callout callout--warn" role="alert">
-          <span>The copy breaks a rule: {d.problems.join("; ")}.</span>
+          <span>Check before posting: {d.problems.join("; ")}.</span>
         </div>
       ) : null}
 
-      {CHANNELS.map(([key, title, note]) => (
-        <CopyCard
-          key={key}
-          channel={key}
-          title={title}
-          note={note}
-          value={d.copy[key]}
-        />
-      ))}
+      {d.copy
+        ? FORMATS.map(([key, title, note]) => (
+            <CopyCard
+              key={key}
+              channel={key}
+              title={title}
+              note={note}
+              value={d.copy[key]}
+            />
+          ))
+        : null}
     </div>
   );
 }

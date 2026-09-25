@@ -1,6 +1,6 @@
 /**
- * Recruiting copy from a pitch and live facts, under elixir-bot's rules
- * (runtime/jobs/_promotion.py's validator, prompts/lanes/recruiting.md).
+ * Recruiting copy from a pitch and live facts: a personal note and a
+ * public post that carries the recruiting forums' requirements itself.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -14,8 +14,8 @@ import {
 } from "../src/recruit.mjs";
 
 const clan = {
-  tag: "#J2RGCRVG",
-  name: "POAP KINGS",
+  tag: "#2PQRJ8L",
+  name: "Example Clan",
   type: "inviteOnly",
   description: "in-game description",
   members: 47,
@@ -25,11 +25,21 @@ const clan = {
   donationsPerWeek: 8400,
   location: { name: "United States" },
   memberList: [
-    { name: "King Thing", trophies: 9000, donations: 300, role: "leader" },
-    { name: "King Levy", trophies: 8800, donations: 500, role: "coLeader" },
-    { name: "Amy", trophies: 7000, donations: 0, role: "member" },
+    { name: "Ada", trophies: 9000, donations: 300, role: "leader" },
+    { name: "Ben", trophies: 8800, donations: 500, role: "coLeader" },
+    { name: "Cy", trophies: 7000, donations: 0, role: "member" },
   ],
 };
+
+/** A clan's own words, as a leader would write them. */
+const PITCH = validatePitch({
+  tagline: "Steady wars, friendly chat",
+  about: "A clan that plays together every week.",
+  points: ["Wars every week", "Help with decks"],
+  looking_for: "Active players who enjoy wars.",
+  website_url: "https://example.org",
+  contact: "Request to join in game, or come say hi at https://discord.gg/abc",
+}).values;
 
 test("facts come from the game's numbers only; the roster gives fewer", () => {
   const f = factsFromClan(clan);
@@ -37,12 +47,12 @@ test("facts come from the game's numbers only; the roster gives fewer", () => {
   assert.equal(f.required_trophies, 5000);
   assert.deepEqual(
     f.top_donors.map((d) => d.name),
-    ["King Levy", "King Thing"],
+    ["Ben", "Ada"],
   );
   assert.equal(f.source, "live");
   const r = factsFromRoster({
-    clan_tag: "#J2RGCRVG",
-    name: "POAP KINGS",
+    clan_tag: "#2PQRJ8L",
+    name: "Example Clan",
     member_count: 47,
     members: [{ name: "A", trophies: 1, donations_this_week: 5 }],
   });
@@ -58,8 +68,8 @@ test("facts come from the game's numbers only; the roster gives fewer", () => {
 
 test("a pending live read uses what the record already has: type, description, clan score, war trophies", () => {
   const r = factsFromRoster({
-    clan_tag: "#J2RGCRVG",
-    name: "POAP KINGS",
+    clan_tag: "#2PQRJ8L",
+    name: "Example Clan",
     type: "inviteOnly",
     description: "in-game description",
     clan_score: 61234,
@@ -70,56 +80,56 @@ test("a pending live read uses what the record already has: type, description, c
   });
   assert.equal(r.source, "recorded");
   assert.equal(r.type, "inviteOnly");
-  assert.equal(r.description, "in-game description");
   assert.equal(r.clan_score, 61234);
   assert.equal(r.war_trophies, 3210);
   // The record has no join floor, donations a week or location name.
   assert.equal(r.required_trophies, null);
   assert.equal(r.donations_per_week, null);
   assert.equal(r.location, null);
-  const pitch = validatePitch(defaultPitch("#J2RGCRVG")).values;
-  const copy = recruitCopy(pitch, r);
+  const copy = recruitCopy(PITCH, r);
   assert.deepEqual(validateCopy(copy, null), []);
-  assert.match(copy.discord, /3,210 war trophies, clan score 61,234/);
-  assert.doesNotMatch(copy.discord, /Required Trophies/);
+  assert.match(copy.post.body, /3,210 war trophies, clan score 61,234/);
+  assert.doesNotMatch(copy.post.body, /Required Trophies/);
+  assert.doesNotMatch(copy.post.title, /\[/);
 });
 
-test("the default pitch and every channel pass the bot's validator", () => {
-  const pitch = validatePitch(defaultPitch("#J2RGCRVG"));
-  assert.equal(pitch.ok, true, JSON.stringify(pitch.errors));
-  const copy = recruitCopy(pitch.values, factsFromClan(clan));
+test("two formats: a plain personal note, and a post carrying the forums' requirements itself", () => {
+  const copy = recruitCopy(PITCH, factsFromClan(clan));
+  assert.deepEqual(Object.keys(copy), ["personal", "post"]);
   assert.deepEqual(validateCopy(copy, 5000), []);
-  assert.match(
-    copy.discord.split("\n")[0],
-    /^\*\*POAP KINGS \(#J2RGCRVG\): .*Required Trophies: \[5000\]\*\*$/,
+  // The personal note: email or message, plain text.
+  assert.equal(
+    copy.personal.subject,
+    "Join Example Clan: Steady wars, friendly chat",
   );
-  assert.match(copy.reddit.title, /POAP KINGS #J2RGCRVG - .* \[5000\]$/);
-  assert.doesNotMatch(
-    copy.reddit.body,
-    /discord\.gg|link\.clashroyale/,
-    "no invite link in the reddit body",
+  assert.doesNotMatch(copy.personal.body, /\*\*|^- /m);
+  assert.match(copy.personal.body, /5,000 trophies to join/);
+  assert.match(copy.personal.body, /3 open slots right now/);
+  assert.match(copy.personal.body, /https:\/\/discord\.gg\/abc/);
+  assert.match(copy.personal.body, /More at https:\/\/example\.org/);
+  // The post: the bracket in the title and the body, no invite link.
+  assert.equal(
+    copy.post.title,
+    "Example Clan #2PQRJ8L - Steady wars, friendly chat [5000]",
   );
-  assert.match(copy.discord, /https:\/\/poapkings\.com/);
-  assert.match(copy.message, /5,000 trophies to join/);
-  assert.match(copy.email.subject, /^Join POAP KINGS: /);
-  assert.match(copy.discord, /3 open slots right now/);
-  assert.match(copy.discord, /3,210 war trophies, clan score 61,234/);
+  assert.match(copy.post.body, /^Required Trophies: \[5000\]$/m);
+  assert.doesNotMatch(copy.post.body, /discord\.gg/);
+  assert.match(copy.post.body, /\(ask for the invite\)/);
+  assert.match(copy.post.body, /3,210 war trophies, clan score 61,234/);
 });
 
-test("copy without a live floor carries no bracket and still passes", () => {
-  const pitch = validatePitch(defaultPitch("#J2RGCRVG")).values;
+test("a full clan says so", () => {
   const copy = recruitCopy(
-    pitch,
+    PITCH,
     factsFromRoster({
-      clan_tag: "#J2RGCRVG",
-      name: "POAP KINGS",
+      clan_tag: "#2PQRJ8L",
+      name: "Example Clan",
       member_count: 50,
       members: [],
     }),
   );
   assert.deepEqual(validateCopy(copy, null), []);
-  assert.doesNotMatch(copy.discord, /Required Trophies/);
-  assert.match(copy.discord, /Full at the moment/);
+  assert.match(copy.post.body, /Full at the moment/);
 });
 
 test("a pitch is validated in a leader's words", () => {
@@ -128,7 +138,7 @@ test("a pitch is validated in a leader's words", () => {
     about: "",
     points: Array.from({ length: 7 }, (_, i) => `p${i}`),
     looking_for: "has a `backtick`",
-    website_url: "poapkings.com",
+    website_url: "example.org",
   });
   assert.equal(bad.ok, false);
   assert.match(bad.errors.tagline, /at most 80/);
@@ -147,31 +157,31 @@ test("a pitch is validated in a leader's words", () => {
   assert.equal(ok.values.website_url, null);
 });
 
-test("the validator catches what the bot's caught", () => {
+test("an edited copy is checked as it stands", () => {
   const problems = validateCopy(
     {
-      message: "**bold** " + "w ".repeat(50),
-      social: "fine",
-      email: { subject: "s", body: "b" },
-      discord: "**POAP KINGS**\nbody",
-      reddit: { title: "POAP KINGS", body: "join https://discord.gg/abc" },
+      personal: { subject: "s", body: "**bold**" },
+      post: {
+        title: "Example Clan",
+        body: "join https://discord.gg/abc",
+      },
     },
     5000,
   );
-  assert.ok(
-    problems.includes(
-      "discord first line must end with Required Trophies: [5000]",
-    ),
-  );
-  assert.ok(problems.includes("reddit title must include [5000]"));
-  assert.ok(problems.includes("reddit body must not carry an invite link"));
-  assert.ok(problems.includes("message must be plain text"));
-  assert.ok(problems.includes("message over 40 words"));
+  assert.deepEqual(problems, [
+    "the post title carries [5000]",
+    "the post says Required Trophies: [5000]",
+    "the post body carries no invite link",
+    "the personal note is plain text",
+  ]);
 });
 
-test("another clan's starting pitch names nobody and links nowhere", () => {
-  const pitch = defaultPitch("#9Q9QRCPP");
-  assert.doesNotMatch(JSON.stringify(pitch), /POAP|poapkings|Free Pass/i);
+test("every clan starts with an empty pitch: nothing is said for it until its leaders say it", () => {
+  const pitch = defaultPitch();
+  assert.equal(pitch.tagline, "");
+  assert.equal(pitch.about, "");
+  assert.deepEqual(pitch.points, []);
   assert.equal(pitch.website_url, "");
-  assert.equal(validatePitch(pitch).ok, true);
+  assert.equal(defaultPitch.length, 0, "the start never depends on the clan");
+  assert.equal(validatePitch(pitch).ok, false, "an empty pitch is not saved");
 });
