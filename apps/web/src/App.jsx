@@ -42,6 +42,7 @@ import { Refused } from "./views/Refused.jsx";
 import { You } from "./views/You.jsx";
 import { Away } from "./views/Away.jsx";
 import { Recruit } from "./views/Recruit.jsx";
+import { Trophies } from "./views/Trophies.jsx";
 import { Feedback, FeedbackItem } from "./views/Feedback.jsx";
 import { MaintainItem, MaintainQueue } from "./views/Maintain.jsx";
 
@@ -61,7 +62,7 @@ export const clanPath = (tag) => `/clan/${String(tag).replace(/^#/, "")}`;
  *  section (roster by default) and the Manage tab. */
 export function parseClanPath(path) {
   const m =
-    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|standing|recruit)(?:\/([a-z-]+))?)?\/?$/.exec(
+    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|standing|trophies|recruit)(?:\/([a-z-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
@@ -209,6 +210,8 @@ const clanRoute = createRoute({
       );
     if (parsed.section === "standing")
       return <Standing key={clan.clan_tag} clan={clan} who={who} />;
+    if (parsed.section === "trophies")
+      return <Trophies key={clan.clan_tag} clan={clan} who={who} />;
     if (parsed.section === "recruit")
       return <Recruit key={clan.clan_tag} clan={clan} />;
     return <Clan key={clan.clan_tag} me={me} clan={clan} navigate={navigate} />;

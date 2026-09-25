@@ -176,6 +176,7 @@ describe("feedback", () => {
     expect(keys("leader")).toEqual([
       "clan",
       "standing",
+      "trophies",
       "recruit",
       "inbox",
       "board",
@@ -190,6 +191,7 @@ describe("feedback", () => {
     expect(keys("elder")).toEqual([
       "clan",
       "standing",
+      "trophies",
       "recruit",
       "awards",
       "scout",
@@ -200,6 +202,7 @@ describe("feedback", () => {
     expect(keys("member")).toEqual([
       "clan",
       "standing",
+      "trophies",
       "recruit",
       "you",
       "away",
@@ -237,6 +240,7 @@ describe("feedback", () => {
     expect(railKey("/clan/J2RGCRVG")).toBe("clan");
     expect(railKey("/clan/J2RGCRVG/manage")).toBe("inbox");
     expect(railKey("/clan/J2RGCRVG/manage/awards")).toBe("awards");
+    expect(railKey("/clan/J2RGCRVG/trophies")).toBe("trophies");
     expect(railKey("/you/away")).toBe("away");
     expect(railKey("/feedback/abc")).toBe("feedback");
   });

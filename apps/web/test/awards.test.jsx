@@ -13,7 +13,7 @@ const poap = { clan_tag: "#J2RGCRVG", name: "POAP KINGS", role: "leader" };
 const view = () => ({
   clan_tag: "#J2RGCRVG",
   can_edit: true,
-  can_grant: ["free_pass"],
+  can_grant: ["clan_honour"],
   evaluated_at: "2026-09-12T20:00:00Z",
   as_of: "2026-09-12T19:58:00Z",
   freshness_seconds: 120,
@@ -34,17 +34,17 @@ const view = () => ({
   config: {
     awards: [
       {
-        id: "war_champ",
+        id: "season_champ",
         kind: "season_points_podium",
-        name: "War Champ",
+        name: "Season Champion",
         description: "d",
         enabled: true,
         params: { podium: 3, tiebreak: "donations" },
       },
       {
-        id: "free_pass",
+        id: "clan_honour",
         kind: "leaders_pick",
-        name: "Free Pass",
+        name: "Clan Honour",
         description: "d",
         enabled: true,
         params: { granted_by: "leaders" },
@@ -54,9 +54,9 @@ const view = () => ({
   grants: [
     {
       season_id: 135,
-      award_id: "war_champ",
+      award_id: "season_champ",
       kind: "season_points_podium",
-      name: "War Champ",
+      name: "Season Champion",
       rank: 1,
       player_tag: "#20JJJ2CCRU",
       player_name: "King Thing",
@@ -74,9 +74,9 @@ const view = () => ({
       weeks: 1,
       awards: [
         {
-          award_id: "war_champ",
+          award_id: "season_champ",
           kind: "season_points_podium",
-          name: "War Champ",
+          name: "Season Champion",
           state: "live",
           rule: "r",
           rows: [
@@ -93,9 +93,9 @@ const view = () => ({
           ],
         },
         {
-          award_id: "free_pass",
+          award_id: "clan_honour",
           kind: "leaders_pick",
-          name: "Free Pass",
+          name: "Clan Honour",
           state: "manual",
           rule: "r",
           rows: [],
@@ -110,9 +110,9 @@ const view = () => ({
       weeks: 5,
       awards: [
         {
-          award_id: "war_champ",
+          award_id: "season_champ",
           kind: "season_points_podium",
-          name: "War Champ",
+          name: "Season Champion",
           state: "closed",
           rule: "r",
           rows: [
@@ -129,9 +129,9 @@ const view = () => ({
           ],
         },
         {
-          award_id: "free_pass",
+          award_id: "clan_honour",
           kind: "leaders_pick",
-          name: "Free Pass",
+          name: "Clan Honour",
           state: "manual",
           rule: "r",
           rows: [],
@@ -157,7 +157,7 @@ describe("awards", () => {
     expect(screen.getByText(/Season 135 · closed 2026-09-07/)).toBeTruthy();
     expect(screen.getAllByText("granted").length).toBe(1);
     fireEvent.click(
-      screen.getByRole("button", { name: "Grant Free Pass for season 135" }),
+      screen.getByRole("button", { name: "Grant Clan Honour for season 135" }),
     );
     fireEvent.change(screen.getByLabelText("Member"), {
       target: { value: "#U8RYG9Y2U" },
@@ -165,10 +165,10 @@ describe("awards", () => {
     fireEvent.change(screen.getByPlaceholderText(/Why/), {
       target: { value: "rotation" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Grant Free Pass" }));
+    fireEvent.click(screen.getByRole("button", { name: "Grant Clan Honour" }));
     await waitFor(() => expect(grant).toHaveBeenCalled());
     expect(grant.mock.calls[0][1]).toEqual({
-      award_id: "free_pass",
+      award_id: "clan_honour",
       player_tag: "#U8RYG9Y2U",
       player_name: "King Levy",
       season_id: 135,
@@ -210,7 +210,7 @@ describe("awards", () => {
       screen.queryByRole("button", { name: "edit the awards" }),
     ).toBeNull();
     expect(
-      screen.queryByRole("button", { name: /Grant Free Pass/ }),
+      screen.queryByRole("button", { name: /Grant Clan Honour/ }),
     ).toBeNull();
     cleanup();
     vi.spyOn(manageApi, "awards").mockResolvedValue({
@@ -220,5 +220,62 @@ describe("awards", () => {
     });
     renderWithProviders(<Awards clan={{ ...poap, role: "member" }} />);
     expect(await screen.findByText(/for the leaders and elders/)).toBeTruthy();
+  });
+});
+
+describe("trophies", () => {
+  test("every member sees the clan's awards, the winners by season, and their own", async () => {
+    const { Trophies } = await import("../src/views/Trophies.jsx");
+    vi.spyOn(manageApi, "trophies").mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        clan_tag: "#J2RGCRVG",
+        awards: [
+          {
+            id: "season_champ",
+            name: "Season Champion",
+            description: "Top war points.",
+            rule: "The 3 members with the most war points over the season.",
+            manual: false,
+          },
+        ],
+        seasons: [
+          {
+            season_id: 135,
+            grants: [
+              {
+                season_id: 135,
+                award_id: "season_champ",
+                name: "Season Champion",
+                rank: 1,
+                player_tag: "#2PQ",
+                player_name: "Someone",
+                manual: false,
+              },
+            ],
+          },
+        ],
+        yours: [
+          {
+            season_id: 135,
+            award_id: "season_champ",
+            name: "Season Champion",
+            rank: 1,
+            manual: false,
+          },
+        ],
+      },
+    });
+    renderWithProviders(
+      <Trophies
+        clan={{ clan_tag: "#J2RGCRVG", name: "A clan" }}
+        who={{ player_tag: "#2PQ", role: "member" }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText("Yours")).toBeTruthy());
+    expect(screen.getByText(/most war points over the season/)).toBeTruthy();
+    expect(screen.getByText("Season 135")).toBeTruthy();
+    expect(document.querySelector("tr[data-you='true']")).toBeTruthy();
   });
 });

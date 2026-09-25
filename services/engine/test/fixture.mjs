@@ -143,3 +143,54 @@ export const EXAMPLE_POLICY = validate({
   away_max_days: 30,
   departures_enabled: true,
 }).values;
+
+/** An example clan's awards document: one of each kind, under its own
+ *  names. Every real clan starts with none and adds its own. */
+export const EXAMPLE_AWARDS = {
+  schema: 1,
+  awards: [
+    {
+      id: "season_champ",
+      kind: "season_points_podium",
+      name: "Season Champion",
+      description:
+        "The season's top war points, on the podium. Ties break on cards donated.",
+      enabled: true,
+      params: { podium: 3, tiebreak: "donations" },
+    },
+    {
+      id: "ever_present",
+      kind: "perfect_attendance",
+      name: "Ever Present",
+      description:
+        "Four decks, every war day, every week of the season. Anyone who does it earns it.",
+      enabled: true,
+      params: { decks_per_day: 4, allowed_misses: 0 },
+    },
+    {
+      id: "top_donor",
+      kind: "donations_podium",
+      name: "Top Donor",
+      description: "The most cards donated over the season.",
+      enabled: true,
+      params: { podium: 3 },
+    },
+    {
+      id: "top_rookie",
+      kind: "rookie_podium",
+      name: "Top Rookie",
+      description:
+        "The top war points among members in their first season here.",
+      enabled: true,
+      params: { podium: 3 },
+    },
+    {
+      id: "clan_honour",
+      kind: "leaders_pick",
+      name: "Clan Honour",
+      description: "Chosen by the leaders, with a note.",
+      enabled: true,
+      params: { granted_by: "leaders" },
+    },
+  ],
+};

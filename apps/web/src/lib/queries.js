@@ -36,6 +36,7 @@ export const keys = {
   awards: (tag) => ["clan", tag, "awards"],
   recruit: (tag) => ["clan", tag, "recruit"],
   standing: (tag) => ["clan", tag, "standing"],
+  trophies: (tag) => ["clan", tag, "trophies"],
   memberNotes: (tag, player) => ["clan", tag, "member", player, "notes"],
   memberAwards: (tag, player) => ["clan", tag, "member", player, "awards"],
   maintain: ["maintain", "feedback"],
@@ -133,6 +134,9 @@ export const useStanding = (tag) =>
     queryKey: keys.standing(tag),
     queryFn: answered(() => manageApi.standing(tag)),
   });
+
+export const useTrophies = (tag) =>
+  useGated(keys.trophies(tag), () => manageApi.trophies(tag));
 
 export const useMyAway = (tag) =>
   useQuery({

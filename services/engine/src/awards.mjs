@@ -1,14 +1,13 @@
 /**
- * Awards: elixir-bot's season awards (engine/awards.py, award_outcomes.py)
- * as per-clan configuration, judged from Elixir's record.
+ * Awards: season recognition as per-clan configuration, judged from
+ * Elixir's record.
  *
  * A catalog of KINDS, not a rules engine (Jamie, 2026-09-12): each kind is
  * one small function with a few tunable parameters, and every award a
  * clan runs is an instance of a kind with the clan's own name and
- * description. The starting set is the kinds' examples; a clan's policy is
- * Elixir Clan's own and is never described by another clan's name (Jamie
- * 2026-09-24). Free Pass is POAP KINGS' own recognition of its War Champ
- * (a leaders_pick, granted by hand), so only that clan starts with it.
+ * description. Every clan starts with none (Jamie, 2026-09-25): its
+ * leaders add the ones it runs, each kind offered under its own plain
+ * title.
  *
  * Periods are war seasons as the record saw them (war_weeks grouped by
  * season_id). A season is judged only once it is CLOSED (every week
@@ -50,7 +49,7 @@ export const AWARD_KINDS = {
   },
   perfect_attendance: {
     title: "Perfect attendance",
-    rule: "Pass or fail, never a ranking: every member who played the decks asked for in every week of the season earns it (four a war day up to the boat's finish, so 16, or 12 when it finished on day 3). Any number can.",
+    rule: "Pass or fail, never a ranking: every member who played the decks asked for in every week of the season earns it (four a war day up to the clan's finish, so 16, or 12 when it finished on day 3). Any number can.",
     computed: true,
     params: {
       decks_per_day: {
@@ -117,62 +116,10 @@ export const AWARD_KINDS = {
   },
 };
 
-/** The starting awards, as elixir-bot ran them. Free Pass is POAP KINGS'
- *  own and starts only there. */
-export function defaultAwards(clanTag = null) {
-  return {
-    schema: AWARDS_SCHEMA_VERSION,
-    awards: [
-      {
-        id: "war_champ",
-        kind: "season_points_podium",
-        name: "War Champ",
-        description:
-          "The season's top war points, on the podium. Ties break on cards donated.",
-        enabled: true,
-        params: { podium: 3, tiebreak: "donations" },
-      },
-      {
-        id: "iron_king",
-        kind: "perfect_attendance",
-        name: "Iron King",
-        description:
-          "Four decks, every war day, every week of the season. Anyone who does it earns it.",
-        enabled: true,
-        params: { decks_per_day: 4, allowed_misses: 0 },
-      },
-      {
-        id: "donation_champ",
-        kind: "donations_podium",
-        name: "Donation Champ",
-        description: "The most cards donated over the season.",
-        enabled: true,
-        params: { podium: 3 },
-      },
-      {
-        id: "rookie_mvp",
-        kind: "rookie_podium",
-        name: "Rookie MVP",
-        description:
-          "The top war points among members in their first season here.",
-        enabled: true,
-        params: { podium: 3 },
-      },
-      ...(clanTag === POAP_KINGS ? [FREE_PASS] : []),
-    ],
-  };
+/** A clan's awards before its leaders add any: none. */
+export function defaultAwards() {
+  return { schema: AWARDS_SCHEMA_VERSION, awards: [] };
 }
-
-const POAP_KINGS = "#J2RGCRVG";
-const FREE_PASS = {
-  id: "free_pass",
-  kind: "leaders_pick",
-  name: "Free Pass",
-  description:
-    "The War Champ's reward: the highest finisher who did not hold it last season, chosen by the leaders with the podium in view.",
-  enabled: true,
-  params: { granted_by: "leaders" },
-};
 
 const ID_RE = /^[a-z][a-z0-9_]{1,31}$/;
 
@@ -260,7 +207,7 @@ export function describeAward(award) {
     case "season_points_podium":
       return `${p.podium === 1 ? "The member" : `The ${p.podium} members`} with the most war points over the season${p.tiebreak === "donations" ? "; equal points break on cards donated" : "; equal points share the place"}.`;
     case "perfect_attendance":
-      return `${p.decks_per_day === 4 ? "Every deck" : `At least ${p.decks_per_day} decks a war day`} in every war week of the season, up to the boat's finish${p.allowed_misses ? `, with up to ${p.allowed_misses} day${p.allowed_misses === 1 ? "'s" : "s'"} worth of decks short forgiven` : ""}. Anyone who does it earns it.`;
+      return `${p.decks_per_day === 4 ? "Every deck" : `At least ${p.decks_per_day} decks a war day`} in every war week of the season, up to the clan's finish${p.allowed_misses ? `, with up to ${p.allowed_misses} day${p.allowed_misses === 1 ? "'s" : "s'"} worth of decks short forgiven` : ""}. Anyone who does it earns it.`;
     case "donations_podium":
       return `${p.podium === 1 ? "The member" : `The ${p.podium} members`} who donated the most cards over the season.`;
     case "rookie_podium":
@@ -333,7 +280,7 @@ function isoWeekOf(participation, startedMs) {
   return j === -1 ? null : j;
 }
 
-// ---- ranks, elixir-bot's _assign_ranks --------------------------------------
+// ---- ranks --------------------------------------------------------------------
 
 /** Competition ranks over a sorted list: rank ties on the value, official
  *  rank follows the sort (the tiebreak), tied says whether the value is shared. */
@@ -422,7 +369,7 @@ function pointsPodium(participation, members, season, params, filter) {
 
 function attendance(m, season, params) {
   // Decks, not days (Jamie 2026-09-24): each week asks decks_per_day for
-  // every war day up to the boat's finish; the race's own weekly count
+  // every war day up to the clan's finish; the race's own weekly count
   // says whether it was met, with no day attributed. Decks after the
   // finish count toward what was played and are never asked for.
   let short = 0;

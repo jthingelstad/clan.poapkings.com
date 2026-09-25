@@ -2,16 +2,20 @@
  * The awards service: the clan's awards document (versioned like policy),
  * the live races and closed seasons from the record, grants written on
  * the first evaluation after a season closes, grants by hand for a
- * leaders' pick, and each member's trophy case.
+ * leaders' pick, and the trophy case every member sees.
  *
  * Pure engine in (evaluateAwards), ledger and Elixir out. Evaluation is on
  * demand with the signed-in person's token and cached five minutes per
- * clan, like the management evaluation.
+ * clan, like the management evaluation; any member opening the trophy
+ * case runs it, so grants do not wait on a leader visiting Manage. Like
+ * every management function, nothing here runs until the clan has a
+ * policy, and a clan starts with no awards.
  */
 
 import {
   AWARD_KINDS,
   defaultAwards,
+  describeAward,
   evaluateAwards,
   validateAwards,
 } from "@elixir-clan/engine";
@@ -27,6 +31,12 @@ export function createAwardsService({
 }) {
   const isLeader = (who) => LEADERS.has(who.role);
 
+  /** Nothing in clan management runs before a policy is saved. */
+  async function requirePolicy(clanTag) {
+    if (!(await ledger.currentPolicy(clanTag)))
+      throw new ManageError(409, "no_policy");
+  }
+
   async function configFor(clanTag) {
     const current = await ledger.currentAwards(clanTag);
     if (current)
@@ -38,7 +48,7 @@ export function createAwardsService({
         saved_by_name: current.saved_by_name ?? null,
       };
     return {
-      values: defaultAwards(clanTag),
+      values: defaultAwards(),
       version: 0,
       saved_at: null,
       saved_by: null,
@@ -105,6 +115,7 @@ export function createAwardsService({
     /** Manage ▸ Awards: races, seasons, grants, and the document. */
     async manageView(clanTag, who, token, { refresh = false } = {}) {
       if (!ELDER_PLUS.has(who.role)) throw new ManageError(403, "elders_only");
+      await requirePolicy(clanTag);
       const { result, config, cached } = await evaluateClan({
         clanTag,
         token,
@@ -187,6 +198,7 @@ export function createAwardsService({
 
     async saveConfig(clanTag, who, input, note) {
       if (!isLeader(who)) throw new ManageError(403, "leaders_only");
+      await requirePolicy(clanTag);
       const checked = validateAwards(input);
       if (!checked.ok)
         throw Object.assign(new ManageError(400, "invalid_awards"), {
@@ -206,6 +218,7 @@ export function createAwardsService({
       who,
       { award_id, player_tag, player_name, season_id, note },
     ) {
+      await requirePolicy(clanTag);
       const config = await configFor(clanTag);
       const award = config.values.awards.find((a) => a.id === award_id);
       if (!award || !award.enabled) throw new ManageError(404, "no_award");
@@ -242,6 +255,7 @@ export function createAwardsService({
     /** Only a manual grant can be taken back; a computed one is the record's. */
     async revoke(clanTag, who, { season_id, award_id, player_tag }) {
       if (!isLeader(who)) throw new ManageError(403, "leaders_only");
+      await requirePolicy(clanTag);
       const all = await ledger.grants(clanTag);
       const g = all.find(
         (x) =>
@@ -256,10 +270,55 @@ export function createAwardsService({
 
     /** One member's trophy case, for the member sheet and the roster. */
     async forMember(clanTag, playerTag) {
+      await requirePolicy(clanTag);
       return (await ledger.grants(clanTag))
         .filter((g) => g.player_tag === playerTag)
         .map(shape)
         .sort((a, b) => b.season_id - a.season_id || a.rank - b.rank);
+    },
+
+    /**
+     * The clan's trophy case, for every member: the awards it runs (name,
+     * description, rule), every grant season by season, newest first, and
+     * the viewer's own. Opening it evaluates, so a closed season's grants
+     * are written by whoever looks first.
+     */
+    async trophyCase(clanTag, who, token) {
+      await requirePolicy(clanTag);
+      const { config } = await evaluateClan({ clanTag, token });
+      const grants = (await ledger.grants(clanTag)).map(shape);
+      const seasons = new Map();
+      for (const g of grants) {
+        const s = seasons.get(g.season_id) ?? {
+          season_id: g.season_id,
+          grants: [],
+        };
+        s.grants.push(g);
+        seasons.set(g.season_id, s);
+      }
+      return {
+        clan_tag: clanTag,
+        awards: config.values.awards
+          .filter((a) => a.enabled)
+          .map((a) => ({
+            id: a.id,
+            name: a.name,
+            description: a.description,
+            rule: describeAward(a),
+            manual: a.kind === "leaders_pick",
+          })),
+        seasons: [...seasons.values()]
+          .sort((a, b) => b.season_id - a.season_id)
+          .map((s) => ({
+            season_id: s.season_id,
+            grants: s.grants.sort(
+              (a, b) => a.award_id.localeCompare(b.award_id) || a.rank - b.rank,
+            ),
+          })),
+        yours: grants
+          .filter((g) => g.player_tag === who.player_tag)
+          .sort((a, b) => b.season_id - a.season_id || a.rank - b.rank),
+      };
     },
   };
 }

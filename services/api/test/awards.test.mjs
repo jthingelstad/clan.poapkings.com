@@ -1,7 +1,8 @@
 /**
  * Awards over the real handler: grants written once when a season has
  * closed, the live races, a leaders' pick by hand, the versioned
- * document, the trophy case, and the public document with its switch.
+ * document, and the trophy case every member sees. Nothing runs before
+ * the clan has a policy, and a clan starts with no awards.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -21,10 +22,22 @@ import {
   req,
   signIn,
   cookieHeader,
+  seedVersion,
 } from "./fakes.mjs";
-import { member, participation, NOW } from "../../engine/test/fixture.mjs";
+import {
+  member,
+  participation,
+  NOW,
+  EXAMPLE_POLICY,
+  EXAMPLE_AWARDS,
+} from "../../engine/test/fixture.mjs";
 
-function harness({ players = [player()], part } = {}) {
+function harness({
+  players = [player()],
+  part,
+  policy = EXAMPLE_POLICY,
+  awards = EXAMPLE_AWARDS,
+} = {}) {
   const clock = { t: NOW.getTime() };
   const now = () => clock.t;
   const mcp = fakeMcp({ players });
@@ -35,6 +48,8 @@ function harness({ players = [player()], part } = {}) {
     return inner(token, name, args);
   };
   const ledger = createMemoryLedger();
+  if (policy) seedVersion(ledger, "policy", "#J2RGCRVG", policy);
+  if (awards) seedVersion(ledger, "awards", "#J2RGCRVG", awards);
   const handler = createHandler({
     mcp,
     oauth: fakeOAuth({ now }),
@@ -103,11 +118,11 @@ test("awards: the first look after a season closes writes the grants once; the o
   const r = await api(h, cookies, "GET", `${BASE}/manage`);
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.can_edit, true);
-  assert.deepEqual(r.body.can_grant, ["free_pass"]);
-  assert.equal(r.body.config_version, 0);
+  assert.deepEqual(r.body.can_grant, ["clan_honour"]);
+  assert.equal(r.body.config_version, 1);
   const s135 = r.body.seasons.find((s) => s.season_id === 135);
   assert.equal(s135.closed, true);
-  const champ = s135.awards.find((a) => a.award_id === "war_champ");
+  const champ = s135.awards.find((a) => a.award_id === "season_champ");
   assert.equal(champ.state, "closed");
   assert.deepEqual(
     champ.rows.map((x) => [x.player_tag, x.official_rank]),
@@ -120,7 +135,7 @@ test("awards: the first look after a season closes writes the grants once; the o
   const grants = r.body.grants;
   assert.deepEqual(
     grants
-      .filter((g) => g.award_id === "war_champ")
+      .filter((g) => g.award_id === "season_champ")
       .map((g) => [g.rank, g.player_name, g.metric_value, g.manual]),
     [
       [1, "King Thing", 16000, false],
@@ -129,17 +144,19 @@ test("awards: the first look after a season closes writes the grants once; the o
     ],
   );
   assert.deepEqual(
-    grants.filter((g) => g.award_id === "iron_king").map((g) => g.player_tag),
+    grants
+      .filter((g) => g.award_id === "ever_present")
+      .map((g) => g.player_tag),
     ["#20JJJ2CCRU"],
   );
   assert.deepEqual(
-    grants.filter((g) => g.award_id === "rookie_mvp").map((g) => g.player_tag),
+    grants.filter((g) => g.award_id === "top_rookie").map((g) => g.player_tag),
     ["#8QCV"],
     "Amy joined in the last week of 135: her first season",
   );
   const s136 = r.body.seasons.find((s) => s.season_id === 136);
   assert.equal(
-    s136.awards.find((a) => a.award_id === "war_champ").state,
+    s136.awards.find((a) => a.award_id === "season_champ").state,
     "live",
   );
   assert.ok(!grants.some((g) => g.season_id === 136));
@@ -158,7 +175,7 @@ test("awards: a leaders' pick is granted by hand with a note, shows in the seaso
   const cookies = await signedIn(h);
   await api(h, cookies, "GET", `${BASE}/manage`);
   const g = await api(h, cookies, "POST", `${BASE}/grants`, {
-    award_id: "free_pass",
+    award_id: "clan_honour",
     player_tag: "U8RYG9Y2U",
     player_name: "King Levy",
     season_id: 135,
@@ -172,13 +189,13 @@ test("awards: a leaders' pick is granted by hand with a note, shows in the seaso
   const view = await api(h, cookies, "GET", `${BASE}/manage`);
   const fp = view.body.seasons
     .find((s) => s.season_id === 135)
-    .awards.find((a) => a.award_id === "free_pass");
+    .awards.find((a) => a.award_id === "clan_honour");
   assert.equal(fp.state, "manual");
   assert.equal(fp.rows[0].name, "King Levy");
   assert.match(fp.rows[0].note, /held it last season/);
 
   const notManual = await api(h, cookies, "POST", `${BASE}/grants`, {
-    award_id: "war_champ",
+    award_id: "season_champ",
     player_tag: "8QCV",
     season_id: 135,
   });
@@ -189,18 +206,18 @@ test("awards: a leaders' pick is granted by hand with a note, shows in the seaso
     h,
     cookies,
     "DELETE",
-    `${BASE}/grants/135/war_champ/20JJJ2CCRU`,
+    `${BASE}/grants/135/season_champ/20JJJ2CCRU`,
   );
   assert.equal(keep.status, 400, "a computed grant is the record's");
   const gone = await api(
     h,
     cookies,
     "DELETE",
-    `${BASE}/grants/135/free_pass/U8RYG9Y2U`,
+    `${BASE}/grants/135/clan_honour/U8RYG9Y2U`,
   );
   assert.equal(gone.status, 200);
   const after = await api(h, cookies, "GET", `${BASE}/manage`);
-  assert.ok(!after.body.grants.some((x) => x.award_id === "free_pass"));
+  assert.ok(!after.body.grants.some((x) => x.award_id === "clan_honour"));
 });
 
 test("awards: an elder sees Manage ▸ Awards and grants only what elders may; a member is refused", async () => {
@@ -215,10 +232,10 @@ test("awards: an elder sees Manage ▸ Awards and grants only what elders may; a
   assert.deepEqual(
     r.body.can_grant,
     [],
-    "Free Pass is leaders-only by default",
+    "Clan Honour is leaders-only by default",
   );
   const refused = await api(elderH, cookies, "POST", `${BASE}/grants`, {
-    award_id: "free_pass",
+    award_id: "clan_honour",
     player_tag: "20JJJ2CCRU",
     season_id: 135,
   });
@@ -256,31 +273,32 @@ test("awards: a leader renames, retunes, adds and switches off awards; every sav
   });
   const saved = await api(h, cookies, "POST", `${BASE}/config`, {
     values,
-    note: "renamed, loosened Iron King, added a pick",
+    note: "renamed, loosened Ever Present, added a pick",
   });
   assert.equal(saved.status, 200, JSON.stringify(saved.body));
-  assert.equal(saved.body.version, 1);
+  assert.equal(saved.body.version, 2);
   const after = (await api(h, cookies, "GET", `${BASE}/manage?refresh=1`)).body;
-  assert.equal(after.config_version, 1);
+  assert.equal(after.config_version, 2);
   assert.equal(after.config.awards[0].name, "Boat Captain");
-  assert.deepEqual(after.can_grant, ["free_pass", "clanmate"]);
+  assert.deepEqual(after.can_grant, ["clan_honour", "clanmate"]);
   assert.equal(
     after.versions[0].note,
-    "renamed, loosened Iron King, added a pick",
+    "renamed, loosened Ever Present, added a pick",
   );
   // The live race carries the new name; the old grants keep the name they were given.
   const s136 = after.seasons.find((s) => s.season_id === 136);
   assert.equal(
-    s136.awards.find((a) => a.award_id === "war_champ").name,
+    s136.awards.find((a) => a.award_id === "season_champ").name,
     "Boat Captain",
   );
   assert.equal(
-    s136.awards.find((a) => a.award_id === "rookie_mvp").state,
+    s136.awards.find((a) => a.award_id === "top_rookie").state,
     "off",
   );
   assert.equal(
-    after.grants.find((g) => g.award_id === "war_champ" && g.rank === 1).name,
-    "War Champ",
+    after.grants.find((g) => g.award_id === "season_champ" && g.rank === 1)
+      .name,
+    "Season Champion",
   );
 
   const bad = await api(h, cookies, "POST", `${BASE}/config`, {
@@ -310,9 +328,59 @@ test("awards: a member's trophy case lists their grants, newest season first", a
   assert.deepEqual(
     r.body.grants.map((g) => [g.season_id, g.award_id, g.rank]),
     [
-      [135, "iron_king", 1],
-      [135, "war_champ", 1],
-      [135, "donation_champ", 2],
+      [135, "ever_present", 1],
+      [135, "season_champ", 1],
+      [135, "top_donor", 2],
     ],
+  );
+});
+
+test("awards: the clan's trophy case is every member's, and opening it writes a closed season's grants", async () => {
+  const h = harness({
+    players: [player({ player_tag: "#O2", clan_role: "member" })],
+    part: partClan(),
+  });
+  const cookies = await signedIn(h);
+  // No leader has visited Manage: the member's look is the first one.
+  const r = await api(h, cookies, "GET", "/api/clans/J2RGCRVG/trophies");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(
+    r.body.awards.map((a) => [a.id, a.manual]),
+    [
+      ["season_champ", false],
+      ["ever_present", false],
+      ["top_donor", false],
+      ["top_rookie", false],
+      ["clan_honour", true],
+    ],
+  );
+  assert.ok(r.body.awards.every((a) => a.rule.length > 20));
+  const s135 = r.body.seasons.find((s) => s.season_id === 135);
+  assert.ok(s135.grants.some((g) => g.award_id === "season_champ"));
+  assert.ok(Array.isArray(r.body.yours));
+  assert.ok((await h.ledger.grants("#J2RGCRVG")).length > 0);
+});
+
+test("awards: a clan starts with none, and nothing runs before it has a policy", async () => {
+  const fresh = harness({ part: partClan(), awards: null });
+  const fc = await signedIn(fresh);
+  const view = await api(fresh, fc, "GET", `${BASE}/manage`);
+  assert.equal(view.status, 200);
+  assert.deepEqual(view.body.config.awards, []);
+  assert.equal(view.body.config_version, 0);
+  const none = harness({ part: partClan(), policy: null, awards: null });
+  const nc = await signedIn(none);
+  for (const path of [
+    `${BASE}/manage`,
+    "/api/clans/J2RGCRVG/trophies",
+    "/api/clans/J2RGCRVG/members/20JJJ2CCRU/grants",
+  ]) {
+    const r = await api(none, nc, "GET", path);
+    assert.equal(r.status, 409, path);
+    assert.equal(r.body.error, "no_policy", path);
+  }
+  assert.equal(
+    none.mcp.calls.filter((c) => c[0] === "clans_participation").length,
+    0,
   );
 });

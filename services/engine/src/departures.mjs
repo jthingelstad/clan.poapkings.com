@@ -1,10 +1,9 @@
 /**
  * Departures: which member_left events the record shows that this ledger
- * has not yet explained. elixir-bot raised a "Departure — Kicked, Left, or
- * Ignore?" card on every leave, because a leave and a kick look identical
- * in the roster diff and the ledger is the only place the difference can
- * be recorded (a goodbye to a kicked member is wrong; awards and tenure
- * read the record). Carried (Jamie, 2026-09-12: "we need that signal").
+ * has not yet explained, for a clan whose policy asks about departures. A
+ * leave and a kick look identical in the roster diff, and the ledger is
+ * the only place the difference can be recorded, so a leader is asked:
+ * Kicked, Left, or Ignore.
  *
  * A departure already explained by a removal card marked Done before it
  * (the card's outcome verification records member_kicked) raises nothing.

@@ -59,8 +59,8 @@ function blockedUntil(decisions, tag, type, cooldownDays) {
 }
 
 /**
- * elixir-bot's promotion and demotion machines, replayed over a trail of
- * weekly gates (oldest first). Exported so the hysteresis has its own tests.
+ * The promotion and demotion machines, replayed over a trail of weekly
+ * gates (oldest first). Exported so the hysteresis has its own tests.
  * @param {Array<{promotable:boolean, demotable:boolean, reason:string|null, role:string}>} trail
  */
 export function replayMachines(trail, policy) {

@@ -1,6 +1,6 @@
 /**
- * Awards, against elixir-bot's semantics (engine/awards.py,
- * award_outcomes.py, tests/test_awards*.py) on Elixir's shapes.
+ * Awards: each kind's semantics on Elixir's shapes, judged under an
+ * example clan's awards document.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,9 +11,9 @@ import {
   seasonsFrom,
   validateAwards,
 } from "../src/awards.mjs";
-import { member, participation, NOW } from "./fixture.mjs";
+import { member, participation, NOW, EXAMPLE_AWARDS } from "./fixture.mjs";
 
-const config = defaultAwards("#J2RGCRVG");
+const config = EXAMPLE_AWARDS;
 const run = (members, opts = {}) =>
   evaluateAwards({
     participation: participation(members),
@@ -48,13 +48,13 @@ test("a season whose first section is not in the record is held, never judged", 
   const r = evaluateAwards({ participation: p, config, now: NOW, grants: [] });
   const s = season(r, 135);
   assert.equal(s.complete, false);
-  assert.equal(award(r, 135, "war_champ").state, "held");
+  assert.equal(award(r, 135, "season_champ").state, "held");
   assert.equal(r.grants_due.length, 0);
 });
 
 // ---- season points podium ---------------------------------------------------
 
-test("War Champ: points order, donations tiebreak, ties named, podium of three", () => {
+test("Season Champion: points order, donations tiebreak, ties named, podium of three", () => {
   const r = run([
     member("#AAA", { war: [16, 16, 16, 16, 16, 8] }), // 16000
     member("#BBB", {
@@ -68,7 +68,7 @@ test("War Champ: points order, donations tiebreak, ties named, podium of three",
     member("#DDD", { war: [8, 8, 8, 8, 8, 8] }),
     member("#EEE", { war: [0, 0, 0, 0, 0, 0] }),
   ]);
-  const champ = award(r, 135, "war_champ");
+  const champ = award(r, 135, "season_champ");
   assert.equal(champ.state, "closed");
   assert.deepEqual(
     champ.rows.map((x) => [
@@ -87,7 +87,7 @@ test("War Champ: points order, donations tiebreak, ties named, podium of three",
     ],
     "zero points is not in the race; the tie is named and the donor takes the higher place",
   );
-  const due = r.grants_due.filter((g) => g.award_id === "war_champ");
+  const due = r.grants_due.filter((g) => g.award_id === "season_champ");
   assert.deepEqual(
     due.map((g) => [g.player_tag, g.rank, g.metric_value, g.metadata.tied]),
     [
@@ -97,12 +97,12 @@ test("War Champ: points order, donations tiebreak, ties named, podium of three",
     ],
   );
   // The open season is live: standings, nothing due.
-  assert.equal(award(r, 136, "war_champ").state, "live");
+  assert.equal(award(r, 136, "season_champ").state, "live");
   assert.ok(r.grants_due.every((g) => g.season_id === 135));
 });
 
 test("with no tiebreak a tie at the podium's edge keeps everyone tied", () => {
-  const cfg = defaultAwards("#J2RGCRVG");
+  const cfg = structuredClone(EXAMPLE_AWARDS);
   cfg.awards[0].params = { podium: 1, tiebreak: "none" };
   const r = run(
     [
@@ -112,38 +112,38 @@ test("with no tiebreak a tie at the podium's edge keeps everyone tied", () => {
     ],
     { config: cfg },
   );
-  const due = r.grants_due.filter((g) => g.award_id === "war_champ");
+  const due = r.grants_due.filter((g) => g.award_id === "season_champ");
   assert.deepEqual(due.map((g) => g.player_tag).sort(), ["#AAA", "#BBB"]);
 });
 
 test("a granted (season, award) is never due again; other awards still are", () => {
   const r = run([member("#AAA")], {
-    grants: [{ season_id: 135, award_id: "war_champ", player_tag: "#AAA" }],
+    grants: [{ season_id: 135, award_id: "season_champ", player_tag: "#AAA" }],
   });
-  assert.ok(!r.grants_due.some((g) => g.award_id === "war_champ"));
-  assert.ok(r.grants_due.some((g) => g.award_id === "iron_king"));
+  assert.ok(!r.grants_due.some((g) => g.award_id === "season_champ"));
+  assert.ok(r.grants_due.some((g) => g.award_id === "ever_present"));
 });
 
 // ---- perfect attendance -----------------------------------------------------
 
-test("Iron King is pass/fail on decks: every deck asked for; one day's worth short fails at zero misses and passes at one", () => {
+test("Ever Present is pass/fail on decks: every deck asked for; one day's worth short fails at zero misses and passes at one", () => {
   const r = run([
     member("#AAA", { war: [16, 16, 16, 16, 16, 8] }),
     member("#BBB", { war: [16, 16, 16, 16, 15, 8] }),
     member("#CCC", { war: [16, 16, null, 16, 16, 8] }),
   ]);
-  const iron = award(r, 135, "iron_king");
+  const iron = award(r, 135, "ever_present");
   assert.deepEqual(
     iron.rows.map((x) => [x.player_tag, x.decks_short, x.decks_asked]),
     [["#AAA", 0, 80]],
   );
-  const due = r.grants_due.filter((g) => g.award_id === "iron_king");
+  const due = r.grants_due.filter((g) => g.award_id === "ever_present");
   assert.deepEqual(
     due.map((g) => [g.player_tag, g.rank, g.metric_unit]),
     [["#AAA", 1, "war_decks"]],
   );
 
-  const cfg = defaultAwards("#J2RGCRVG");
+  const cfg = structuredClone(EXAMPLE_AWARDS);
   cfg.awards[1].params = { decks_per_day: 4, allowed_misses: 1 };
   const r2 = run(
     [
@@ -154,13 +154,13 @@ test("Iron King is pass/fail on decks: every deck asked for; one day's worth sho
     { config: cfg },
   );
   assert.deepEqual(
-    award(r2, 135, "iron_king").rows.map((x) => x.player_tag),
+    award(r2, 135, "ever_present").rows.map((x) => x.player_tag),
     ["#AAA", "#BBB"],
     "a week the record cannot see is never a pass",
   );
 });
 
-test("Iron King reads the week's own deck count, however the days fell (decks, not days)", () => {
+test("Ever Present reads the week's own deck count, however the days fell (decks, not days)", () => {
   // 14 of 16 in one week: short two decks at four a day; at two a day the
   // week asks eight and 14 clears it. The per-day split never matters.
   const days = [
@@ -172,14 +172,14 @@ test("Iron King reads the week's own deck count, however the days fell (decks, n
     [null, null, null, null],
   ];
   const r = run([member("#AAA", { war: [16, 16, 16, 16, 14, 0], days })]);
-  assert.deepEqual(award(r, 135, "iron_king").rows, []);
-  const cfg = defaultAwards("#J2RGCRVG");
+  assert.deepEqual(award(r, 135, "ever_present").rows, []);
+  const cfg = structuredClone(EXAMPLE_AWARDS);
   cfg.awards[1].params = { decks_per_day: 2, allowed_misses: 0 };
   const r2 = run([member("#AAA", { war: [16, 16, 16, 16, 14, 0], days })], {
     config: cfg,
   });
   assert.deepEqual(
-    award(r2, 135, "iron_king").rows.map((x) => x.player_tag),
+    award(r2, 135, "ever_present").rows.map((x) => x.player_tag),
     ["#AAA"],
   );
 });
@@ -189,18 +189,18 @@ test("a season with no war days recorded for anyone holds the award rather than 
     member("#AAA", { war: [null, null, null, null, null, null] }),
     member("#BBB", { war: [null, null, null, null, null, null] }),
   ]);
-  assert.equal(award(r, 135, "iron_king").state, "held");
+  assert.equal(award(r, 135, "ever_present").state, "held");
 });
 
 // ---- donations --------------------------------------------------------------
 
-test("Donation Champ sums the week-end counters of the season's weeks", () => {
+test("Top Donor sums the week-end counters of the season's weeks", () => {
   const r = run([
     member("#AAA", { donations: [100, 200, 300, 400, 500, 999] }),
     member("#BBB", { donations: [50, 50, 50, 50, 50, 50] }),
     member("#CCC", { donations: [0, 0, 0, 0, 0, 0] }),
   ]);
-  const d = award(r, 135, "donation_champ");
+  const d = award(r, 135, "top_donor");
   // War weeks start on the Mondays of ISO weeks 1..5 (08-10 .. 09-07).
   assert.deepEqual(
     d.rows.map((x) => [x.player_tag, x.total, x.known_weeks]),
@@ -213,7 +213,7 @@ test("Donation Champ sums the week-end counters of the season's weeks", () => {
 
 // ---- rookies ----------------------------------------------------------------
 
-test("Rookie MVP: joined this season, or last season without a war day; never a pre-record join", () => {
+test("Top Rookie: joined this season, or last season without a war day; never a pre-record join", () => {
   const r = run([
     member("#OLD", { tenureDays: 300, war: [16, 16, 16, 16, 16, 8] }),
     member("#NEW", { tenureDays: 20, war: [0, 0, 0, 0, 16, 8] }), // joined in the Colosseum week of 135
@@ -223,13 +223,13 @@ test("Rookie MVP: joined this season, or last season without a war day; never a 
       war: [16, 16, 16, 16, 16, 8],
     }),
   ]);
-  const rookies = award(r, 135, "rookie_mvp");
+  const rookies = award(r, 135, "top_rookie");
   assert.deepEqual(
     rookies.rows.map((x) => [x.player_tag, x.rank]),
     [["#NEW", 1]],
   );
   // In 136, #NEW joined during the previous season and played it: not a rookie.
-  assert.deepEqual(award(r, 136, "rookie_mvp").rows, []);
+  assert.deepEqual(award(r, 136, "top_rookie").rows, []);
 });
 
 // ---- leaders' pick ----------------------------------------------------------
@@ -239,7 +239,7 @@ test("a leaders' pick computes nothing and shows what was granted by hand", () =
     grants: [
       {
         season_id: 135,
-        award_id: "free_pass",
+        award_id: "clan_honour",
         player_tag: "#AAA",
         player_name: "AAA",
         note: "Second on points; last season's holder sat out.",
@@ -248,22 +248,23 @@ test("a leaders' pick computes nothing and shows what was granted by hand", () =
       },
     ],
   });
-  const fp = award(r, 135, "free_pass");
+  const fp = award(r, 135, "clan_honour");
   assert.equal(fp.state, "manual");
   assert.equal(
     fp.rows[0].note,
     "Second on points; last season's holder sat out.",
   );
-  assert.ok(!r.grants_due.some((g) => g.award_id === "free_pass"));
+  assert.ok(!r.grants_due.some((g) => g.award_id === "clan_honour"));
 });
 
 // ---- the document -----------------------------------------------------------
 
-test("the defaults validate; bad ids, kinds, parameters and duplicates are refused in a leader's words", () => {
-  assert.equal(validateAwards(defaultAwards("#J2RGCRVG")).ok, true);
+test("an awards document validates; bad ids, kinds, parameters and duplicates are refused in a leader's words", () => {
+  assert.equal(validateAwards(EXAMPLE_AWARDS).ok, true);
+  assert.equal(validateAwards(defaultAwards()).ok, true);
   const bad = validateAwards({
     awards: [
-      { id: "War Champ", kind: "season_points_podium", name: "x" },
+      { id: "Season Champion", kind: "season_points_podium", name: "x" },
       { id: "a", kind: "nope", name: "x" },
       {
         id: "ok",
@@ -281,7 +282,7 @@ test("the defaults validate; bad ids, kinds, parameters and duplicates are refus
   assert.match(bad.errors["awards.2.params.decks_per_day"], /between 1 and 4/);
   assert.match(bad.errors["awards.2.params.bogus"], /not a setting/);
   assert.match(bad.errors["awards.3.id"], /share/);
-  // Missing parameters take the kind's default; publish is off unless true.
+  // Missing parameters take the kind's default; nothing is published.
   const ok = validateAwards({
     awards: [{ id: "champ", kind: "season_points_podium", name: "Champ" }],
   });
@@ -294,7 +295,7 @@ test("the defaults validate; bad ids, kinds, parameters and duplicates are refus
 });
 
 test("every award describes its rule in one sentence under its parameters", () => {
-  for (const a of defaultAwards("#J2RGCRVG").awards)
+  for (const a of EXAMPLE_AWARDS.awards)
     assert.ok(describeAward(a).length > 20);
   assert.match(
     describeAward({
@@ -305,11 +306,7 @@ test("every award describes its rule in one sentence under its parameters", () =
   );
 });
 
-test("only POAP KINGS starts with Free Pass; no starting text names another clan", () => {
-  const other = defaultAwards("#9Q9QRCPP");
-  assert.ok(!other.awards.some((a) => a.id === "free_pass"));
-  assert.doesNotMatch(JSON.stringify(other), /POAP/);
-  assert.ok(
-    defaultAwards("#J2RGCRVG").awards.some((a) => a.id === "free_pass"),
-  );
+test("every clan starts with no awards, whatever its tag", () => {
+  assert.deepEqual(defaultAwards().awards, []);
+  assert.equal(defaultAwards.length, 0, "the start never depends on the clan");
 });

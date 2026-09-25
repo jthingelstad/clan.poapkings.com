@@ -208,16 +208,16 @@ export function cookieHeader(sessionCookie) {
 }
 
 /**
- * A memory ledger holding a saved policy for one clan, synchronously: the
- * test harnesses are built without awaiting, and nothing in clan
- * management runs until a clan has a policy.
+ * A memory ledger holding a saved version of one clan's policy, awards or
+ * pitch, synchronously: the test harnesses are built without awaiting,
+ * and nothing in clan management runs until a clan has a policy.
  */
-export function ledgerWithPolicy(ledger, clanTag, values, version = 1) {
+export function seedVersion(ledger, kind, clanTag, values, version = 1) {
   const saved_at = "2026-09-01T00:00:00.000Z";
-  ledger.items.set(`policy#${clanTag}#v${version}`, {
-    pk: `policy#${clanTag}#v${version}`,
+  ledger.items.set(`${kind}#${clanTag}#v${version}`, {
+    pk: `${kind}#${clanTag}#v${version}`,
     gsi1pk: `clan#${clanTag}`,
-    gsi1sk: `policy#v${String(version).padStart(6, "0")}`,
+    gsi1sk: `${kind}#v${String(version).padStart(6, "0")}`,
     clan_tag: clanTag,
     version,
     values,
@@ -226,10 +226,13 @@ export function ledgerWithPolicy(ledger, clanTag, values, version = 1) {
     saved_at,
     note: null,
   });
-  ledger.items.set(`policy#${clanTag}`, {
-    pk: `policy#${clanTag}`,
+  ledger.items.set(`${kind}#${clanTag}`, {
+    pk: `${kind}#${clanTag}`,
     version,
     saved_at,
   });
   return ledger;
 }
+
+export const ledgerWithPolicy = (ledger, clanTag, values, version = 1) =>
+  seedVersion(ledger, "policy", clanTag, values, version);

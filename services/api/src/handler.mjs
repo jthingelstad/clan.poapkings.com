@@ -716,6 +716,9 @@ export function createHandler({
           });
           return json(200, { ok: true });
         }
+        // The clan's trophy case, for every member.
+        if (method === "GET" && rest === "/trophies")
+          return json(200, await awards.trophyCase(tag, who, token));
         // One member's trophy case.
         const trophy = /^\/members\/([0-9A-Za-z]{3,12})\/grants$/.exec(rest);
         if (method === "GET" && trophy) {
