@@ -464,9 +464,12 @@ test("awards: the morning run shares the running season's standings with Elixir 
   );
   const facts = h.mcp.state.facts;
   assert.ok(facts.every((f) => f.type === "award_standing"));
+  // The running season, and the latest closed season's final places.
+  const seasons = new Set(facts.map((f) => f.detail.season_id));
+  assert.ok(seasons.has(136), "the running season");
   assert.ok(
-    facts.every((f) => f.detail.season_id === 136),
-    "the running season only",
+    [...seasons].every((id) => id === 136 || id === 135),
+    [...seasons].join(),
   );
   assert.ok(
     facts.some(

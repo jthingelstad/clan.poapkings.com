@@ -1027,3 +1027,39 @@ names who held it before (`previous_player_tag`), which is what a clan's
 Discord agent reads as a lead change. `standings#<clan>` remembers what was
 shared; a failed write is retried the next morning. A visit shares nothing.
 
+
+## 2026-09-26 — standings fixes before the first morning run
+
+An overnight review of the standings shipped the evening before (0f46ce3)
+found, and this fixes, before the first 11:00Z run:
+
+- Perfect attendance counted a war week still running as a full ask
+  (16 decks), so almost nobody was on track until Monday. A week still
+  running now asks nothing (engine `attendance`); the standing waits for a
+  finished week, so a season's first days share nothing.
+- A tie was shared as two places decided by tag order, and could name a
+  false lead change. Places are the engine's: with no tiebreak (and
+  always for donations, which have none) a tie shares the place, the
+  rule's own words; the grants follow the same place. A lead change
+  needs one leader before and one after, in the same season.
+- Attendance standings were capped at ten members; the award says any
+  number can hold it.
+- A failed write dropped the ref from `standings#`, orphaning a fact
+  whose write had landed; it now keeps the ref with no place, so it is
+  retried and can be taken back.
+- An awards failure marked the clan failed and skipped the actions'
+  email; it is its own step now, reported as `awards_error`, and a step
+  that failed makes the run's line a warning.
+- At a season's close every standing was taken back the next morning,
+  and grants reach Elixir only when a leader announces them (off to
+  start), so the clan's agent lost the result. The latest closed season's
+  final places now stay until the next season closes.
+- A renamed award rewrites its standings.
+- The clan-specifics guard now reads tests too, case-insensitively, with
+  award ids in snake_case; the standings test had used one clan's award
+  and member names and is rewritten with neutral ones.
+
+Not done, for a later look: a leader clearing a member's away does not
+take back `member_away` (the fact is the member's word on their own
+grant); a clan paused below ten members keeps its last standings up;
+the morning run's 25 s Lambda timeout is shared by every clan in turn.

@@ -37,8 +37,14 @@ export function createScheduledRun({
     for (const clan of clans) {
       try {
         const m = await manage.evaluateOnSchedule(clan, integrationKey);
+        // Awards and standings are their own step: a failure there is
+        // reported and never keeps the actions' email from going out.
         const a = awards
-          ? await awards.evaluateOnSchedule(clan, integrationKey)
+          ? await awards
+              .evaluateOnSchedule(clan, integrationKey)
+              .catch((e) => ({
+                awards_error: e?.code ?? String(e?.message ?? e).slice(0, 120),
+              }))
           : null;
         // Then tell the people who can act on something new (door 2).
         // A mail failure is reported and never undoes the evaluation.
@@ -66,7 +72,15 @@ export function createScheduledRun({
     );
     const summary = {
       at: new Date(now()).toISOString(),
-      level: failed.length ? "warn" : "info",
+      // A clan evaluated but with a step that failed (standings, awards,
+      // mail) is worth reading too.
+      level:
+        failed.length ||
+        results.some(
+          (r) => r.standings_failed || r.awards_error || r.mail_error,
+        )
+          ? "warn"
+          : "info",
       scheduled: "evaluate",
       clans: clans.length,
       evaluated: results.filter((r) => r.ok).length,

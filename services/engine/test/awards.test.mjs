@@ -310,3 +310,34 @@ test("every clan starts with no awards, whatever its tag", () => {
   assert.deepEqual(defaultAwards().awards, []);
   assert.equal(defaultAwards.length, 0, "the start never depends on the clan");
 });
+
+test("a week still running asks nothing yet: eight decks into it is on track, not eight short", () => {
+  // Season 136's only week is open; the default member has 8 of 16 so far.
+  const r = run([
+    member("#AAA"),
+    member("#BBB", { war: [16, 16, 16, 16, 16, null] }),
+  ]);
+  const live = award(r, 136, "ever_present");
+  assert.equal(live.state, "live");
+  assert.deepEqual(
+    live.rows.map((x) => [x.player_tag, x.decks_asked, x.decks_short]).sort(),
+    [
+      ["#AAA", 0, 0],
+      ["#BBB", 0, 0],
+    ],
+    "nothing is asked of an open week, and an unknown one holds nobody back",
+  );
+});
+
+test("donations have no tiebreak: a tie stands and both hold the place, at the podium's edge too", () => {
+  const donors = [
+    member("#AAA", { donations: [300, 300, 300, 300, 300, 100] }),
+    member("#BBB", { donations: [200, 200, 200, 200, 200, 100] }),
+    member("#CCC", { donations: [200, 200, 200, 200, 200, 100] }),
+    member("#DDD", { donations: [100, 100, 100, 100, 100, 100] }),
+  ];
+  const r = run(donors);
+  const top = r.grants_due.filter((g) => g.award_id === "top_donor");
+  const ranks = Object.fromEntries(top.map((g) => [g.player_tag, g.rank]));
+  assert.equal(ranks["#BBB"], ranks["#CCC"], "the tie shares its place");
+});

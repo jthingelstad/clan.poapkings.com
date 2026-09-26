@@ -24,48 +24,67 @@ const UNIT = {
   perfect_attendance: "war_decks",
 };
 
-/** The running season's standings as facts, keyed by ref. */
+/** The standings as facts, keyed by ref: the running season's, and the
+ *  latest closed season's final places, which stay up until the next
+ *  season closes (a grant reaches Elixir only when a leader announces it,
+ *  and that action starts off, so without them the season's result
+ *  vanished from the clan's agent the morning it closed). */
 export function standingsFrom(result) {
   const out = new Map();
-  const season = (result?.seasons ?? []).find((s) => !s.closed && s.complete);
-  if (!season) return { season_id: null, facts: out };
+  const complete = (result?.seasons ?? []).filter((s) => s.complete);
+  const running = complete.find((s) => !s.closed);
+  const closed = complete
+    .filter((s) => s.closed)
+    .sort((a, z) => z.season_id - a.season_id)[0];
+  const seasons = [running, closed].filter(Boolean);
+  if (!seasons.length) return { season_id: null, season_ids: [], facts: out };
   const asOf = result.as_of ?? result.evaluated_at;
-  for (const award of season.awards) {
-    if (award.state !== "live" || !award.computed || !UNIT[award.kind])
-      continue;
-    const rows =
-      award.kind === "perfect_attendance"
-        ? award.rows
-            .slice(0, 10)
-            .map((r) => ({ ...r, place: 1, value: r.decks_asked }))
-        : award.rows
-            .filter((r) => r.on_podium)
-            .map((r) => ({
-              ...r,
-              place: r.official_rank,
-              value: award.kind === "donations_podium" ? r.total : r.points,
-            }));
-    for (const r of rows) {
-      if (!r.player_tag || !Number.isInteger(r.place)) continue;
-      const ref = `standing:${season.season_id}:${award.award_id}:${r.player_tag}`;
-      out.set(ref, {
-        type: "award_standing",
-        ref,
-        player_tag: r.player_tag,
-        occurred_at: asOf,
-        detail: {
-          award: String(award.name ?? award.award_id).slice(0, 60),
-          award_id: String(award.award_id).slice(0, 40),
-          season_id: season.season_id,
-          place: Math.min(10, Math.max(1, r.place)),
-          value: Math.max(0, Math.round(Number(r.value) || 0)),
-          unit: UNIT[award.kind],
-          as_of: asOf,
-        },
-      });
+  for (const season of seasons)
+    for (const award of season.awards) {
+      const want = season.closed ? "closed" : "live";
+      if (award.state !== want || !award.computed || !UNIT[award.kind])
+        continue;
+      // Everyone on track holds an attendance award's one place, however
+      // many, once a week has finished (before that nothing has been asked
+      // and everyone is trivially on track); a podium's places are the
+      // engine's (a tie shares one).
+      const rows =
+        award.kind === "perfect_attendance"
+          ? award.rows
+              .filter((r) => r.decks_asked > 0)
+              .map((r) => ({ ...r, place: 1, value: r.decks_asked }))
+          : award.rows
+              .filter((r) => r.on_podium)
+              .map((r) => ({
+                ...r,
+                place: r.place ?? r.official_rank,
+                value: award.kind === "donations_podium" ? r.total : r.points,
+              }));
+      for (const r of rows) {
+        if (!r.player_tag || !Number.isInteger(r.place)) continue;
+        const ref = `standing:${season.season_id}:${award.award_id}:${r.player_tag}`;
+        out.set(ref, {
+          type: "award_standing",
+          ref,
+          player_tag: r.player_tag,
+          occurred_at: asOf,
+          detail: {
+            award: String(award.name ?? award.award_id).slice(0, 60),
+            award_id: String(award.award_id).slice(0, 40),
+            season_id: season.season_id,
+            place: Math.min(10, Math.max(1, r.place)),
+            value: Math.max(0, Math.round(Number(r.value) || 0)),
+            unit: UNIT[award.kind],
+            as_of: asOf,
+          },
+        });
+      }
     }
-  }
-  return { season_id: season.season_id, facts: out };
+  return {
+    season_id: running?.season_id ?? closed.season_id,
+    season_ids: seasons.map((s) => s.season_id),
+    facts: out,
+  };
 }
 
 /**
@@ -76,13 +95,23 @@ export function standingsFrom(result) {
  */
 export function planStandings(prev, current) {
   const before = prev?.refs ?? {};
-  const leaderBefore = new Map();
-  // A podium's first place changes hands; an attendance award has no
-  // leader (everyone on track is first), so it never names one.
-  for (const [, s] of Object.entries(before))
-    if (s.place === 1 && s.unit !== "war_decks")
-      leaderBefore.set(s.award_id, s.player_tag);
-  const writes = [];
+  // A podium's first place changes hands when one member held it and one
+  // other member holds it now, in the same season and award. A tie for
+  // first has no single leader, and an attendance award has none at all
+  // (everyone on track is first), so neither ever names one.
+  const leaders = (entries) => {
+    const firsts = new Map();
+    for (const s of entries)
+      if (s.place === 1 && s.unit !== "war_decks") {
+        const k = `${s.season_id}|${s.award_id}`;
+        firsts.set(k, [...(firsts.get(k) ?? []), s.player_tag]);
+      }
+    return new Map(
+      [...firsts]
+        .filter(([, tags]) => tags.length === 1)
+        .map(([k, [t]]) => [k, t]),
+    );
+  };
   const refs = {};
   for (const [ref, fact] of current.facts) {
     const d = fact.detail;
@@ -90,14 +119,30 @@ export function planStandings(prev, current) {
       place: d.place,
       player_tag: fact.player_tag,
       award_id: d.award_id,
+      award: d.award,
+      season_id: d.season_id,
       unit: d.unit,
     };
+  }
+  const leaderBefore = leaders(Object.values(before));
+  const leaderNow = leaders(Object.values(refs));
+  const writes = [];
+  for (const [ref, fact] of current.facts) {
+    const d = fact.detail;
     const was = before[ref];
-    if (was && was.place === d.place) continue;
-    const previous = leaderBefore.get(d.award_id);
+    // Unchanged: the same place, and the award still named as it was (a
+    // renamed award rewrites its standings so Elixir says the new name).
+    if (
+      was &&
+      was.place === d.place &&
+      (was.award === undefined || was.award === d.award)
+    )
+      continue;
+    const k = `${d.season_id}|${d.award_id}`;
+    const previous = leaderBefore.get(k);
     writes.push(
       d.place === 1 &&
-        d.unit !== "war_decks" &&
+        leaderNow.get(k) === fact.player_tag &&
         previous &&
         previous !== fact.player_tag
         ? { ...fact, detail: { ...d, previous_player_tag: previous } }
@@ -105,5 +150,13 @@ export function planStandings(prev, current) {
     );
   }
   const removes = Object.keys(before).filter((ref) => !(ref in refs));
-  return { writes, removes, next: { season_id: current.season_id, refs } };
+  return {
+    writes,
+    removes,
+    next: {
+      season_id: current.season_id,
+      season_ids: current.season_ids,
+      refs,
+    },
+  };
 }

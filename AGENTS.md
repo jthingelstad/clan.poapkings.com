@@ -604,7 +604,8 @@ overwritten each evaluation), actions (`card#`, kept: this ledger is how a
 leave is told from a kick; each carries its `number`) and each action's
 log (`action_log#`), holds,
 and notes (tiered `leader` / `elder`), and the uses of the clan's model
-(`model_call#`, 90 days). Tags and summaries, never Elixir payloads.
+(`model_call#`, 90 days), what the morning run last shared (`standings#`),
+whom it last emailed (`mailed#`) and the morning list (`schedule#`). Tags and summaries, never Elixir payloads.
 **Names ride beside tags** (Jamie, 2026-09-25, closing Guard the Door's
 question of 2026-09-20): a member's in-game name on their actions, and
 the acting person's name on what they did (`saved_by_name`,
@@ -806,8 +807,16 @@ act, never here; what the app computed is: the running season's **award
 standings** go to Elixir as the app's own `award_standing` facts (JSON
 API 2.6.0, `facts:write` on the same key; `manage/standings.mjs`), one per
 member per award, written only when that member's place moves, taken back
-when it no longer stands, first place naming who held it before;
-`standings#<clan>` remembers what was shared. One clan's failure never stops the rest; the run writes
+when it no longer stands, first place naming who held it before (only
+between two single leaders of the same season: a tie for first names
+nobody). A tie shares its place where the award has no tiebreak; an
+attendance award stands for everyone on track once a week has finished
+(a week still running asks nothing); the latest closed season's final
+places stay up until the next season closes, since its grants reach
+Elixir only through a leader's announcement. `standings#<clan>`
+remembers what was shared; a write that failed keeps its ref, so it is
+retried and can always be taken back. An awards failure never keeps the
+actions' email from going out. One clan's failure never stops the rest; the run writes
 one JSON line (`scheduled: "evaluate"`, each clan's result, never the
 key). The list is `schedule#<clan>` in the `schedule#clans` partition of
 the index, put when a policy is saved or evaluated.

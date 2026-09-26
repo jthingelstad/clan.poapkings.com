@@ -379,6 +379,18 @@ function attendance(m, season, params) {
   for (const w of season.weeks) {
     const d = m.war_decks?.[w.i];
     const want = params.decks_per_day * w.required;
+    // A week still running asks nothing yet: its decks so far are not a
+    // shortfall, and a live standing that counted the open week as a full
+    // ask put nobody on track until it finished (2026-09-26 review).
+    if (w.finished === null) {
+      weeks.push({
+        section_index: w.section_index,
+        decks: Number.isInteger(d) ? d : null,
+        decks_asked: null,
+        open: true,
+      });
+      continue;
+    }
     if (!Number.isInteger(d)) {
       unknownWeeks += 1;
       weeks.push({
@@ -500,20 +512,26 @@ export function evaluateAwards({
           award.kind === "rookie_podium"
             ? rookieFilter(participation, seasons, season)
             : () => true;
+        const tiebreak = award.params.tiebreak ?? "donations";
         const { rows: all, podium } = pointsPodium(
           participation,
           members,
           season,
-          { ...award.params, tiebreak: award.params.tiebreak ?? "donations" },
+          { ...award.params, tiebreak },
           filter,
         );
-        rows = all
-          .slice(0, 10)
-          .map((r) => ({ ...r, on_podium: podium.includes(r) }));
+        // The place a member holds: with no tiebreak a tie stands and both
+        // hold the place (the rule's words); with one, the order it set.
+        const placeOf = (r) => (tiebreak === "none" ? r.rank : r.official_rank);
+        rows = all.slice(0, 10).map((r) => ({
+          ...r,
+          place: placeOf(r),
+          on_podium: podium.includes(r),
+        }));
         due = podium.map((r) => ({
           player_tag: r.player_tag,
           player_name: r.name,
-          rank: r.official_rank,
+          rank: placeOf(r),
           metric_value: r.points,
           metric_unit: "points",
           metadata: {
@@ -539,16 +557,16 @@ export function evaluateAwards({
                 : 1,
           );
         assignRanks(all, "total");
-        const podium = all.filter(
-          (r) => r.official_rank <= award.params.podium,
-        );
+        // Donations have no tiebreak: a tie stands and both hold the
+        // place, at the podium's edge too.
+        const podium = all.filter((r) => r.rank <= award.params.podium);
         rows = all
           .slice(0, 10)
-          .map((r) => ({ ...r, on_podium: podium.includes(r) }));
+          .map((r) => ({ ...r, place: r.rank, on_podium: podium.includes(r) }));
         due = podium.map((r) => ({
           player_tag: r.player_tag,
           player_name: r.name,
-          rank: r.official_rank,
+          rank: r.rank,
           metric_value: r.total,
           metric_unit: "donations",
           metadata: {

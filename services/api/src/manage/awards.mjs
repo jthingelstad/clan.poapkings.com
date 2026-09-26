@@ -197,11 +197,15 @@ export function createAwardsService({
       const r = await elixir.writeFact(key, clanTag, fact);
       if (!r.ok) {
         failed += 1;
-        // What Elixir still holds under this ref, if anything, stays the
-        // record: a standing never written is retried, one written before
-        // can still be taken back.
-        if (prev?.refs?.[fact.ref]) next.refs[fact.ref] = prev.refs[fact.ref];
-        else delete next.refs[fact.ref];
+        // What Elixir may hold under this ref stays in the record, so it is
+        // retried next morning and can always be taken back: a standing
+        // written before keeps its old place; one never confirmed (a
+        // timeout may still have landed) is kept with no place, which
+        // differs from any place, so it is written again.
+        next.refs[fact.ref] = prev?.refs?.[fact.ref] ?? {
+          ...next.refs[fact.ref],
+          place: null,
+        };
       }
     }
     for (const ref of removes) {

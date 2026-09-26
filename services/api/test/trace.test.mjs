@@ -154,7 +154,10 @@ test("route keys hide ids and tags; a slow or failed request logs at warn", asyn
     "POST /api/clans/*/actions/*/decide",
   );
   assert.equal(
-    routeKey("DELETE", "/api/clans/2PQRJ8LV/awards/grants/135/free_pass/8QCV"),
+    routeKey(
+      "DELETE",
+      "/api/clans/2PQRJ8LV/awards/grants/135/points_podium/8QCV",
+    ),
     "DELETE /api/clans/*/awards/grants/*",
   );
   assert.equal(

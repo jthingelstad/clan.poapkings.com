@@ -18,15 +18,28 @@ const ROOT = path.resolve(
 );
 const PRODUCT = [
   "services/engine/src",
+  "services/engine/test",
   "services/api/src",
+  "services/api/test",
   "apps/web/src",
   "apps/web/index.html",
   "infra/template.yaml",
   "infra/scripts",
   "scripts",
 ];
-const SPECIFIC =
-  /POAP|J2RGCRVG|20JJJ2CCRU|U8RYG9Y2U|VJQV8G8RL|Free Pass|War Champ|Iron King|Rookie MVP|elixir-bot|(?<![\w.-])poapkings\.com/;
+// Tests too (2026-09-26: a standings test used one clan's award names and
+// members' names, in a public repo): case-insensitive names, award ids in
+// snake_case, and a poapkings.com host other than the family's products
+// (elixir., clan., drop.) and the account's wildcard certificate.
+const SPECIFIC_CASED = /POAP|J2RGCRVG|20JJJ2CCRU|U8RYG9Y2U|VJQV8G8RL/;
+const SPECIFIC_ANY_CASE =
+  /poap[ _-]kings|free[ _]pass|war[ _]champ|iron[ _]king|rookie[ _]mvp|elixir-bot|(?<!(?:\b(?:elixir|clan|drop)|\*)\.)poapkings\.com/i;
+const specific = (line) =>
+  SPECIFIC_CASED.test(line) || SPECIFIC_ANY_CASE.test(line);
+// A test that asserts product output never says these writes them in a
+// regex literal; those lines are the guard's kin, not a leak.
+const ASSERTS_ABSENCE = /doesNotMatch\(|^\s*\/.*\/[a-z]*,?\s*$/;
+const SELF = "services/engine/test/no-clan-specifics.test.mjs";
 
 function files(p) {
   const abs = path.join(ROOT, p);
@@ -43,11 +56,13 @@ function files(p) {
 test("no product source is specific to one clan", () => {
   const hits = [];
   for (const f of PRODUCT.flatMap(files)) {
-    if (!/\.(mjs|js|jsx|ts|tsx|html|yaml|json)$/.test(f)) continue;
+    if (f === SELF) continue;
+    if (!/\.(mjs|js|jsx|ts|tsx|html|yaml|json|css)$/.test(f)) continue;
     readFileSync(path.join(ROOT, f), "utf8")
       .split("\n")
       .forEach((line, i) => {
-        if (SPECIFIC.test(line)) hits.push(`${f}:${i + 1}: ${line.trim()}`);
+        if (specific(line) && !ASSERTS_ABSENCE.test(line))
+          hits.push(`${f}:${i + 1}: ${line.trim()}`);
       });
   }
   assert.deepEqual(hits, []);

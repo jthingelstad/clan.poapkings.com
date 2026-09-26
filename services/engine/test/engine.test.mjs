@@ -1,5 +1,5 @@
 /**
- * Golden tests ported from elixir-bot/tests (test_engine_management.py,
+ * Golden tests ported from the original clan bot's tests (test_engine_management.py,
  * test_elder_math_2026_08.py), expressed against Elixir's tool shapes.
  */
 import { test } from "node:test";
