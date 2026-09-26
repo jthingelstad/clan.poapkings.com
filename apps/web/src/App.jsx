@@ -437,6 +437,15 @@ export function Rail({ me, path, navigate, narrow }) {
   );
 }
 
+/** Whether this sign-in may record what the person does in Elixir
+ *  (`clans:attest`, asked for since 2026-09-25). A session from before
+ *  holds `cr:read` alone: what it completes is logged as not shared, so
+ *  every page asks the person to sign in again. */
+export const canShare = (me) =>
+  String(me?.scope ?? "")
+    .split(/\s+/)
+    .includes("clans:attest");
+
 function Shell() {
   const { pathname: path } = useLocation();
   const navigate = useNav();
@@ -515,6 +524,21 @@ function Shell() {
             <div
               className={`page__inner${showRail ? "" : " page__inner--solo max-w-page"}`}
             >
+              {me?.signed_in && me.ok && !canShare(me) ? (
+                <div className="callout callout--warn mb-4" role="status">
+                  <span>
+                    Sign in again so what you do here reaches Elixir. This
+                    sign-in is from before Elixir Clan could record departures,
+                    promotions, awards and aways in Elixir, so what you complete
+                    now stays here.
+                  </span>
+                  <form method="post" action="/auth/logout">
+                    <button type="submit" className="btn btn--sm">
+                      Sign out, then sign in again
+                    </button>
+                  </form>
+                </div>
+              ) : null}
               <ErrorBoundary key={path}>
                 {me?.signed_in && me.unavailable ? (
                   <div

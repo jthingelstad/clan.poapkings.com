@@ -166,9 +166,9 @@ to the maintainer. See `AGENTS.md` for how.
    counts, what would move me, my actions, my history here, my trophies.
 5. **Telling Elixir what the clan did.** Attested clan facts written back to
    Elixir (kick or leave, promotions, awards, away), so the family's other
-   products (the Discord narrator above all) know what the clan knows, with
-   the clan choosing what leaves it. Built 2026-09-25 (door 3: Elixir 9.2.0,
-   JSON API 2.2.0; Clan settings ▸ Share with Elixir). The same door serves
+   products (the Discord narrator above all) know what the clan knows,
+   always (no switch since 2026-09-25, Jamie). Built 2026-09-25 (door 3:
+   Elixir 9.2.0, JSON API 2.2.0; Clan settings shows what is recorded). The same door serves
    Elixir Drop (a new personal record on the Timeline and in Discord), next
    in Drop's own session.
 6. **Beyond war.** The facts other kinds of clan need: presence by the
@@ -216,5 +216,5 @@ runner-up, for Jamie to take, change or refuse. Decisions go to
 - **Write-back** (settled and built 2026-09-25): attested facts, kept
   apart from the game record and labelled; visibility per type (an away
   only to the clan's leaders, never an agent; a departure's kind to the
-  clan and its agent since Elixir 9.3.0); the clan chooses
-  what leaves it, all off to start.
+  clan and its agent since Elixir 9.3.0); always shared, nothing to
+  switch (2026-09-25).

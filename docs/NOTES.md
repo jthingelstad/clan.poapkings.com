@@ -988,3 +988,27 @@ switch's "who sees it" line, the vision and guide, and the two tests that
 pinned the old sentence. Sharing is still the clan's choice, per type, all
 off to start, and a setting of its own: saving a policy does not turn any
 switch on.
+
+## 2026-09-25 — Sharing with Elixir is always on
+
+Jamie, seeing "Share with Elixir" in Clan settings: "I don't think this is
+something that should be able to be turned off… Minimally they should all
+default to on… but my feeling is they cannot be turned off. Why would we
+want them off?" The switches were this app's own addition to door 3 ("the
+clan chooses what leaves it"), not one of his calls, and with every one
+off nothing crossed: the clan's Discord agent, the integration door 3
+exists for, saw no departure or award, and nothing said so.
+
+- Every fact a completed action attests is shared (`share` no longer reads
+  a switch); `PUT /sharing`, `saveSharing` and the `sharing#<clan>` item
+  are gone (a stale item is never read and goes with `deleteClan`). Clan
+  settings lists what is recorded and who sees it, read-only.
+- The one way sharing still fails is a sign-in from before `clans:attest`:
+  every page now says so and offers sign-out (`canShare`, from `/api/me`'s
+  `scope`), and a decision's answer carries `shared` with each outcome.
+- The arguments for a switch, weighed: a clan's decisions leaving the app
+  (Clan is built on Elixir, and Elixir shows each kind only to its
+  audience), sensitivity (the game already shows a kick; an away stays
+  with the leaders), a Discord with non-members (the clan's own bot and
+  server; controlled there, not by cutting the data off).
+

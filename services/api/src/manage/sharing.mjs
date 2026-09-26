@@ -8,19 +8,26 @@
  * the game already shows the clan a kick, and leaders say why in clan
  * chat); an away only to the clan's leaders, never an agent.
  *
- * The clan chooses what leaves it: one switch per fact type in Clan
- * settings, every one off to start. A fact is shared when the action that
- * made it is completed (a departure answered, a promotion done, a welcome
- * said, an announcement sent) or when a member marks themselves away; it
- * is best effort, never holds up the action, and the action's log says
- * whether it was shared. Only facts cross, never a judgment: a removal's
- * chat line (it names an inactive member) is never shared as a message.
+ * Always shared, never switched (Jamie, 2026-09-25: "I don't think this is
+ * something that should be able to be turned off"). It shipped as one
+ * switch per type, all off to start, and nothing crossed: the one
+ * integration it exists for (a clan's Discord agent) saw nothing, and
+ * nothing said so. Every type is something the clan already sees in the
+ * game or here, and Elixir shows each only to its audience, so Elixir's
+ * per-type visibility is the one control. A fact is shared when the action
+ * that made it is completed (a departure answered, a promotion done, a
+ * welcome said, an announcement sent) or when a member marks themselves
+ * away; it is best effort, never holds up the action, and the action's log
+ * says whether it was shared. A sign-in from before `clans:attest` shares
+ * nothing until the person signs in again; the app says so on every page.
+ * Only facts cross, never a judgment: a removal's chat line (it names an
+ * inactive member) is never shared as a message.
  */
 
 import { leaderMessage } from "@elixir-clan/engine";
 import { ManageError } from "./service.mjs";
 
-/** What each switch shares, and who sees it in Elixir. */
+/** What each kind records in Elixir, when, and who sees it there. */
 export const SHARE_TYPES = {
   departure_classified: {
     label: "Kicks and leaves",
@@ -49,10 +56,7 @@ export const SHARE_TYPES = {
   },
 };
 
-export const SHARE_KEYS = Object.keys(SHARE_TYPES);
-
 const LEADERS = new Set(["leader", "coLeader"]);
-const off = () => Object.fromEntries(SHARE_KEYS.map((k) => [k, false]));
 
 /** The words the person actually sent, when they edited them; else the
  *  action's own. Bounded as the game bounds them. */
@@ -160,19 +164,12 @@ export function factsOfAction(
 }
 
 export function createSharing({ ledger, mcp, logAction }) {
-  async function settings(clanTag) {
-    const saved = await ledger.sharing(clanTag);
-    return { ...off(), ...(saved?.values ?? {}), _saved: saved ?? null };
-  }
-
-  /** Share what is switched on; each outcome goes into the action's log. */
+  /** Share every fact; each outcome goes into the action's log. */
   async function share(clanTag, token, who, facts, { cardId = null } = {}) {
     if (!facts.length || !token || typeof mcp.writeFact !== "function")
       return [];
-    const on = await settings(clanTag);
     const out = [];
     for (const fact of facts) {
-      if (!on[fact.type]) continue;
       const r = await mcp.writeFact(token, clanTag, fact);
       const entry = r.ok
         ? {
@@ -205,40 +202,14 @@ export function createSharing({ ledger, mcp, logAction }) {
   }
 
   return {
-    settings,
-
-    /** The switches, for leaders: each type with what it shares and who
-     *  sees it in Elixir. */
+    /** What the clan records in Elixir, for its leaders to read: each kind
+     *  with when it is shared and who sees it there. Nothing to switch. */
     async view(clanTag, who) {
       if (!LEADERS.has(who.role)) throw new ManageError(403, "leaders_only");
-      const s = await settings(clanTag);
-      return {
-        clan_tag: clanTag,
-        types: SHARE_TYPES,
-        values: Object.fromEntries(SHARE_KEYS.map((k) => [k, s[k]])),
-        saved_at: s._saved?.saved_at ?? null,
-        saved_by_name: s._saved?.saved_by_name ?? null,
-      };
+      return { clan_tag: clanTag, types: SHARE_TYPES };
     },
 
-    async save(clanTag, who, values) {
-      if (!LEADERS.has(who.role)) throw new ManageError(403, "leaders_only");
-      const input = values && typeof values === "object" ? values : {};
-      const bad = Object.keys(input).find(
-        (k) => !SHARE_TYPES[k] || typeof input[k] !== "boolean",
-      );
-      if (bad) throw new ManageError(400, "bad_sharing");
-      const next = { ...off(), ...input };
-      await ledger.saveSharing(clanTag, {
-        values: next,
-        saved_at: new Date().toISOString(),
-        saved_by: who.player_tag,
-        saved_by_name: who.name ?? null,
-      });
-      return { values: next };
-    },
-
-    /** After a decision: the facts it attests, shared as switched on. */
+    /** After a decision: the facts it attests, shared. */
     async afterDecision(
       clanTag,
       token,
@@ -276,8 +247,8 @@ export function createSharing({ ledger, mcp, logAction }) {
         { cardId },
       );
     },
-    /** Taken back whatever the switch says now: it may have been shared
-     *  while the switch was on. One Elixir never held is already gone. */
+    /** Taken back when the member is back. One Elixir never held (a
+     *  sign-in that could not share) is already gone. */
     async awayCleared(clanTag, token, who) {
       if (!token || typeof mcp.removeFact !== "function") return;
       await mcp.removeFact(token, clanTag, `away:${who.player_tag}`);

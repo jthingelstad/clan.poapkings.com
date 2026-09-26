@@ -25,7 +25,7 @@ chosen: `docs/VISION.md`. Read it before proposing a feature.
    Elixir's JSON API at `/api/v1` with the person's own bearer token for that
    audience, nothing privileged. Clan is a program, not an agent: it does not
    use MCP (Jamie, 2026-09-23). We never touch Elixir's database and never ask
-   for more than `cr:read` and, to share what the clan chooses as attested
+   for more than `cr:read` and, to record what the clan does as attested
    facts (JSON API 2.2.0), `clans:attest`.
 4. **Judgment lives here, never in Elixir.** Elixir records facts and has no
    opinions; this vertical owns the clan-management engine and leader
@@ -75,7 +75,7 @@ docs/NOTES.md      decisions, newest last; what is waiting on Jamie
 |---|---|---|
 | Discovery | `GET {ElixirUrl}/.well-known/oauth-authorization-server` | endpoints, cached 300 s (`services/api/src/oauth.mjs`) |
 | Client registration | `POST /oauth/register` | once, by `infra/scripts/register-client.mjs`; the `client_id` is the stack parameter `OAuthClientId`. Public client, PKCE, no secret. Lives 365 days from last use. |
-| Authorize | `/oauth/authorize` | `scope=cr:read clans:attest` (`clans:attest` since 2026-09-25: only the family's own apps may ask for it), `resource=https://elixir.poapkings.com/api/v1` (required, RFC 8707), S256. An `/mcp` grant is refused at `/api/v1`. A session signed in before the change holds `cr:read` alone: its shares are logged as not shared until the person signs in again. |
+| Authorize | `/oauth/authorize` | `scope=cr:read clans:attest` (`clans:attest` since 2026-09-25: only the family's own apps may ask for it), `resource=https://elixir.poapkings.com/api/v1` (required, RFC 8707), S256. An `/mcp` grant is refused at `/api/v1`. A session signed in before the change holds `cr:read` alone: its shares are logged as not shared, and every page asks the person to sign in again (`canShare` in `App.jsx`, from `/api/me`'s `scope`). |
 | Tokens | `/oauth/token` | access 1 h, refresh 30 d rotating, family 90 d. Refreshed server-side; a rotated refresh token is STORED before any reuse (presenting it twice revokes the grant). |
 | The door | `/api/v1/*` | Elixir's JSON API (`services/api/src/elixir-api.mjs`). It keeps the old MCP client's `initialize`/`callTool` interface: each tool name maps to one operation, answered with that tool's structured result, and a refusal comes back as problem+json carrying the tool's code. Plan: `../elixir-family/plans/clan-app-api.md` |
 
@@ -340,8 +340,8 @@ settings** (Manage ▸ Settings, `/clan/<TAG>/manage/settings`; the old
 /api/clans/<TAG>/model`), for any clan, with or without a policy, like
 Recruit. Clan settings is the leaders' page for what belongs to the whole
 clan rather than to how it runs (Jamie, 2026-09-25); the model is its
-first section, and what the doors bring (what the clan shares with Elixir,
-its mail) belongs there next. Then the clan's
+first section, and what the doors bring (what the clan records in Elixir,
+read-only; its mail) belongs there next. Then the clan's
 model may write **words, never judgments**:
 
 - **What it may write** is a closed list (`PURPOSES` in
@@ -542,10 +542,16 @@ them apart from the game record, labelled as that person's word through
 Elixir Clan, and shows each only to the readers its type allows (an away
 only to the clan's leaders, never to an agent; a departure, kick or leave,
 to the clan and its agent since Elixir 9.3.0, Jamie 2026-09-25: the game
-already shows the clan a kick and leaders say why in clan chat). **The clan chooses what leaves it**: one switch per type in
-Clan settings (`GET|PUT /api/clans/<TAG>/sharing`, `sharing#<clan>`),
-every one off to start, leaders and co-leaders only. What is shared, and
-when (`factsOfAction`):
+already shows the clan a kick and leaders say why in clan chat). **Always
+shared, never switched** (Jamie, 2026-09-25: "I don't think this is
+something that should be able to be turned off"). It shipped as one switch
+per type, all off to start, and nothing crossed while the clan's Discord
+agent waited for it; every type is something the clan already sees in the
+game or here, and Elixir's per-type visibility is the one control. Clan
+settings shows leaders what is recorded and who sees it, read-only (`GET
+/api/clans/<TAG>/sharing`; the `sharing#<clan>` switch item is retired).
+A decision's answer carries `shared` (each fact's outcome). What is
+shared, and when (`factsOfAction`):
 
 - a departure answered Kicked or Left, or a removal completed:
   `departure_classified` (kick or leave);
@@ -737,7 +743,6 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.invite_copied` | `leaders` \| `clanmates` \| `link` |
 | `clan.recruit_copied`, `clan.recruit_saved` | `personal` \| `post`; `v<n>` |
 | `clan.model_key_set`, `clan.model_key_removed`, `clan.model_drafted` | (none); (none); the purpose (`recruit_pitch` \| `leader_message`) |
-| `clan.sharing_saved` | the kinds switched on, comma-separated, or `none` |
 | `web.api_timeout`, `web.api_network`, `web.api_bad_response`, `web.api_slow` (over 3 s) | the route key, ids as `*` |
 
 No server-side events: Elixir's go through its email relay with an API

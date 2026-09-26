@@ -724,13 +724,9 @@ export function createHandler({
       const decide = /^\/actions\/([A-Za-z0-9_-]+)\/decide$/.exec(rest);
       if (method === "POST" && decide)
         return json(200, await manage.decide(tag, who, decide[1], body, token));
-      // What the clan shares with Elixir (door 3): leaders' switches.
-      if (rest === "/sharing") {
-        if (method === "GET")
-          return json(200, await manage.sharingView(tag, who));
-        if (method === "PUT")
-          return json(200, await manage.saveSharing(tag, who, body.values));
-      }
+      // What the clan records in Elixir (door 3): read-only, always on.
+      if (rest === "/sharing" && method === "GET")
+        return json(200, await manage.sharingView(tag, who));
       const comment = /^\/actions\/([A-Za-z0-9_-]+)\/comments$/.exec(rest);
       if (method === "POST" && comment)
         return json(200, await manage.comment(tag, who, comment[1], body.text));

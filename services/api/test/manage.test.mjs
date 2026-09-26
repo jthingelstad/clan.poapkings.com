@@ -1145,6 +1145,7 @@ test("actions: a leader's action carries a log of what raised it; completing and
       ["raised", raised.text],
       ["comment", "Messaged them in game first."],
       ["completed", "Kicked after the message."],
+      ["shared", "Shared with Elixir: kicks and leaves."],
       ["comment", "Right call."],
     ],
   );
@@ -1312,8 +1313,10 @@ test("actions: a quiet member is asked if they are away, on their own actions, a
   const closed = await ledger.card("#2PQRJ8LV", away.card_id);
   assert.equal(closed.status, "done");
   const log = await ledger.actionLog("#2PQRJ8LV", away.card_id);
-  assert.equal(log.at(-1).kind, "completed");
-  assert.match(log.at(-1).text, /^Marked away until/);
+  // Completed, then shared with Elixir (always, since 2026-09-25).
+  const completed = log.find((e) => e.kind === "completed");
+  assert.match(completed.text, /^Marked away until/);
+  assert.equal(log.at(-1).kind, "shared");
   // A leader never sees the member's own question.
   const lh = harness({ part: partClan(), ledger });
   const lc = await leader(lh);
@@ -1424,7 +1427,10 @@ test("leader messages: saving a policy tells the clan how it runs, and a newer v
   );
   assert.equal(done.status, 200);
   const log = await h.ledger.actionLog("#2PQRJ8LV", open.card_id);
-  assert.equal(log.at(-1).detail.channel, "leader_message");
+  // Completed as a Leader Message, then the message shared with Elixir.
+  const completed = log.find((e) => e.kind === "completed");
+  assert.equal(completed.detail.channel, "leader_message");
+  assert.equal(log.at(-1).kind, "shared");
   // Declining an announcement needs no reason either.
   await api(h, cookies, "POST", "/api/clans/2PQRJ8LV/policy", {
     values: {
@@ -1512,69 +1518,49 @@ test("you here: with no policy, or below 10 members, it is your statistics alone
 
 // ---- sharing with Elixir (door 3) ----------------------------------------------
 
-test("sharing: nothing leaves the clan until a leader switches a kind on; then a completed removal is shared as a kick and logged", async () => {
-  const removalOf = async (h, cookies) =>
-    (
-      await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions")
-    ).body.open.find((a) => a.type === "removal");
-  const decide = (h, cookies, card) =>
-    api(
-      h,
-      cookies,
-      "POST",
-      `/api/clans/2PQRJ8LV/actions/${card.card_id}/decide`,
-      { status: "done" },
-    );
-  // Off, as every clan starts.
-  const quiet = harness({ part: partClan() });
-  const qc = await leader(quiet);
-  const settings = await api(quiet, qc, "GET", "/api/clans/2PQRJ8LV/sharing");
-  assert.equal(settings.status, 200, JSON.stringify(settings.body));
-  assert.ok(Object.values(settings.body.values).every((v) => v === false));
-  assert.match(
-    settings.body.types.departure_classified.sees,
-    /the clan's agent/,
-  );
-  assert.match(
-    settings.body.types.member_away.sees,
-    /leaders and co-leaders only/,
-  );
-  assert.equal(
-    (await decide(quiet, qc, await removalOf(quiet, qc))).status,
-    200,
-  );
-  assert.deepEqual(quiet.mcp.state.facts, [], "off: nothing shared");
-  // Switched on by a leader: the kick goes to Elixir, and the log says so.
+test("sharing: always on, nothing to switch; a completed removal is shared as a kick, logged, and answered", async () => {
   const h = harness({ part: partClan() });
   const cookies = await leader(h);
-  const saved = await api(h, cookies, "PUT", "/api/clans/2PQRJ8LV/sharing", {
-    values: { departure_classified: true },
+  // What the clan records in Elixir: read-only for leaders, no switches.
+  const view = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/sharing");
+  assert.equal(view.status, 200, JSON.stringify(view.body));
+  assert.equal(view.body.values, undefined, "no switches");
+  assert.match(view.body.types.departure_classified.sees, /the clan's agent/);
+  assert.match(view.body.types.member_away.sees, /leaders and co-leaders only/);
+  const put = await api(h, cookies, "PUT", "/api/clans/2PQRJ8LV/sharing", {
+    values: { departure_classified: false },
   });
-  assert.equal(saved.status, 200, JSON.stringify(saved.body));
-  const bad = await api(h, cookies, "PUT", "/api/clans/2PQRJ8LV/sharing", {
-    values: { departure_classified: "yes" },
-  });
-  assert.equal(bad.status, 400);
-  const target = await removalOf(h, cookies);
-  assert.equal((await decide(h, cookies, target)).status, 200);
+  assert.notEqual(put.status, 200, "there is nothing to save");
+  // A completed removal goes to Elixir as a kick, with nothing switched on.
+  const target = (
+    await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions")
+  ).body.open.find((a) => a.type === "removal");
+  const done = await api(
+    h,
+    cookies,
+    "POST",
+    `/api/clans/2PQRJ8LV/actions/${target.card_id}/decide`,
+    { status: "done" },
+  );
+  assert.equal(done.status, 200, JSON.stringify(done.body));
   assert.equal(h.mcp.state.facts.length, 1);
   const [fact] = h.mcp.state.facts;
   assert.equal(fact.type, "departure_classified");
   assert.deepEqual(fact.detail, { kind: "kick" });
   assert.equal(fact.ref, `action:${target.card_id}`);
   assert.equal(fact.clanTag, "#2PQRJ8LV");
+  assert.deepEqual(done.body.shared, [
+    { type: "departure_classified", ok: true, code: null },
+  ]);
   const log = await h.ledger.actionLog("#2PQRJ8LV", target.card_id);
   const shared = log.find((e) => e.kind === "shared");
   assert.ok(shared);
   assert.match(shared.text, /Shared with Elixir: kicks and leaves/);
 });
 
-test("sharing: a sign-in without the capability is logged, never blocks the decision; only leaders see the switches", async () => {
+test("sharing: a sign-in without the capability is logged and answered, never blocks the decision; only leaders read what is recorded", async () => {
   const h = harness({ part: partClan() });
   const cookies = await leader(h);
-  await api(h, cookies, "PUT", "/api/clans/2PQRJ8LV/sharing", {
-    values: { departure_classified: true },
-  });
   h.mcp.state.factAnswer = {
     ok: false,
     status: 403,
@@ -1590,6 +1576,7 @@ test("sharing: a sign-in without the capability is logged, never blocks the deci
     { status: "done" },
   );
   assert.equal(done.status, 200, "the decision stands");
+  assert.equal(done.body.shared[0].code, "insufficient_scope");
   const log = await h.ledger.actionLog("#2PQRJ8LV", removal.card_id);
   const entry = log.find((e) => e.kind === "not_shared");
   assert.ok(entry);
@@ -1616,10 +1603,6 @@ test("sharing: a member's own away is shared while it lasts and taken back when 
       player({ player_tag: "#8QCV", name: "Sleepy", clan_role: "member" }),
     ],
     part: partClan(),
-  });
-  await h.ledger.saveSharing("#2PQRJ8LV", {
-    values: { member_away: true },
-    saved_at: new Date(h.clock.t).toISOString(),
   });
   const cookies = await leader(h);
   const until = new Date(h.clock.t + 5 * DAY).toISOString();

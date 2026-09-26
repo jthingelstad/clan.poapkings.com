@@ -1296,16 +1296,18 @@ export function createManageService({
           },
         },
       );
-      // What the clan has chosen to share with Elixir; never holds up
-      // the decision, and the log says what happened.
-      await sharing
+      // What the action did goes to Elixir, always; it never holds up
+      // the decision, and the log says what happened. The answer carries
+      // the outcome so the page can say when this sign-in cannot share.
+      const shared = await sharing
         .afterDecision(clanTag, token, who, card, decided, { sent })
-        .catch((e) =>
+        .catch((e) => {
           console.warn(
             JSON.stringify({ level: "warn", sharing_failed: e.message }),
-          ),
-        );
-      return decided;
+          );
+          return [];
+        });
+      return shared.length ? { ...decided, shared } : decided;
     },
 
     /**
@@ -1388,9 +1390,8 @@ export function createManageService({
       return { mailed: outcome.sent ?? 0, mail: outcome };
     },
 
-    // ---- sharing with Elixir (door 3) --------------------------------------
+    // ---- what the clan records in Elixir (door 3): read-only ---------------
     sharingView: (clanTag, who) => sharing.view(clanTag, who),
-    saveSharing: (clanTag, who, values) => sharing.save(clanTag, who, values),
 
     // ---- holds -----------------------------------------------------------
     async setHold(clanTag, who, playerTag, { until = null, note = null }) {

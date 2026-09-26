@@ -248,11 +248,9 @@ test.describe("signed in", () => {
               departure_classified: {
                 label: "Kicks and leaves",
                 why: "When a leader answers a departure.",
-                sees: "The clan's leaders and co-leaders only.",
+                sees: "Everyone verified in the clan, and the clan's agent.",
               },
             },
-            values: { departure_classified: false },
-            saved_at: null,
           },
         ],
       }),
@@ -267,8 +265,11 @@ test.describe("signed in", () => {
       page.getByRole("heading", { name: "Clan settings" }),
     ).toBeVisible();
     await expect(page.getByText("The clan’s own model")).toBeVisible();
-    await expect(page.getByText("Share with Elixir")).toBeVisible();
-    await expect(page.getByLabel("Kicks and leaves")).not.toBeChecked();
+    await expect(
+      page.getByText("What Elixir Clan records in Elixir"),
+    ).toBeVisible();
+    await expect(page.getByText("Kicks and leaves")).toBeVisible();
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
     await expect(page.getByLabel("Add the clan's key")).toHaveAttribute(
       "type",
       "password",

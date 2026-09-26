@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import { renderWithProviders } from "./helpers.jsx";
 import { Sharing } from "../src/views/Sharing.jsx";
+import { canShare } from "../src/App.jsx";
 import { manageApi } from "../src/api.js";
 
 afterEach(() => {
@@ -23,36 +24,25 @@ const types = {
   },
 };
 
-describe("share with Elixir", () => {
-  test("every kind starts off; a leader turns one on and saves", async () => {
+describe("what Elixir Clan records in Elixir", () => {
+  test("every kind is listed with who sees it; nothing to switch or save", async () => {
     vi.spyOn(manageApi, "sharing").mockResolvedValue({
       ok: true,
       status: 200,
-      data: {
-        clan_tag: "#2PQRJ8LV",
-        types,
-        values: { departure_classified: false, role_change_made: false },
-        saved_at: null,
-      },
+      data: { clan_tag: "#2PQRJ8LV", types },
     });
-    const save = vi
-      .spyOn(manageApi, "saveSharing")
-      .mockResolvedValue({ ok: true, status: 200, data: {} });
     renderWithProviders(<Sharing clan={clan} />);
-    const kicks = await screen.findByLabelText("Kicks and leaves");
-    expect(kicks.checked).toBe(false);
+    expect(await screen.findByText("Kicks and leaves")).toBeTruthy();
+    expect(screen.getByText("Promotions and demotions")).toBeTruthy();
     expect(screen.getByText(/the clan's agent/)).toBeTruthy();
-    const button = screen.getByRole("button", {
-      name: "Save what the clan shares",
-    });
-    expect(button.disabled).toBe(true);
-    fireEvent.click(screen.getByLabelText("Promotions and demotions"));
-    fireEvent.click(button);
-    await waitFor(() =>
-      expect(save).toHaveBeenCalledWith("#2PQRJ8LV", {
-        departure_classified: false,
-        role_change_made: true,
-      }),
-    );
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  test("a sign-in may share only when its grant holds clans:attest", () => {
+    expect(canShare({ scope: "cr:read clans:attest" })).toBe(true);
+    expect(canShare({ scope: "cr:read" })).toBe(false);
+    expect(canShare({ scope: null })).toBe(false);
+    expect(canShare(null)).toBe(false);
   });
 });

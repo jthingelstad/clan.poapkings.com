@@ -37,8 +37,10 @@
  *   mailed#<clan>#<tag>      when this person was last sent "actions
  *                            waiting" for this clan (door 2): the next
  *                            email waits for something new
- *   sharing#<clan>           what the clan shares with Elixir: one switch
- *                            per attested fact type (door 3), who set them
+ *   sharing#<clan>           RETIRED 2026-09-25: the switches for what the
+ *                            clan shared with Elixir; everything is shared
+ *                            now. A stale item is left, never read, and
+ *                            goes with deleteClan (it was in the index)
  *   model_call#<clan>#<at>#<id>
  *                            one use of the clan's model: who, what for,
  *                            the model, the tokens; 90 days (TTL)
@@ -491,19 +493,6 @@ function ledgerOver(io) {
         gsi1pk: clanKey(clanTag),
         gsi1sk: "recruit_facts#latest",
         ...facts,
-      });
-    },
-    // ---- what the clan shares with Elixir ------------------------------
-    async sharing(clanTag) {
-      const item = await io.get(`sharing#${clanTag}`);
-      return item ? stripKeys(item) : null;
-    },
-    async saveSharing(clanTag, item) {
-      await io.put({
-        ...item,
-        pk: `sharing#${clanTag}`,
-        gsi1pk: clanKey(clanTag),
-        gsi1sk: "sharing#latest",
       });
     },
     // ---- the clan's own model ------------------------------------------
