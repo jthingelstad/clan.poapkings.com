@@ -4,7 +4,10 @@ The existing `elixir-clan-cloudformation-execution` service role may manage
 IAM only for `elixir-clan-api`. Role creation and boundary attachment require
 `elixir-clan-runtime-boundary`; PassRole allows that role only to Lambda.
 The execution role cannot edit itself, the CI role, another role, or the boundary
-policy. The CI policy and other service permissions are preserved.
+policy. The CI policy and other service permissions are preserved. It keeps
+`logs:CreateLogDelivery` and its siblings on `*` (`iam-policies.mjs`): any
+update that touches the API stage's access log needs them, including a
+stack-wide tag change.
 
 CI's identity is the `elixir-clan-github-deploy` role (2026-09-26, replacing
 the `elixir-clan-deploy` user's static keys): GitHub Actions assumes it with
