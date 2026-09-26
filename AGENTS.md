@@ -745,6 +745,10 @@ Jamie's account included; the agents push as it.
   `get-secret-value`.
 - Tests: `npm run verify` (prettier, oxlint, node:test + vitest). Every seam
   is injected; no test reaches the network.
+- There is no local API runner (`services/api/local.mjs` was never
+  written). The pre-deploy lane is `npm run e2e`: Playwright against the
+  built app under `vite preview`, with route fixtures and axe; the live
+  sign-in check waits for the deploy.
 - Deployment smoke uses only reads that cannot change live state. It never
   visits `/auth/login`, which creates a pending login even on GET; the
   handler tests cover the OAuth redirect and PKCE offline.

@@ -3,7 +3,9 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 /** One SPA. The Lambda owns /auth/* and /api/*; in development they are
- *  proxied to a local runner (services/api/local.mjs) on 4320. Tailwind
+ *  proxied to 4320, where nothing runs: there is no local API runner
+ *  (services/api/local.mjs was never written); `npm run e2e` stubs the
+ *  routes instead. Tailwind
  *  compiles src/styles.css: Elixir's tokens and components from the
  *  pinned dependency, plus the utilities this app and the kit use. */
 export default defineConfig({
