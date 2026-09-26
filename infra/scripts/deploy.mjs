@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /**
- * Deploy. Locally: AWS_PROFILE=cloud-engineer in the environment. In CI: the
- * elixir-clan-deploy user's keys and ELIXIR_CLAN_CFN_ROLE_ARN. Order is
+ * Deploy. Locally: AWS_PROFILE=cloud-engineer in the environment, from an
+ * up-to-date main whose `validate` check is green (ci-gate.mjs). In CI:
+ * the elixir-clan-github-deploy role through GitHub's OIDC token, and
+ * ELIXIR_CLAN_CFN_ROLE_ARN. Order is
  * build -> upload -> stack create/update -> web -> smoke.
  *
  *   node infra/scripts/deploy.mjs --create              first deploy
  *   node infra/scripts/deploy.mjs                       update
  *   node infra/scripts/deploy.mjs --skip-web            code/infra only
  *   node infra/scripts/deploy.mjs --param=AppUrl=...    set a PRESERVED parameter once
+ *   node infra/scripts/deploy.mjs --break-glass         skip the CI gate (GitHub down only)
  *
  * On --create the app's own URL is not known until CloudFront exists, so
  * the create is followed by one update that sets AppUrl to the
@@ -31,8 +34,15 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { buildApi } from "./build.mjs";
 import { loadEnvInto } from "./env.mjs";
+import { ciGate } from "./ci-gate.mjs";
 import { buildParameters, parseOverrides } from "./parameters.mjs";
-import { REGION, STACK, codeBucketFor, tagsFor } from "./stack.mjs";
+import {
+  GITHUB_REPO,
+  REGION,
+  STACK,
+  codeBucketFor,
+  tagsFor,
+} from "./stack.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
@@ -42,6 +52,41 @@ const args = process.argv.slice(2);
 const isCreate = args.includes("--create");
 const skipWeb = args.includes("--skip-web");
 const overrides = parseOverrides(args);
+
+// Production runs only what main holds and CI passed (the PR workflow,
+// 2026-09-26). CI's deploy is already behind a green `validate` on main.
+// --break-glass is for GitHub being unreachable, never for a red check.
+if (process.env.GITHUB_ACTIONS === "true") {
+  // deploy.yml checked out the validated SHA.
+} else if (args.includes("--break-glass")) {
+  console.warn(
+    "deploy: WARNING --break-glass: the CI gate is skipped; record why in docs/NOTES.md.",
+  );
+} else {
+  const git = (a) =>
+    execFileSync("git", a, { cwd: repoRoot, encoding: "utf8" }).trim();
+  const dirty = git(["status", "--porcelain"]);
+  if (dirty) {
+    console.error(
+      `deploy: the worktree has uncommitted changes; nothing was deployed.\n${dirty}`,
+    );
+    process.exit(2);
+  }
+  const gate = await ciGate({
+    git,
+    ghApi: async (p) =>
+      JSON.parse(execFileSync("gh", ["api", p], { encoding: "utf8" })),
+    repo: GITHUB_REPO,
+    log: (line) => console.error(line),
+  });
+  if (!gate.ok) {
+    console.error(`deploy: ${gate.reason}`);
+    process.exit(2);
+  }
+  console.error(
+    `deploy: CI gate passed for ${gate.sha.slice(0, 8)} (validate green on ${gate.via}).`,
+  );
+}
 
 const sts = new STSClient({ region: REGION });
 const { Account: accountId } = await sts.send(new GetCallerIdentityCommand({}));

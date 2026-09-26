@@ -1,10 +1,13 @@
 name: deploy
 
-# Deploys main after validate is green, the way Drop does: static keys for
-# the elixir-clan-deploy user plus a CloudFormation execution role, both
-# made by infra/scripts/bootstrap.mjs. infra/scripts/parameters.mjs carries
-# every operator-set parameter with UsePreviousValue, so a deploy from
-# here can never reset one.
+# Deploys main after validate is green. CI has no stored AWS key: the job
+# runs in the `production` environment (main only, no admin bypass) and
+# assumes elixir-clan-github-deploy with GitHub's OIDC token; that role's
+# trust names this repository's production environment and nothing else.
+# It passes the CloudFormation execution role to the stack. Both roles come
+# from infra/scripts/bootstrap.mjs. infra/scripts/parameters.mjs carries
+# every operator-set parameter with UsePreviousValue, so a deploy from here
+# can never reset one.
 
 on:
   workflow_run:
@@ -13,8 +16,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: production
@@ -22,33 +24,57 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # A workflow_run's branch filter matches a fork's branch named main
+    # too: only a push to this repository's main deploys.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      checks: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
 
-      # Until the elixir-clan-deploy keys are in the repo's secrets (a
-      # `gh secret set` Jamie runs from the bootstrap's .env), a deploy
-      # from here is skipped rather than failed; local deploys still work.
-      - name: Require credentials and the current main SHA
+      # Only main's tip deploys, and a manual run only a SHA whose
+      # validate check passed (a workflow_run already follows a green one).
+      - name: Require the current main SHA and a green validate
         env:
-          HAVE_KEYS: ${{ secrets.ELIXIR_CLAN_AWS_SECRET_ACCESS_KEY != '' }}
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          if [ "$HAVE_KEYS" != "true" ]; then
-            echo "no deploy credentials in repository secrets; skipping"
-            echo "SKIP=1" >> "$GITHUB_ENV"
-          fi
+          sha=$(git rev-parse HEAD)
           remote_sha=$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')
-          if [ "$remote_sha" != "$(git rev-parse HEAD)" ]; then
+          if [ "$remote_sha" != "$sha" ]; then
             echo "superseded by ${remote_sha}; a later run deploys it"
             echo "SKIP=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            state=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs?check_name=validate&filter=latest" --jq '.check_runs[0].conclusion // "none"')
+            if [ "$state" != "success" ]; then
+              echo "::error::validate on ${sha} is ${state}; nothing deployed"
+              exit 1
+            fi
           fi
 
-      - uses: actions/setup-node@v7
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        if: env.SKIP != '1'
+        with:
+          role-to-assume: ${{ vars.ELIXIR_CLAN_DEPLOY_ROLE_ARN }}
+          role-session-name: elixir-clan-deploy-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: env.SKIP != '1'
         with:
           node-version: 24
@@ -59,7 +85,5 @@ jobs:
         if: env.SKIP != '1'
         run: node infra/scripts/deploy.mjs
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.ELIXIR_CLAN_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.ELIXIR_CLAN_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-east-1
           ELIXIR_CLAN_CFN_ROLE_ARN: ${{ vars.ELIXIR_CLAN_CFN_ROLE_ARN }}

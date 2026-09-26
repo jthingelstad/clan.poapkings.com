@@ -21,7 +21,7 @@ know. Silence is the one answer never allowed.
   <seen|planned|done|declined> --reply "..."` is a live write: serialize it
   under the `loop` lease, re-read the item just before writing, and skip an
   equivalent reply already delivered. Acknowledgment is not completion:
-  `done` means shipped, with `--shipped "<push or commit>"` named. A reply
+  `done` means shipped, with `--shipped "<merged PR or merge commit>"` named. A reply
   quotes what will change or why it will not; template-flat replies fail
   the bar. A bigger change is one decision for Jamie with the item quoted.
 - **Docs currency.** `AGENTS.md`, the policy editor's help text (the only

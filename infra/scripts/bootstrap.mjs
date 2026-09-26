@@ -10,20 +10,25 @@
  *     skill). The template consumes it as a dynamic reference.
  *  3. CloudFormation execution role elixir-clan-cloudformation-execution,
  *     scoped to elixir-clan-* resources
- *  4. CI user elixir-clan-deploy: the stack, the two buckets, CloudFront
- *     invalidations, PassRole of the execution role; access key appended
- *     to .env (0600) for `gh secret set` - never printed
+ *  4. CI role elixir-clan-github-deploy: the stack, the two buckets,
+ *     CloudFront invalidations, PassRole of the execution role. GitHub
+ *     Actions assumes it with its OIDC token from this repo's `production`
+ *     environment; there is no key to store, print or rotate (2026-09-26,
+ *     replacing the elixir-clan-deploy user's static keys). The account's
+ *     GitHub OIDC provider is shared and administrator-owned.
  *
  * The alarm topic is a stack resource, so wiring it to the sysadmin ops
  * queue is a separate step: scripts/wire-alarms.mjs, after the first deploy.
  */
 
 import crypto from "node:crypto";
-import { deploymentPolicyFor, executionPolicyFor } from "./iam-policies.mjs";
+import {
+  DEPLOYMENT_POLICY,
+  deploymentPolicyFor,
+  executionPolicyFor,
+  githubDeployTrustFor,
+} from "./iam-policies.mjs";
 import { ensureRuntimeBoundary } from "./runtime-boundary.mjs";
-import { appendFile, chmod, readFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
 import {
   S3Client,
@@ -39,27 +44,20 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 import {
   IAMClient,
-  CreateAccessKeyCommand,
   CreateRoleCommand,
-  CreateUserCommand,
   GetRoleCommand,
-  GetUserCommand,
-  ListAccessKeysCommand,
   PutRolePolicyCommand,
-  PutUserPolicyCommand,
+  UpdateAssumeRolePolicyCommand,
 } from "@aws-sdk/client-iam";
 import {
   CFN_ROLE,
-  CI_USER,
+  DEPLOY_ROLE,
   REGION,
   SECRET_NAME,
   codeBucketFor,
   tagsFor,
 } from "./stack.mjs";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, "../..");
-const envPath = path.join(repoRoot, ".env");
 const TAGS = tagsFor("repository");
 
 const sts = new STSClient({ region: REGION });
@@ -149,52 +147,42 @@ await iam.send(
   }),
 );
 
-// 4. CI user -----------------------------------------------------------------
+// 4. CI role (GitHub OIDC) ---------------------------------------------------
+let deployRole;
 try {
-  await iam.send(new GetUserCommand({ UserName: CI_USER }));
-  console.log(`iam user exists: ${CI_USER}`);
+  ({ Role: deployRole } = await iam.send(
+    new GetRoleCommand({ RoleName: DEPLOY_ROLE }),
+  ));
+  await iam.send(
+    new UpdateAssumeRolePolicyCommand({
+      RoleName: DEPLOY_ROLE,
+      PolicyDocument: JSON.stringify(githubDeployTrustFor(accountId)),
+    }),
+  );
+  console.log(`ci role exists: ${DEPLOY_ROLE} (trust re-applied from source)`);
 } catch {
-  await iam.send(new CreateUserCommand({ UserName: CI_USER, Tags: TAGS }));
-  console.log(`created iam user: ${CI_USER}`);
+  ({ Role: deployRole } = await iam.send(
+    new CreateRoleCommand({
+      RoleName: DEPLOY_ROLE,
+      AssumeRolePolicyDocument: JSON.stringify(githubDeployTrustFor(accountId)),
+      Description: "GitHub Actions deploys of jthingelstad/clan.poapkings.com",
+      MaxSessionDuration: 3600,
+      Tags: TAGS,
+    }),
+  ));
+  console.log(`created ci role: ${DEPLOY_ROLE}`);
 }
 await iam.send(
-  new PutUserPolicyCommand({
-    UserName: CI_USER,
-    PolicyName: "elixir-clan-deployment",
+  new PutRolePolicyCommand({
+    RoleName: DEPLOY_ROLE,
+    PolicyName: DEPLOYMENT_POLICY,
     PolicyDocument: JSON.stringify(deploymentPolicyFor(accountId)),
   }),
 );
 
-const { AccessKeyMetadata: keys } = await iam.send(
-  new ListAccessKeysCommand({ UserName: CI_USER }),
-);
-let envText = "";
-try {
-  envText = await readFile(envPath, "utf8");
-} catch {
-  envText = "";
-}
-if (keys.length === 0) {
-  const { AccessKey } = await iam.send(
-    new CreateAccessKeyCommand({ UserName: CI_USER }),
-  );
-  await appendFile(
-    envPath,
-    `ELIXIR_CLAN_AWS_ACCESS_KEY_ID=${AccessKey.AccessKeyId}\nELIXIR_CLAN_AWS_SECRET_ACCESS_KEY=${AccessKey.SecretAccessKey}\n`,
-  );
-  await chmod(envPath, 0o600);
-  console.log("ci access key appended to .env (0600)");
-} else if (!envText.includes("ELIXIR_CLAN_AWS_SECRET_ACCESS_KEY=")) {
-  console.log(
-    `ci access key exists for ${CI_USER} but .env lacks its secret; not rotating`,
-  );
-} else {
-  console.log("ci access key exists (not rotated)");
-}
-
 console.log(`\nbootstrap complete.
   code bucket:  ${codeBucket}
   cfn role:     ${role.Arn}
-  ci user:      ${CI_USER}
+  ci role:      ${deployRole.Arn} (GitHub variable ELIXIR_CLAN_DEPLOY_ROLE_ARN)
   secret:       ${SECRET_NAME}
 next: node infra/scripts/deploy.mjs --create`);

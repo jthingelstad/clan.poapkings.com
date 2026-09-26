@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  GITHUB_SUBJECTS,
   boundaryArnFor,
+  deploymentPolicyFor,
   executionPolicyFor,
+  githubDeployTrustFor,
   runtimeBoundaryFor,
   runtimeRoleArnFor,
 } from "../scripts/iam-policies.mjs";
@@ -271,4 +274,52 @@ test("fresh bootstrap creates the boundary while the application role is absent"
     "GetPolicyCommand",
     "CreatePolicyCommand",
   ]);
+});
+
+test("CI's role trusts only this repository's production environment", async () => {
+  const [statement, ...rest] = githubDeployTrustFor(account).Statement;
+  assert.deepEqual(rest, []);
+  assert.equal(statement.Action, "sts:AssumeRoleWithWebIdentity");
+  assert.equal(
+    statement.Principal.Federated,
+    `arn:aws:iam::${account}:oidc-provider/token.actions.githubusercontent.com`,
+  );
+  // Exact subjects only: no StringLike, no wildcard, never a branch or a PR.
+  assert.deepEqual(Object.keys(statement.Condition), ["StringEquals"]);
+  const claims = statement.Condition.StringEquals;
+  assert.equal(
+    claims["token.actions.githubusercontent.com:aud"],
+    "sts.amazonaws.com",
+  );
+  assert.deepEqual(
+    claims["token.actions.githubusercontent.com:sub"],
+    GITHUB_SUBJECTS,
+  );
+  for (const subject of GITHUB_SUBJECTS) {
+    assert.match(
+      subject,
+      /^repo:jthingelstad(@5351)?\/clan\.poapkings\.com(@\d+)?:environment:production$/,
+    );
+  }
+  // The job that assumes it runs in that environment.
+  const workflow = await readFile(
+    new URL("../../.github/workflows/deploy.yml", import.meta.url),
+    "utf8",
+  );
+  assert.match(workflow, /^    environment: production$/m);
+  assert.match(
+    workflow,
+    /role-to-assume: \$\{\{ vars\.ELIXIR_CLAN_DEPLOY_ROLE_ARN \}\}/,
+  );
+  assert.ok(!/secrets\.ELIXIR_CLAN_AWS/.test(workflow), "no stored key");
+  // Its permissions stop at the stack, the two buckets, invalidations and
+  // handing CloudFormation its execution role.
+  const passes = deploymentPolicyFor(account).Statement.filter(
+    (s) => s.Action === "iam:PassRole",
+  );
+  assert.equal(passes.length, 1);
+  assert.equal(
+    passes[0].Resource,
+    `arn:aws:iam::${account}:role/elixir-clan-cloudformation-execution`,
+  );
 });
