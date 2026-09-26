@@ -198,6 +198,27 @@ describe("awards", () => {
     expect(save.mock.calls[0][1].awards[0].name).toBe("Boat Captain");
   });
 
+  test("the help keeps awards inside the signed-in app", async () => {
+    vi.spyOn(manageApi, "awards").mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: view(),
+    });
+    renderWithProviders(<Awards clan={poap} />);
+    expect(
+      await screen.findByText(
+        /nothing is published outside the signed-in app/i,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/public document/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "edit the awards" }));
+    expect(
+      screen.getAllByText(/durable key for this award and its grants/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/public document/i)).toBeNull();
+  });
+
   test("an elder sees the page read-only; a member is refused", async () => {
     vi.spyOn(manageApi, "awards").mockResolvedValue({
       ok: true,

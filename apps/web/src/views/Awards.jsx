@@ -162,8 +162,9 @@ export function Awards({ clan }) {
           ))}
           <p className="page__lede" style={{ margin: "6px 0 0" }}>
             Grants are written the first time the record is read after a season
-            closes; a manual award is a leader&rsquo;s and says so. Nothing is
-            narrated from here: the public document is what other sites read.
+            closes; a manual award is a leader&rsquo;s and says so. Members see
+            them here and in Trophies; nothing is published outside the
+            signed-in app.
           </p>
         </div>
       </section>
@@ -576,8 +577,8 @@ function AwardsConfig({ clan, view, onDone }) {
                 <label className="field-label" htmlFor={`a-${i}-id`}>
                   Id{" "}
                   <span className="page-head__note">
-                    (the durable key in the public document; change it only
-                    before the first grant)
+                    (the durable key for this award and its grants; change it
+                    only before the first grant)
                   </span>
                 </label>
                 <input

@@ -735,7 +735,7 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.action_link_copied` | (none) |
 | `clan.invite_copied` | `leaders` \| `clanmates` \| `link` |
 | `clan.recruit_copied`, `clan.recruit_saved` | `personal` \| `post`; `v<n>` |
-| `clan.model_key_set`, `clan.model_key_removed`, `clan.model_drafted` | (none); (none); the purpose (`recruit_pitch`) |
+| `clan.model_key_set`, `clan.model_key_removed`, `clan.model_drafted` | (none); (none); the purpose (`recruit_pitch` \| `leader_message`) |
 | `clan.sharing_saved` | the kinds switched on, comma-separated, or `none` |
 | `web.api_timeout`, `web.api_network`, `web.api_bad_response`, `web.api_slow` (over 3 s) | the route key, ids as `*` |
 

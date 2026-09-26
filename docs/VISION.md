@@ -144,8 +144,10 @@ from the record; holds, Away, tiered notes; Standing with "How it works here"; a
 of kinds and a members' trophy case; recruiting copy in two formats; lines for members to invite their leaders and
 clanmates;
 scouting an applicant; clan settings, where the clan's own model, on its
-own Anthropic key, is added to draft the recruiting pitch for a leader to
-edit; feedback to the maintainer. See `AGENTS.md` for how.
+own Anthropic key, is added to draft the recruiting pitch and Leader Messages
+for a leader to edit; optional sharing of the clan's attested facts with
+Elixir; a morning evaluation and action-waiting email through Elixir; feedback
+to the maintainer. See `AGENTS.md` for how.
 
 ## Themes ahead (not yet ordered)
 
