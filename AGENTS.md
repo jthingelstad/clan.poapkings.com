@@ -681,6 +681,27 @@ server-side; ordinary record data never polls. A pending live read may retry at
 Elixir's requested interval (Scout stops after six attempts). The page shows
 `meta.freshness_seconds`/`as_of` the way Elixir does (`Fresh`).
 
+## Landing changes
+
+Since 2026-09-26, `main` takes only pull requests, merged on a green
+`validate` check (`.github/workflows/validate.yml`: the workflow lint,
+`npm run verify`, both builds and the browser journeys). There is no bypass,
+Jamie's account included; the agents push as it.
+
+- `git switch -c <objective>/<slug>` before the first edit (`session/<slug>`
+  for an interactive session), commit, `git push -u origin HEAD`,
+  `gh pr create --fill`, `gh pr merge --auto --rebase --delete-branch`,
+  `gh pr checks --watch --fail-fast`; once merged, `git switch main && git
+  pull --ff-only`. If `main` moves under an open PR: `gh pr update-branch
+  --rebase`.
+- A rebase merge gives the commit a new SHA on `main`. The deploy that
+  carries it is the `deploy` run for the merge SHA from `gh pr view <n>
+  --json mergeCommit`, never the branch's SHA.
+- A check that fails and then passes on a re-run is a flake, and a flake
+  is a defect: fix it in the PR or record it the same day.
+- Unfinished work stays an open PR; the checkout goes back to `main`.
+  Outside contributors fork, then open a PR; the same check applies.
+
 ## AWS and deploying
 
 - `--profile cloud-engineer`, `us-east-1`, hobby-account rules from `~/Projects/AGENTS.md`.
@@ -699,16 +720,25 @@ Elixir's requested interval (Scout stops after six attempts). The page shows
   reset. A test pins the template's parameter list to that set.
 - Local: `AWS_PROFILE=cloud-engineer node infra/scripts/deploy.mjs` (build → upload →
   stack → web → smoke). `--create` for a first deploy, `--skip-web` for code
-  only.
-- CI: `validate` on every push/PR (no network, no spend); `deploy` on main
-  after green, with the `elixir-clan-deploy` user's static keys and the
-  `elixir-clan-cloudformation-execution` role, both from
-  `infra/scripts/bootstrap.mjs`, exactly Drop's pattern.
+  only. It deploys only an up-to-date `main` whose `validate` check is green
+  and a clean worktree (`infra/scripts/ci-gate.mjs`); `--break-glass` is
+  for GitHub being down, never for a red check, and is recorded in
+  `docs/NOTES.md`.
+- CI: `validate` on every PR and push to main (no network, no spend);
+  `deploy` on main after green, in the GitHub `production` environment (main
+  only, no admin bypass). It holds no AWS key: it assumes
+  `elixir-clan-github-deploy` with GitHub's OIDC token (the role's trust
+  names this repo's `production` environment and nothing else; its ARN is
+  the environment variable `ELIXIR_CLAN_DEPLOY_ROLE_ARN`) and passes the
+  `elixir-clan-cloudformation-execution` role to the stack. Both roles come
+  from `infra/scripts/bootstrap.mjs` (2026-09-26: the `elixir-clan-deploy`
+  user and its static keys are gone). A manual `deploy` run refuses a SHA
+  whose `validate` is not green.
 - Deployment IAM is defined in `infra/scripts/iam-policies.mjs`. The existing
   execution role may edit only the application role, whose administrator-owned
   boundary is retained by the template. IAM repairs use the dedicated approved
   `secure-iam.mjs` flow in `infra/IAM.md`; general bootstrap also handles secrets
-  and keys. Install the boundary before pushing a template that requires it.
+  and the CI role. Install the boundary before pushing a template that requires it.
 - Alarms route to the sysadmin `projects-ops-alerts` queue via
   `infra/scripts/wire-alarms.mjs` (queue policy + raw subscription). No email.
 - Secrets: load the `aws-secrets-manager` skill before touching any; never

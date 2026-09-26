@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # One grouped PR a week for minor and patch updates, so they merge on one
+  # green validate instead of queueing behind each other on a PR-only main.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci

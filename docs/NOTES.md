@@ -50,7 +50,7 @@ replace the pin. Bumping the SHA is how a design change arrives here.
 
 **CI authenticates like Drop.** Static keys for an `elixir-clan-deploy` IAM
 user in GitHub secrets, a `elixir-clan-cloudformation-execution` role passed
-to CloudFormation. Elixir itself deploys only from Jamie's machine; Drop's
+to CloudFormation. (Replaced 2026-09-26 by GitHub OIDC; see that day.) Elixir itself deploys only from Jamie's machine; Drop's
 pattern was the one the prompt named.
 
 **ACM.** The account already holds an ISSUED, DNS-validated
@@ -1117,3 +1117,29 @@ Jamie's review of the overnight notes:
   the day (`morning#<clan>`) and runs it. Web requests keep 25 s and their
   duration alarm. A fan-out by queue or self-invocation would need the
   boundary widened; this needs nothing new in IAM.
+
+## 2026-09-26 — Pull requests only; CI deploys through OIDC, not a stored key
+
+Jamie moved every Clash Royale product repo onto elixir-mcp's landing model
+(`../plans/deploy-model-2026-09-26.md` in the domain repo) and asked for OIDC
+in place of Clan's and Drop's static CI keys.
+
+- `main` takes only pull requests, merged by rebase on a green `validate`,
+  with linear history and no bypass (0 approvals: the agents push as
+  Jamie's account). `validate.yml`'s one job is that check; it now also runs
+  `scripts/test-workflows.sh` (copied from elixir-mcp-collector: pinned
+  actions, no default token permissions, no persisted checkout token).
+- CI assumes `elixir-clan-github-deploy` with GitHub's OIDC token. Its trust
+  names only this repository's `production` environment (both the name and
+  the immutable-id subject forms, since the repo uses the immutable form);
+  the environment admits only `main`, with no admin bypass. The inline
+  policy is the old user's `elixir-clan-deployment`, unchanged. Access
+  Analyzer: the policy clean; the trust's one warning (a subject without a
+  branch) is answered by the environment's branch rule. The
+  `elixir-clan-deploy` user, its key and the `ELIXIR_CLAN_AWS_*` secrets
+  are removed once an OIDC deploy has succeeded.
+- A local deploy runs elixir-mcp's CI gate (`infra/scripts/ci-gate.mjs`):
+  only an up-to-date `main` whose `validate` is green.
+- The team's loop branches `<objective>/<slug>` after preflight and lands
+  by PR (`AGENT-TEAM/WORKFLOW.md`).
+

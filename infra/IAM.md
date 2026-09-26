@@ -3,8 +3,15 @@
 The existing `elixir-clan-cloudformation-execution` service role may manage
 IAM only for `elixir-clan-api`. Role creation and boundary attachment require
 `elixir-clan-runtime-boundary`; PassRole allows that role only to Lambda.
-The execution role cannot edit itself, CI users, another role, or the boundary
+The execution role cannot edit itself, the CI role, another role, or the boundary
 policy. The CI policy and other service permissions are preserved.
+
+CI's identity is the `elixir-clan-github-deploy` role (2026-09-26, replacing
+the `elixir-clan-deploy` user's static keys): GitHub Actions assumes it with
+its OIDC token, and its trust names only this repository's `production`
+environment, which admits only `main`. Its one inline policy is
+`elixir-clan-deployment` (`deploymentPolicyFor`). `secure-iam.mjs` verifies
+its trust and policy beside the other two roles.
 
 The boundary is an administrator-owned managed policy outside the application
 stack. It caps the application's current table/index operations, log writes,
@@ -15,7 +22,7 @@ identity, key, or recurring charge is introduced.
 ## Apply an approved correction
 
 Use the explicitly authorized `jamie` administrator. Do not run the general
-bootstrap for an IAM repair: bootstrap also handles secrets and CI keys.
+bootstrap for an IAM repair: bootstrap also handles secrets and the CI role.
 
 ```sh
 node infra/scripts/secure-iam.mjs validate --profile cloud-engineer
@@ -29,7 +36,7 @@ and application grants. It writes private rollback metadata before mutations,
 validates the reviewed documents with Access Analyzer, installs the runtime
 boundary, then restricts the execution policy. It refuses an unexpected
 runtime boundary or an existing boundary document that differs from source.
-It never fetches application secrets, reads CI credential values, rotates
+It never fetches application secrets, rotates
 keys, assumes an application role, or changes member data.
 
 Install and verify the boundary **before pushing the template change**.

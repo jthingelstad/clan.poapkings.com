@@ -27,14 +27,22 @@ the product docs it points at.
    proof), and use `abort` with a reason when a run cannot finish.
 5. Fix the gap at the source in the same run, with the regression test that
    would have caught it. A warning, a guard or a ticket chain is not a fix.
-6. Recheck the lease (`check <objective> --lease-id <id>`), the branch, the
-   upstream and the worktree immediately before the first edit and before
-   push. Stop if the state changed.
-7. `npm run verify` before every commit. Commit and push only this run's
-   work, directly to `main`. CI validates and deploys `main`; the smoke
-   script runs after every deploy. `AWS_PROFILE=cloud-engineer node
-   infra/scripts/deploy.mjs` is for a deploy CI cannot make (a parameter
-   change) and is said so in the run's report.
+6. Recheck the lease (`check <objective> --lease-id <id>`), then
+   `git switch -c <objective>/<slug>` from the clean, synced `main` before
+   the first edit. Recheck the lease and the worktree before push. Stop if
+   the state changed.
+7. `npm run verify` before every commit. Commit only this run's work on
+   its branch and land it as a pull request on a green `validate`
+   (AGENTS.md, "Landing changes"): `git push -u origin HEAD`,
+   `gh pr create --fill`, `gh pr merge --auto --rebase --delete-branch`,
+   `gh pr checks --watch --fail-fast`. `main` refuses a direct push (GH013);
+   never work around it. Once merged, `git switch main && git pull
+   --ff-only`. CI deploys `main` after its `validate`; the smoke script runs
+   after every deploy. Work that cannot merge in the run stays an open PR,
+   recorded in the report, and the checkout goes back to `main`.
+   `AWS_PROFILE=cloud-engineer node infra/scripts/deploy.mjs` is for a
+   deploy CI cannot make (a parameter change), from the up-to-date `main`,
+   and is said so in the run's report.
 8. Verify the deploy (`gh run list`, the smoke output, one live read of the
    changed surface). Verify semantic success from natural evidence: a
    verdict on the real roster, a real feedback item answered, a real grant.
@@ -52,7 +60,7 @@ the product docs it points at.
   rule is accepted against the golden tests AND one real evaluation read
   back from the ledger.
 - Close the Loop owns the response to every feedback item and the truth of
-  the docs; `done` means shipped, with the commit or push named.
+  the docs; `done` means shipped, with the merged PR or its merge commit named.
 - A clean deploy never substitutes for natural evidence.
 
 ## Issues are the exception ledger

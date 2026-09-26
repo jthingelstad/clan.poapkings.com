@@ -1,6 +1,8 @@
 /** Administrator-owned IAM documents shared by bootstrap and independent verification. */
 import {
   CFN_ROLE,
+  DEPLOY_ROLE,
+  GITHUB_REPO,
   REGION,
   SECRET_NAME,
   STACK,
@@ -10,6 +12,7 @@ import {
 export const RUNTIME_ROLE = "elixir-clan-api";
 export const BOUNDARY_NAME = "elixir-clan-runtime-boundary";
 export const EXECUTION_POLICY = "elixir-clan-stack-management";
+export const DEPLOYMENT_POLICY = "elixir-clan-deployment";
 export const boundaryArnFor = (accountId) =>
   `arn:aws:iam::${accountId}:policy/${BOUNDARY_NAME}`;
 export const runtimeRoleArnFor = (accountId) =>
@@ -240,6 +243,35 @@ export const trustFor = (service) => ({
     },
   ],
 });
+/** Who may be the deploy role: a GitHub Actions job of this repository
+ *  running in its `production` environment, which only `main` may use. The
+ *  repo's OIDC subject is the immutable form (owner and repo ids); the
+ *  name form is kept beside it so a settings change does not lock CI out. */
+const GITHUB_OIDC = "token.actions.githubusercontent.com";
+export const GITHUB_SUBJECTS = [
+  `repo:${GITHUB_REPO}:environment:production`,
+  "repo:jthingelstad@5351/clan.poapkings.com@1367593151:environment:production",
+];
+export const githubDeployTrustFor = (accountId) => ({
+  Version: "2012-10-17",
+  Statement: [
+    {
+      Effect: "Allow",
+      Principal: {
+        Federated: `arn:aws:iam::${accountId}:oidc-provider/${GITHUB_OIDC}`,
+      },
+      Action: "sts:AssumeRoleWithWebIdentity",
+      Condition: {
+        StringEquals: {
+          [`${GITHUB_OIDC}:aud`]: "sts.amazonaws.com",
+          [`${GITHUB_OIDC}:sub`]: GITHUB_SUBJECTS,
+        },
+      },
+    },
+  ],
+});
+export const deployRoleArnFor = (accountId) =>
+  `arn:aws:iam::${accountId}:role/${DEPLOY_ROLE}`;
 export const executionRoleArnFor = (accountId) =>
   `arn:aws:iam::${accountId}:role/${CFN_ROLE}`;
 

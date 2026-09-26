@@ -9,13 +9,8 @@ import {
   IAMClient,
   GetRoleCommand,
   GetRolePolicyCommand,
-  GetUserCommand,
-  GetUserPolicyCommand,
   ListAttachedRolePoliciesCommand,
   ListRolePoliciesCommand,
-  ListAttachedUserPoliciesCommand,
-  ListUserPoliciesCommand,
-  ListGroupsForUserCommand,
   PutRolePolicyCommand,
   GetPolicyCommand,
   GetPolicyVersionCommand,
@@ -25,13 +20,15 @@ import {
   ValidatePolicyCommand,
 } from "@aws-sdk/client-accessanalyzer";
 import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
-import { CFN_ROLE, CI_USER, REGION, STACK } from "./stack.mjs";
+import { CFN_ROLE, DEPLOY_ROLE, REGION, STACK } from "./stack.mjs";
 import {
+  DEPLOYMENT_POLICY,
   EXECUTION_POLICY,
   RUNTIME_ROLE,
   boundaryArnFor,
   deploymentPolicyFor,
   executionPolicyFor,
+  githubDeployTrustFor,
   runtimeBoundaryFor,
   trustFor,
 } from "./iam-policies.mjs";
@@ -105,27 +102,14 @@ async function inspect() {
     );
     return { role: role.Role, policy: inline.PolicyDocument };
   };
-  const [execution, runtime, user, policy, attached, names, groups] =
-    await Promise.all([
-      roleState(CFN_ROLE, EXECUTION_POLICY),
-      roleState(RUNTIME_ROLE, RUNTIME_ROLE),
-      iam.send(new GetUserCommand({ UserName: CI_USER })),
-      iam.send(
-        new GetUserPolicyCommand({
-          UserName: CI_USER,
-          PolicyName: "elixir-clan-deployment",
-        }),
-      ),
-      iam.send(new ListAttachedUserPoliciesCommand({ UserName: CI_USER })),
-      iam.send(new ListUserPoliciesCommand({ UserName: CI_USER })),
-      iam.send(new ListGroupsForUserCommand({ UserName: CI_USER })),
-    ]);
-  assert.deepEqual(attached.AttachedPolicies, []);
-  assert.deepEqual(names.PolicyNames, ["elixir-clan-deployment"]);
-  assert.deepEqual(groups.Groups, []);
-  assert.ok(
-    !attached.IsTruncated && !names.IsTruncated && !groups.IsTruncated,
-    "Incomplete CI inventory requires review",
+  const [execution, runtime, ci] = await Promise.all([
+    roleState(CFN_ROLE, EXECUTION_POLICY),
+    roleState(RUNTIME_ROLE, RUNTIME_ROLE),
+    roleState(DEPLOY_ROLE, DEPLOYMENT_POLICY),
+  ]);
+  assert.deepEqual(
+    comparablePolicy(ci.role.AssumeRolePolicyDocument),
+    comparablePolicy(githubDeployTrustFor(accountId)),
   );
   assert.deepEqual(
     comparablePolicy(execution.role.AssumeRolePolicyDocument),
@@ -140,11 +124,11 @@ async function inspect() {
     "Unexpected execution boundary requires review",
   );
   assert.ok(
-    !user.User.PermissionsBoundary,
+    !ci.role.PermissionsBoundary,
     "Unexpected CI boundary requires review",
   );
   assert.deepEqual(
-    comparablePolicy(policy.PolicyDocument),
+    comparablePolicy(ci.policy),
     comparablePolicy(deploymentPolicyFor(accountId)),
   );
   assert.deepEqual(
@@ -154,7 +138,7 @@ async function inspect() {
   return {
     execution,
     runtime,
-    ci: { user: user.User, policy: policy.PolicyDocument },
+    ci,
   };
 }
 

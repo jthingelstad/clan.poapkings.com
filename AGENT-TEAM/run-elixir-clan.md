@@ -14,6 +14,8 @@ follow, or a client registration that quietly expired.
   them, do not re-derive them.
 - **Deployed.** `gh run list --limit 5`: the latest `validate` and
   `deploy` on `main` are green and the deployed commit is `origin/main`.
+  No PR of this repo's has sat open with a green check and auto-merge off
+  without a reason in a run report or an issue.
   A red deploy is this objective's to fix in the run. A green deploy whose
   smoke failed after the AppUrl flip was the first day's lesson: read the
   smoke output, not just the status.
@@ -46,8 +48,9 @@ follow, or a client registration that quietly expired.
 ## Action
 
 - A failed deploy, a broken smoke, an alarm with a cause in our code, a
-  contract adaptation, a re-pin: fix in the run, with the test, push,
-  watch CI, read the smoke.
+  contract adaptation, a re-pin: fix in the run, with the test, as a PR
+  that merges on a green `validate`; watch the merge SHA's deploy, read the
+  smoke.
 - A parameter change (`--param=Key=Value`) is a local deploy and is said so.
 - Anything Elixir must change goes to Elixir (`elixir_feedback` or its
   AGENT-TEAM) as one concrete fact request; never a judgment.
