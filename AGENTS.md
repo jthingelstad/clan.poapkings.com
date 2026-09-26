@@ -14,7 +14,7 @@ chosen: `docs/VISION.md`. Read it before proposing a feature.
 
 `CLAUDE.md` is a symlink to this file. Do not fork them.
 
-## What this is, in five rules
+## What this is, in seven rules
 
 1. **In-game role is the app role.** Leader, co-leader, elder, member come
    from the clan roster (`clans_roster`), never from anything stored here.
@@ -298,7 +298,8 @@ may; leaders edit), the member sheet's trophy case, and **Trophies**
 the awards the clan runs with their rules, the winners season by season,
 and your own. Opening Trophies evaluates, so a closed season's grants are
 written by whichever member looks first. Nothing is published outside the
-app.
+app; what reaches Elixir (announced winners, and the app's own morning
+standings) is shown there only to the clan and its agent.
 
 ## Recruit
 

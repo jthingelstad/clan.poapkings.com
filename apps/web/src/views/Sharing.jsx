@@ -2,7 +2,8 @@ import { useSharing } from "../lib/queries.js";
 
 /**
  * What Elixir Clan records in Elixir (door 3, 2026-09-25): what the clan
- * did goes back to Elixir as facts, each said by the person who did it.
+ * did goes back to Elixir as facts, each said by the person who did it, and
+ * what the app computed each morning (the award standings) as its own.
  * Always, with nothing to switch (Jamie, 2026-09-25): every kind is
  * something the clan already sees in the game or here, and Elixir shows
  * each only to the readers its kind allows; the family's other apps (the
@@ -23,9 +24,10 @@ export function Sharing({ clan }) {
     <div className="grid gap-3">
       <p className="page__lede m-0">
         What your clan does here is recorded in Elixir, said by the person who
-        did it, so the family&rsquo;s other apps (the Discord narrator among
-        them) know what the clan knows. Elixir keeps it apart from the game
-        record and shows each kind only to the people below.
+        did it, and where the award races stand each morning, said by Elixir
+        Clan itself, so the family&rsquo;s other apps (the Discord narrator
+        among them) know what the clan knows. Elixir keeps it apart from the
+        game record and shows each kind only to the people below.
       </p>
       <div className="grid gap-3">
         {Object.entries(d.types).map(([key, t]) => (

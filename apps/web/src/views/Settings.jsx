@@ -6,8 +6,9 @@ import { Sharing } from "./Sharing.jsx";
  * co-leaders with what belongs to the whole clan rather than to how it
  * runs. How the clan runs is its Policy; its awards and its recruiting
  * words keep their own pages. Here: what the clan records in Elixir
- * (door 3, read-only: always on) and the clan's own model; the mail it
- * sends through Elixir belongs here too, when that door opens.
+ * (door 3, read-only: always on) and the clan's own model. The mail it
+ * sends through Elixir (door 2) is each person's to switch, on Elixir's
+ * email page.
  */
 export function Settings({ clan }) {
   return (

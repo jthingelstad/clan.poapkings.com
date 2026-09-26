@@ -54,6 +54,11 @@ export const SHARE_TYPES = {
     why: "Clan Leader Messages sent with a promotion, a demotion or an announcement, and welcome lines in clan chat.",
     sees: "Everyone verified in the clan.",
   },
+  award_standing: {
+    label: "Where the award races stand",
+    why: "Each morning, Elixir Clan's own reading of the running season's awards (and the last closed season's final places): who is on each podium, who is on track for attendance. Said by the app, not a person; written only when a place changes.",
+    sees: "Everyone verified in the clan, and the clan's agent.",
+  },
 };
 
 const LEADERS = new Set(["leader", "coLeader"]);

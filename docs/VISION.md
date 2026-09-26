@@ -105,7 +105,10 @@ clan Elixir only watches rather than records works with less.
    request to Elixir. What a person in the clan did (a departure they say was
    a kick, a promotion they made, an award they granted) is a fact too, and
    goes back to Elixir attested by that person, never as a recommendation or
-   a score.
+   a score. Where the clan's own award races stand is the one thing the app
+   says in its own name (Jamie, 2026-09-25: "Clan can publish the standings
+   each day to Elixir"): places by the clan's own rules, labelled as the
+   app's, apart from the game record.
 7. **An app for the clan's members, not a publisher.** Everything is behind
    sign-in; nothing is published for the world.
 8. **Quiet, useful, and never on our tokens.** No polling and no spend per
@@ -145,8 +148,8 @@ of kinds and a members' trophy case; recruiting copy in two formats; lines for m
 clanmates;
 scouting an applicant; clan settings, where the clan's own model, on its
 own Anthropic key, is added to draft the recruiting pitch and Leader Messages
-for a leader to edit; optional sharing of the clan's attested facts with
-Elixir; a morning evaluation and action-waiting email through Elixir; feedback
+for a leader to edit; the clan's attested facts shared with Elixir, always
+on, and its award standings each morning; a morning evaluation and action-waiting email through Elixir; feedback
 to the maintainer. See `AGENTS.md` for how.
 
 ## Themes ahead (not yet ordered)

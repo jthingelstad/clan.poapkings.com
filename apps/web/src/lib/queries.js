@@ -123,7 +123,7 @@ export const useRecruit = (tag) =>
 export const useModel = (tag) =>
   useGated(keys.model(tag), () => manageApi.model(tag));
 
-/** What the clan shares with Elixir: the leaders' switches. */
+/** What the clan records in Elixir, and who sees it there (read-only). */
 export const useSharing = (tag) =>
   useGated(keys.sharing(tag), () => manageApi.sharing(tag));
 

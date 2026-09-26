@@ -247,9 +247,9 @@ export function createAwardsService({
     configFor,
     evaluateClan,
 
-    /** Manage ▸ Awards: races, seasons, grants, and the document. */
     /** The morning evaluation (door 1): a closed season's grants are
-     *  written, and its announcement raised, without anyone visiting. */
+     *  written, and its announcement raised, without anyone visiting; the
+     *  standings go to Elixir as the app's own facts. */
     async evaluateOnSchedule(clanTag, key) {
       await requirePolicy(clanTag, { size: false });
       const { result } = await evaluateClan({
@@ -261,6 +261,7 @@ export function createAwardsService({
       return { awards_evaluated: true, ...(shared ?? {}) };
     },
 
+    /** Manage ▸ Awards: races, seasons, grants, and the document. */
     async manageView(clanTag, who, token, { refresh = false } = {}) {
       if (!ELDER_PLUS.has(who.role)) throw new ManageError(403, "elders_only");
       await requirePolicy(clanTag, { size: false });
