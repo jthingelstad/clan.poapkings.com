@@ -737,7 +737,7 @@ export function createHandler({
         if (method === "PUT")
           return json(200, await manage.setHold(tag, who, ptag, body));
         if (method === "DELETE") {
-          await manage.clearHold(tag, who, ptag);
+          await manage.clearHold(tag, who, ptag, token);
           return json(200, { ok: true });
         }
       }

@@ -995,6 +995,18 @@ test("away: a member marks themselves away within the policy's cap; the clock pa
   const cleared = await api(member, mc, "GET", "/api/clans/2PQRJ8LV/me/away");
   assert.equal(cleared.body.hold, null);
 
+  // A member's away that a leader clears is taken back in Elixir too.
+  await api(member, mc, "PUT", "/api/clans/2PQRJ8LV/me/away", {
+    until: new Date(NOW.getTime() + 5 * DAY).toISOString(),
+  });
+  await api(lead, lc, "DELETE", "/api/clans/2PQRJ8LV/holds/8QCV");
+  assert.ok(
+    lead.mcp.calls.some(
+      (c) => c[0] === "removeFact" && c[2].ref === "away:#8QCV",
+    ),
+    "the leader's clear takes the member's away back",
+  );
+
   // The policy can turn it off.
   const pol = (await api(lead, lc, "GET", "/api/clans/2PQRJ8LV/policy")).body
     .current.values;

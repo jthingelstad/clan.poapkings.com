@@ -1059,7 +1059,7 @@ found, and this fixes, before the first 11:00Z run:
   award ids in snake_case; the standings test had used one clan's award
   and member names and is rewritten with neutral ones.
 
-Not done, for a later look: a leader clearing a member's away does not
-take back `member_away` (the fact is the member's word on their own
-grant); a clan paused below ten members keeps its last standings up;
+Later the same night: a leader clearing a member's away now takes back
+`member_away` too, on the leader's grant (Elixir lets a leader attest an
+away, so it lets one remove it). Not done, for a later look: a clan paused below ten members keeps its last standings up;
 the morning run's 25 s Lambda timeout is shared by every clan in turn.

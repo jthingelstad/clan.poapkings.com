@@ -1409,10 +1409,20 @@ export function createManageService({
         set_at: new Date(now()).toISOString(),
       });
     },
-    async clearHold(clanTag, who, playerTag) {
+    async clearHold(clanTag, who, playerTag, token = null) {
       requireLeader(who);
       await requirePolicy(clanTag);
+      const existing = (await ledger.holds(clanTag)).find(
+        (h) => h.player_tag === playerTag,
+      );
       await ledger.removeHold(clanTag, playerTag);
+      // A member's away cleared by a leader is taken back in Elixir too, on
+      // the leader's grant (a leader may attest an away; 2026-09-26 review:
+      // Elixir kept showing leaders the member as away).
+      if (existing?.kind === "away")
+        await sharing
+          .awayCleared(clanTag, token, { player_tag: playerTag })
+          .catch(() => {});
     },
 
     // ---- away: a member says so on their own page (2026-09-12). The
