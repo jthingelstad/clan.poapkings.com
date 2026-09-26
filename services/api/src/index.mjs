@@ -59,6 +59,7 @@ const manage = createManageService({
 const awards = createAwardsService({
   ledger,
   participationFor: (token, clanTag) => fetchParticipation(mcp, token, clanTag),
+  elixir: mcp,
 });
 
 // The morning evaluation, on Clan's own Elixir integration key (door 1).

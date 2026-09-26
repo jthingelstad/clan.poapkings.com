@@ -27,6 +27,9 @@
  *   recruit#<clan>#v<n>      one immutable pitch: the clan's own recruiting words
  *   recruit_facts#<clan>     the last live read of the clan (facts only,
  *                            no member list), a few hours
+ *   standings#<clan>         what the morning run last shared with Elixir
+ *                            as award standings: the season and, per ref,
+ *                            the member and place (manage/standings.mjs)
  *   model_key#<clan>         the clan's own Anthropic key, SEALED (see
  *                            manage/model.mjs), who added it, the model;
  *                            outside the ByClan index on purpose, so no
@@ -493,6 +496,19 @@ function ledgerOver(io) {
         gsi1pk: clanKey(clanTag),
         gsi1sk: "recruit_facts#latest",
         ...facts,
+      });
+    },
+    // ---- award standings shared with Elixir -----------------------------
+    async sharedStandings(clanTag) {
+      const item = await io.get(`standings#${clanTag}`);
+      return item ? stripKeys(item) : null;
+    },
+    async saveSharedStandings(clanTag, item) {
+      await io.put({
+        ...item,
+        pk: `standings#${clanTag}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: "standings#latest",
       });
     },
     // ---- the clan's own model ------------------------------------------

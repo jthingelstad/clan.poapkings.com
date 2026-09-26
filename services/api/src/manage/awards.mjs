@@ -29,6 +29,7 @@ import {
 import { MIN_MEMBERS, leaderMessage } from "@elixir-clan/engine";
 import { createActionStore } from "./actions.mjs";
 import { newId } from "./ledger.mjs";
+import { planStandings, standingsFrom } from "./standings.mjs";
 
 const LEADERS = new Set(["leader", "coLeader"]);
 const ELDER_PLUS = new Set(["leader", "coLeader", "elder"]);
@@ -36,6 +37,9 @@ const ELDER_PLUS = new Set(["leader", "coLeader", "elder"]);
 export function createAwardsService({
   ledger,
   participationFor,
+  // Elixir's client, for the morning run's award standings (JSON API
+  // 2.6.0, on the integration key with facts:write); none, none shared.
+  elixir = null,
   now = () => Date.now(),
 }) {
   const isLeader = (who) => LEADERS.has(who.role);
@@ -178,6 +182,46 @@ export function createAwardsService({
     };
   }
 
+  /**
+   * The running season's award standings to Elixir, as the app's own
+   * facts: only what moved since the last morning is written, and a
+   * standing no longer held is taken back (manage/standings.mjs). A write
+   * that fails is left out of what was shared, so the next run retries it.
+   */
+  async function shareStandings(clanTag, key, result) {
+    const prev = await ledger.sharedStandings(clanTag);
+    const current = standingsFrom(result);
+    const { writes, removes, next } = planStandings(prev, current);
+    let failed = 0;
+    for (const fact of writes) {
+      const r = await elixir.writeFact(key, clanTag, fact);
+      if (!r.ok) {
+        failed += 1;
+        // What Elixir still holds under this ref, if anything, stays the
+        // record: a standing never written is retried, one written before
+        // can still be taken back.
+        if (prev?.refs?.[fact.ref]) next.refs[fact.ref] = prev.refs[fact.ref];
+        else delete next.refs[fact.ref];
+      }
+    }
+    for (const ref of removes) {
+      const r = await elixir.removeFact(key, clanTag, ref);
+      if (!r.ok) {
+        failed += 1;
+        next.refs[ref] = prev.refs[ref];
+      }
+    }
+    await ledger.saveSharedStandings(clanTag, {
+      ...next,
+      shared_at: new Date(now()).toISOString(),
+    });
+    return {
+      standings_written: writes.length,
+      standings_removed: removes.length,
+      standings_failed: failed,
+    };
+  }
+
   const shape = (g) => ({
     season_id: g.season_id,
     award_id: g.award_id,
@@ -204,8 +248,13 @@ export function createAwardsService({
      *  written, and its announcement raised, without anyone visiting. */
     async evaluateOnSchedule(clanTag, key) {
       await requirePolicy(clanTag, { size: false });
-      await evaluateClan({ clanTag, token: key, force: true });
-      return { awards_evaluated: true };
+      const { result } = await evaluateClan({
+        clanTag,
+        token: key,
+        force: true,
+      });
+      const shared = elixir ? await shareStandings(clanTag, key, result) : null;
+      return { awards_evaluated: true, ...(shared ?? {}) };
     },
 
     async manageView(clanTag, who, token, { refresh = false } = {}) {

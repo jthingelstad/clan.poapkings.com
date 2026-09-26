@@ -1012,3 +1012,18 @@ exists for, saw no departure or award, and nothing said so.
   with the leaders), a Discord with non-members (the clan's own bot and
   server; controlled there, not by cutting the data off).
 
+## 2026-09-25 — Award standings to Elixir each morning
+
+Jamie: "Do the mid season standings." Elixir 9.6.0 added `award_standing`,
+a clan fact the family app writes itself on its integration key (labelled
+as the app's, never a person's); the elixir-clan integration was given
+`facts:write`. Here the morning run, after the awards evaluation, shares
+the running season's standings: the podium places of each computed award
+and the members on track for an attendance award, one fact per member per
+award (`standing:<season>:<award>:<tag>`), written only when that
+member's place moves and taken back when it no longer stands, so members'
+timelines do not fill with daily point drift. First place on a podium
+names who held it before (`previous_player_tag`), which is what a clan's
+Discord agent reads as a lead change. `standings#<clan>` remembers what was
+shared; a failed write is retried the next morning. A visit shares nothing.
+

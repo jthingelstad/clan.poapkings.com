@@ -562,7 +562,9 @@ shared, and when (`factsOfAction`):
 - the season's awards announcement sent: its Leader Message, and each
   winner of that season as `award_granted`;
 - the rules announcement sent: its Leader Message;
-- a member marks themselves away: `member_away`, taken back when cleared.
+- a member marks themselves away: `member_away`, taken back when cleared;
+- each morning, the app's own: where members stand in the running
+  season's awards, `award_standing` (see "The morning evaluation").
 
 A removal's chat line names an inactive member and is never shared as a
 message. Sharing is best effort and never holds up the action; the
@@ -799,8 +801,13 @@ granted without anyone visiting. EventBridge invokes the one function with
 `services/api/src/scheduled.mjs`); it reads Elixir on Elixir Clan's OWN
 integration key (`elixir-clan`, permission `clans:read`, JSON API 2.3.0),
 never a person's token, and runs the same `evaluateClan` a visit runs,
-then the awards evaluation. Nothing is shared with Elixir (sharing is a
-person's act). One clan's failure never stops the rest; the run writes
+then the awards evaluation. What people did is shared only as their own
+act, never here; what the app computed is: the running season's **award
+standings** go to Elixir as the app's own `award_standing` facts (JSON
+API 2.6.0, `facts:write` on the same key; `manage/standings.mjs`), one per
+member per award, written only when that member's place moves, taken back
+when it no longer stands, first place naming who held it before;
+`standings#<clan>` remembers what was shared. One clan's failure never stops the rest; the run writes
 one JSON line (`scheduled: "evaluate"`, each clan's result, never the
 key). The list is `schedule#<clan>` in the `schedule#clans` partition of
 the index, put when a policy is saved or evaluated.

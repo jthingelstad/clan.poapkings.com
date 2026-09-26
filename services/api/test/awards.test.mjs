@@ -443,3 +443,42 @@ test("awards: when a season's awards are granted, leaders get a Clan Leader Mess
     1,
   );
 });
+
+test("awards: the morning run shares the running season's standings with Elixir on its key, then only what moved", async () => {
+  const h = harness({ part: partClan() });
+  const svc = createAwardsService({
+    ledger: h.ledger,
+    now: () => h.clock.t,
+    participationFor: (token, tag) => fetchParticipation(h.mcp, token, tag),
+    elixir: h.mcp,
+  });
+  const first = await svc.evaluateOnSchedule("#2PQRJ8LV", "svt_clan_key");
+  assert.equal(first.awards_evaluated, true);
+  assert.ok(first.standings_written > 0, JSON.stringify(first));
+  assert.equal(first.standings_failed, 0);
+  const writes = h.mcp.calls.filter((c) => c[0] === "writeFact");
+  assert.equal(writes.length, first.standings_written);
+  assert.ok(
+    writes.every((c) => c[1] === "svt_clan_key"),
+    "on the integration key",
+  );
+  const facts = h.mcp.state.facts;
+  assert.ok(facts.every((f) => f.type === "award_standing"));
+  assert.ok(
+    facts.every((f) => f.detail.season_id === 136),
+    "the running season only",
+  );
+  assert.ok(
+    facts.some(
+      (f) => f.detail.award_id === "season_champ" && f.detail.place === 1,
+    ),
+  );
+  // What was shared is remembered; the next morning writes nothing new.
+  const saved = await h.ledger.sharedStandings("#2PQRJ8LV");
+  assert.equal(saved.season_id, 136);
+  assert.equal(Object.keys(saved.refs).length, first.standings_written);
+  h.clock.t += 86_400_000;
+  const second = await svc.evaluateOnSchedule("#2PQRJ8LV", "svt_clan_key");
+  assert.equal(second.standings_written, 0);
+  assert.equal(second.standings_removed, 0);
+});
