@@ -29,8 +29,8 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
-    "oxlint": "^1.81.0",
+    "oxlint": "^1.85.0",
     "playwright": "^1.63.0",
-    "prettier": "^3.9.6"
+    "prettier": "^3.9.9"
   }
 }
