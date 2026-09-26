@@ -214,6 +214,7 @@ runner-up, for Jamie to take, change or refuse. Decisions go to
 ## Open
 
 - **Write-back** (settled and built 2026-09-25): attested facts, kept
-  apart from the game record and labelled; visibility per type (a kick or
-  an away only to the clan's leaders, never an agent); the clan chooses
+  apart from the game record and labelled; visibility per type (an away
+  only to the clan's leaders, never an agent; a departure's kind to the
+  clan and its agent since Elixir 9.3.0); the clan chooses
   what leaves it, all off to start.

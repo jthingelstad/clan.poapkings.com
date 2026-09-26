@@ -977,3 +977,14 @@ summaries". Jamie: keep them. Names are public in the game, the action
 pages and logs are unreadable without them, and with no public documents
 since today (rule 7) nothing carries them outside the app. AGENTS.md's
 storage section says so.
+
+## 2026-09-25 — Departures reach the clan's agent (Elixir 9.3.0)
+
+Jamie: "Departures should be visible even on a kick… in clan chat everyone
+sees that the person was kicked. We then comment on it so everyone knows
+why." Elixir 9.3.0 moves `departure_classified` to the clan (its agents
+included); an away stays with the leaders. Here only the words change: the
+switch's "who sees it" line, the vision and guide, and the two tests that
+pinned the old sentence. Sharing is still the clan's choice, per type, all
+off to start, and a setting of its own: saving a policy does not turn any
+switch on.

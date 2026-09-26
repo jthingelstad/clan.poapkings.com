@@ -539,9 +539,10 @@ What the clan did goes back to Elixir as **attested facts**, on the acting
 person's own grant (`POST /api/v1/clans/{tag}/facts`, JSON API 2.2.0,
 scope `clans:attest`; `services/api/src/manage/sharing.mjs`). Elixir keeps
 them apart from the game record, labelled as that person's word through
-Elixir Clan, and shows each only to the readers its type allows (a kick or
-an away only to the clan's leaders, never to an agent, so a kick is never
-narrated). **The clan chooses what leaves it**: one switch per type in
+Elixir Clan, and shows each only to the readers its type allows (an away
+only to the clan's leaders, never to an agent; a departure, kick or leave,
+to the clan and its agent since Elixir 9.3.0, Jamie 2026-09-25: the game
+already shows the clan a kick and leaders say why in clan chat). **The clan chooses what leaves it**: one switch per type in
 Clan settings (`GET|PUT /api/clans/<TAG>/sharing`, `sharing#<clan>`),
 every one off to start, leaders and co-leaders only. What is shared, and
 when (`factsOfAction`):

@@ -14,7 +14,7 @@ const types = {
   departure_classified: {
     label: "Kicks and leaves",
     why: "When a leader answers a departure.",
-    sees: "The clan's leaders and co-leaders only; never an agent, so a kick is never narrated.",
+    sees: "Everyone verified in the clan, and the clan's agent: the game already shows the clan who was kicked.",
   },
   role_change_made: {
     label: "Promotions and demotions",
@@ -41,7 +41,7 @@ describe("share with Elixir", () => {
     renderWithProviders(<Sharing clan={clan} />);
     const kicks = await screen.findByLabelText("Kicks and leaves");
     expect(kicks.checked).toBe(false);
-    expect(screen.getByText(/never an agent/)).toBeTruthy();
+    expect(screen.getByText(/the clan's agent/)).toBeTruthy();
     const button = screen.getByRole("button", {
       name: "Save what the clan shares",
     });

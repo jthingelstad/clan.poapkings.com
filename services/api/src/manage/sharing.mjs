@@ -3,8 +3,10 @@
  * back to Elixir as ATTESTED FACTS, on the acting person's own grant
  * (JSON API 2.2.0, scope clans:attest). Elixir keeps them apart from the
  * game record, labelled as this person's word through Elixir Clan, and
- * shows each only to the readers its type allows (a kick or an away only
- * to the clan's leaders, never to an agent, so a kick is never narrated).
+ * shows each only to the readers its type allows: a departure (kick or
+ * leave) to the clan and its agent since Elixir 9.3.0 (Jamie, 2026-09-25:
+ * the game already shows the clan a kick, and leaders say why in clan
+ * chat); an away only to the clan's leaders, never an agent.
  *
  * The clan chooses what leaves it: one switch per fact type in Clan
  * settings, every one off to start. A fact is shared when the action that
@@ -23,7 +25,7 @@ export const SHARE_TYPES = {
   departure_classified: {
     label: "Kicks and leaves",
     why: "When a leader answers a departure (kicked or left), or completes a removal.",
-    sees: "The clan's leaders and co-leaders only; never an agent, so a kick is never narrated.",
+    sees: "Everyone verified in the clan, and the clan's agent: the game already shows the clan who was kicked.",
   },
   role_change_made: {
     label: "Promotions and demotions",

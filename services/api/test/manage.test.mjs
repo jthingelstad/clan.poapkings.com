@@ -1531,7 +1531,14 @@ test("sharing: nothing leaves the clan until a leader switches a kind on; then a
   const settings = await api(quiet, qc, "GET", "/api/clans/2PQRJ8LV/sharing");
   assert.equal(settings.status, 200, JSON.stringify(settings.body));
   assert.ok(Object.values(settings.body.values).every((v) => v === false));
-  assert.match(settings.body.types.departure_classified.sees, /never an agent/);
+  assert.match(
+    settings.body.types.departure_classified.sees,
+    /the clan's agent/,
+  );
+  assert.match(
+    settings.body.types.member_away.sees,
+    /leaders and co-leaders only/,
+  );
   assert.equal(
     (await decide(quiet, qc, await removalOf(quiet, qc))).status,
     200,
