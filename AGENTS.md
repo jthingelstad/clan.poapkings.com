@@ -273,7 +273,10 @@ Season recognition as per-clan configuration: a CATALOG OF KINDS, never a
 rules engine (`services/engine/src/awards.mjs`). Each kind is one function
 with a few parameters; every award a clan runs is an instance with the
 clan's own name and description. Kinds: `season_points_podium` (war points
-over the season, tiebreak donations or none), `perfect_attendance`
+over the season; equal points go to the higher donor over the season and
+equal in both share the place, always: Jamie, 2026-09-26, the kinds are
+fixed features, so the old `tiebreak` setting is dropped from a saved
+document on read), `perfect_attendance`
 (pass/fail, decks per day, allowed misses), `donations_podium`,
 `rookie_podium` (first season here = joined during this season, or during
 the previous one without a war day in it; a join that predates the record
@@ -832,11 +835,19 @@ Loop's daily duty.
 
 ## The morning evaluation (2026-09-25, door 1)
 
-Every clan with a policy is evaluated daily at 11:00 UTC, after the war
+Every clan with a policy is evaluated daily from 11:00 UTC, after the war
 day's reset, so actions wait for leaders and a closed season's awards are
-granted without anyone visiting. EventBridge invokes the one function with
-`{"scheduled":"evaluate"}` (`EvaluateSchedule` in the template;
-`services/api/src/scheduled.mjs`); it reads Elixir on Elixir Clan's OWN
+granted without anyone visiting. One clan per invocation (Jamie,
+2026-09-26): EventBridge invokes `elixir-clan-evaluate` (the API's code and
+role, a 300 s limit, one at a time, logging into the API's log group) with
+`{"scheduled":"evaluate"}` every two minutes through the 11:00 UTC hour
+(`EvaluateSchedule`); each invocation claims the next clan not yet run
+today (`morning#<clan>`, a conditional write) and evaluates that one, so a
+clan has the whole limit to itself and Elixir is read for one clan every
+two minutes, 30 clans an hour (widen the rule's hours past that). An
+invocation with nothing left writes nothing (`services/api/src/
+scheduled.mjs`; the `elixir-clan-evaluate-errors` alarm watches the run
+itself). It reads Elixir on Elixir Clan's OWN
 integration key (`elixir-clan`, permission `clans:read`, JSON API 2.3.0),
 never a person's token, and runs the same `evaluateClan` a visit runs,
 then the awards evaluation. What people did is shared only as their own

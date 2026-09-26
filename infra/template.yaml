@@ -261,21 +261,55 @@ Resources:
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${Api}/*
 
   # The morning evaluation (2026-09-25, door 1): every clan with a
-  # policy is evaluated at 11:00 UTC (06:00 Central in summer, 05:00 in
+  # policy is evaluated from 11:00 UTC (06:00 Central in summer, 05:00 in
   # winter), after the war day's reset, on Clan's own Elixir integration
   # key, so actions wait for leaders and a closed season's awards are
-  # granted without anyone visiting. The function tells this event from an
-  # HTTP one by its payload.
+  # granted without anyone visiting. One clan per invocation (Jamie,
+  # 2026-09-26): the rule fires every two minutes through the hour and each
+  # invocation takes the next clan not yet run today (services/api/src/
+  # scheduled.mjs), so a clan has the whole time limit to itself and Elixir
+  # is never read for every clan at once. Its own function, the API's code
+  # and role with a longer limit and one at a time, so the web requests
+  # keep their short limit and their duration alarm; it logs into the
+  # API's log group, the one the runtime boundary allows.
+  EvaluateFunction:
+    Type: AWS::Lambda::Function
+    Condition: HasSchedule
+    DependsOn: ApiLogGroup
+    Properties:
+      FunctionName: elixir-clan-evaluate
+      Description: Elixir Clan - the morning evaluation, one clan per invocation
+      Runtime: nodejs24.x
+      Architectures: [arm64]
+      Handler: index.handler
+      MemorySize: 256
+      Timeout: 300
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt ApiRole.Arn
+      Code: { S3Bucket: !Ref CodeBucket, S3Key: !Ref ApiCodeKey }
+      LoggingConfig:
+        LogGroup: !Ref ApiLogGroup
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SessionTable
+          APP_URL: !Ref AppUrl
+          ELIXIR_URL: !Ref ElixirUrl
+          OAUTH_CLIENT_ID: !Ref OAuthClientId
+          SESSION_SECRET: !Sub "{{resolve:secretsmanager:${AppSecretName}:SecretString:session_secret}}"
+          MAINTAINER_TAGS: !Ref MaintainerTags
+          FEEDBACK_TOPIC_ARN: !Ref FeedbackTopic
+          ELIXIR_INTEGRATION_KEY: !Ref ElixirIntegrationKey
+
   EvaluateSchedule:
     Type: AWS::Events::Rule
     Condition: HasSchedule
     Properties:
       Name: elixir-clan-evaluate
-      Description: Elixir Clan - evaluate every clan with a policy, daily
-      ScheduleExpression: cron(0 11 * * ? *)
+      Description: Elixir Clan - evaluate the clans with a policy, one every two minutes from 11:00 UTC
+      ScheduleExpression: cron(0/2 11 * * ? *)
       State: ENABLED
       Targets:
-        - Arn: !GetAtt ApiFunction.Arn
+        - Arn: !GetAtt EvaluateFunction.Arn
           Id: evaluate
           Input: '{"scheduled":"evaluate"}'
 
@@ -283,7 +317,7 @@ Resources:
     Type: AWS::Lambda::Permission
     Condition: HasSchedule
     Properties:
-      FunctionName: !Ref ApiFunction
+      FunctionName: !Ref EvaluateFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt EvaluateSchedule.Arn
@@ -499,6 +533,25 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # The morning evaluation throwing (a clan's own failure is caught and
+  # logged; this is the run itself).
+  EvaluateErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasSchedule
+    Properties:
+      AlarmName: elixir-clan-evaluate-errors
+      AlarmDescription: The Elixir Clan morning evaluation is throwing or timing out
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{ Name: FunctionName, Value: !Ref EvaluateFunction }]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching

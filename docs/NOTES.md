@@ -1094,3 +1094,26 @@ leaders' switch in Clan settings; img-src allows `tile.openstreetmap.org`
 (the smoke pins it). Tests: the lists (every zone formats), the service
 end to end (checking, visibility, roster departures, per person, the
 switch), the rail and the page.
+
+## 2026-09-26 — War Champ ties on donations, always; one clan per morning run
+
+Jamie's review of the overnight notes:
+
+- "If there is a tie in the War Champ, it goes to the player who has the
+  highest donations... the way we do awards, they're just hard coded
+  features that a clan can turn on and off. War Champ should just work that
+  way." The points podium (and the rookie podium, the same race) always
+  breaks equal points on season donations; equal in both share the place.
+  The `tiebreak` setting is gone; a saved document carrying it still
+  validates (RETIRED_PARAMS). POAP KINGS' document already said donations,
+  so nothing it granted changes.
+- "Raise the timeout for the clan's morning run", then "one clan per
+  function call... stagger them so that we don't clobber the backend".
+  The first morning run took 22.2 s of the function's 25 s for one full
+  clan. Now: its own function, `elixir-clan-evaluate` (300 s, reserved
+  concurrency 1, the API's role and log group, since the runtime boundary
+  allows nothing else without an administrator change), fired every two
+  minutes through the 11:00 UTC hour; each invocation claims one clan for
+  the day (`morning#<clan>`) and runs it. Web requests keep 25 s and their
+  duration alarm. A fan-out by queue or self-invocation would need the
+  boundary widened; this needs nothing new in IAM.

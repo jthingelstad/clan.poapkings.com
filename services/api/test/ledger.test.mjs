@@ -87,6 +87,7 @@ test("DynamoDB clan cleanup queries only the named partition without an empty so
     "recruit##TEST",
     "model_key##TEST",
     "schedule##TEST",
+    "morning##TEST",
     "action_seq##TEST",
   ]);
 });

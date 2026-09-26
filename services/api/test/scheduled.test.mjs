@@ -31,7 +31,7 @@ test("scheduled: without a key nothing runs, and the log says why", async () => 
   assert.match(lines[0], /no_integration_key/);
 });
 
-test("scheduled: the list is every clan whose policy was saved or evaluated; one failure never stops the rest", async () => {
+test("scheduled: one clan per invocation, each taken once a day; one failure never stops the rest", async () => {
   const ledger = createMemoryLedger();
   await ledger.savePolicy("#AAA", { values: {}, by: "#L" });
   await ledger.saveVerdicts("#BBB", { members: [] });
@@ -52,21 +52,37 @@ test("scheduled: the list is every clan whose policy was saved or evaluated; one
     },
   };
   const lines = [];
-  const summary = await createScheduledRun({
+  const clock = { t: Date.parse("2026-09-27T11:00:00Z") };
+  const run = createScheduledRun({
     ledger,
     manage,
     integrationKey: "svt_test",
+    now: () => clock.t,
     log: { info: (l) => lines.push(l), warn: (l) => lines.push(l) },
-  })();
-  assert.equal(seen.length, 3);
+  });
+  // Every two minutes, the next clan: never two in one invocation.
+  const first = await run();
+  assert.equal(seen.length, 1);
+  assert.equal(first.ok, true);
+  assert.equal(first.level, "info");
+  const second = await run();
+  assert.equal(second.code, "too_few_members");
+  assert.equal(second.level, "info", "too few members is a skip");
+  const third = await run();
+  assert.equal(third.ok, false);
+  assert.equal(third.level, "warn", "the failure is its clan's alone");
+  assert.deepEqual((await run()).due, 0, "nothing left today");
+  assert.equal(lines.length, 3, "one line per clan, none for an empty slot");
+  assert.deepEqual(seen.map(([c]) => c).sort(), ["#AAA", "#BBB", "#CCC"]);
   assert.ok(seen.every(([, key]) => key === "svt_test"));
-  assert.equal(summary.clans, 3);
-  assert.equal(summary.evaluated, 1);
-  assert.equal(summary.failed, 1, "too few members is a skip, not a failure");
-  assert.equal(summary.level, "warn");
-  const line = JSON.parse(lines[0]);
-  assert.equal(line.scheduled, "evaluate");
-  assert.ok(!lines[0].includes("svt_test"), "the key is never logged");
+  assert.ok(!lines.join("").includes("svt_test"), "the key is never logged");
+  // The next morning every clan is due again.
+  clock.t += 86_400_000;
+  await run();
+  assert.equal(seen.length, 4);
+  // Two invocations racing for the list never take the same clan.
+  const both = await Promise.all([run(), run()]);
+  assert.notEqual(both[0].clan, both[1].clan);
   // A deleted clan leaves the list.
   await ledger.deleteClan("#AAA");
   assert.ok(!(await ledger.scheduledClans()).includes("#AAA"));
@@ -107,12 +123,13 @@ test("scheduled: a clan's evaluation reads Elixir on the key and raises actions 
   const summary = await createScheduledRun({
     ledger: {
       scheduledClans: async () => ["#2PQRJ8LV"],
+      claimMorning: async () => true,
     },
     manage,
     integrationKey: "svt_test",
     log: quiet,
   })();
-  assert.equal(summary.evaluated, 1, JSON.stringify(summary));
+  assert.equal(summary.ok, true, JSON.stringify(summary));
   assert.ok(
     mcp.calls.some(
       ([n, token]) => n === "clans_participation" && token === "svt_test",
@@ -170,13 +187,16 @@ test("scheduled: after evaluating, the people who can act on something new are e
     appUrl: "https://clan.test",
   });
   const run = createScheduledRun({
-    ledger: { scheduledClans: async () => ["#2PQRJ8LV"] },
+    ledger: {
+      scheduledClans: async () => ["#2PQRJ8LV"],
+      claimMorning: async () => true,
+    },
     manage,
     integrationKey: "svt_test",
     log: quiet,
   });
   const first = await run();
-  assert.equal(first.results[0].mailed, 1, JSON.stringify(first.results));
+  assert.equal(first.mailed, 1, JSON.stringify(first));
   const [sent] = mcp.state.mail;
   assert.equal(sent.kind, "clan_actions_waiting");
   // Only people who can act: the leaders, never the elder or the member.

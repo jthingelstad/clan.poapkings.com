@@ -37,6 +37,9 @@
  *   schedule#<clan>          the clan is on the morning evaluation's list
  *                            (partition schedule#clans of the index): put
  *                            when a policy is saved or evaluated
+ *   morning#<clan>           the day the morning run last took this clan
+ *                            (one clan per invocation, 2026-09-26): a
+ *                            conditional write, so a clan runs once a day
  *   mailed#<clan>#<tag>      when this person was last sent "actions
  *                            waiting" for this clan (door 2): the next
  *                            email waits for something new
@@ -155,6 +158,26 @@ export function createDynamoLedger({ tableName, region }) {
     );
     return Number(Attributes.n);
   }
+  /** Mark an item as taken for `day`; false when it already was today
+   *  (a conditional write, so two callers never both get it). */
+  async function claimDay(pk, day, at) {
+    try {
+      await doc.send(
+        new UpdateCommand({
+          TableName: tableName,
+          Key: { pk },
+          UpdateExpression: "SET #d = :d, #at = :at",
+          ConditionExpression: "attribute_not_exists(#d) OR #d <> :d",
+          ExpressionAttributeNames: { "#d": "day", "#at": "at" },
+          ExpressionAttributeValues: { ":d": day, ":at": at },
+        }),
+      );
+      return true;
+    } catch (e) {
+      if (e?.name === "ConditionalCheckFailedException") return false;
+      throw e;
+    }
+  }
   /** Set an attribute only if the item lacks it; false when it had one. */
   async function setIfAbsent(pk, attr, value) {
     try {
@@ -182,6 +205,7 @@ export function createDynamoLedger({ tableName, region }) {
     listByPartition,
     increment,
     setIfAbsent,
+    claimDay,
     doc,
     tableName,
   });
@@ -220,6 +244,12 @@ export function createMemoryLedger() {
       const item = items.get(pk);
       if (!item || item[attr] !== undefined) return false;
       item[attr] = value;
+      return true;
+    },
+    async claimDay(pk, day, at) {
+      const item = items.get(pk) ?? { pk };
+      if (item.day === day) return false;
+      items.set(pk, { ...item, day, at });
       return true;
     },
   });
@@ -288,6 +318,12 @@ function ledgerOver(io) {
       });
     },
     // ---- the morning evaluation's list (door 1) ------------------------
+    /** The morning run takes a clan for today (one clan per invocation,
+     *  2026-09-26); false when another invocation already has. Its own
+     *  item: `schedule#` is rewritten whole whenever a policy is saved. */
+    async claimMorning(clanTag, day, at) {
+      return io.claimDay(`morning#${clanTag}`, day, at);
+    },
     async scheduledClans() {
       return (await io.listByPartition(SCHEDULE_PARTITION, "")).map(
         (i) => i.clan_tag,
@@ -598,6 +634,7 @@ function ledgerOver(io) {
       await remove(`recruit#${clanTag}`);
       await remove(`model_key#${clanTag}`);
       await remove(`schedule#${clanTag}`);
+      await remove(`morning#${clanTag}`);
       await remove(`action_seq#${clanTag}`);
       return all.length;
     },
