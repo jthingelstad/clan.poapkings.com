@@ -20,6 +20,12 @@
  */
 
 export const AWARDS_SCHEMA_VERSION = 1;
+
+/** Settings a kind no longer has, dropped from a saved document on read
+ *  rather than refused. The points podium's tiebreak (Jamie, 2026-09-26: a
+ *  tie on points goes to the player with the most donations; the awards
+ *  are fixed kinds a clan turns on and off, so it is not a setting). */
+const RETIRED_PARAMS = { season_points_podium: ["tiebreak"] };
 export const MAX_AWARDS = 12;
 export const PODIUM_MAX = 3;
 
@@ -27,7 +33,7 @@ export const PODIUM_MAX = 3;
 export const AWARD_KINDS = {
   season_points_podium: {
     title: "Season points podium",
-    rule: "The members with the most war points over the season, on the podium in order. Equal points are a tie; the tiebreak decides the order on the podium and the tie is still named.",
+    rule: "The members with the most war points over the season, on the podium in order. Equal points go to the member who donated more cards over the season; equal in both, they share the place.",
     computed: true,
     params: {
       podium: {
@@ -37,13 +43,6 @@ export const AWARD_KINDS = {
         max: PODIUM_MAX,
         default: 3,
         why: "How many places are granted: 1 names a champion, 3 a podium.",
-      },
-      tiebreak: {
-        label: "Tiebreak",
-        type: "enum",
-        options: ["donations", "none"],
-        default: "donations",
-        why: "Equal points: the higher donor takes the higher place, or the tie stands and both hold the place.",
       },
     },
   },
@@ -180,7 +179,7 @@ export function validateAwards(input = {}) {
       params[key] = v;
     }
     for (const key of Object.keys(a?.params ?? {}))
-      if (!kind.params[key])
+      if (!kind.params[key] && !RETIRED_PARAMS[a.kind]?.includes(key))
         errors[at(`params.${key}`)] = "This is not a setting of this kind.";
     return {
       id,
@@ -205,7 +204,7 @@ export function describeAward(award) {
   const p = award.params;
   switch (award.kind) {
     case "season_points_podium":
-      return `${p.podium === 1 ? "The member" : `The ${p.podium} members`} with the most war points over the season${p.tiebreak === "donations" ? "; equal points break on cards donated" : "; equal points share the place"}.`;
+      return `${p.podium === 1 ? "The member" : `The ${p.podium} members`} with the most war points over the season; equal points go to the member who donated more cards, and equal in both share the place.`;
     case "perfect_attendance":
       return `${p.decks_per_day === 4 ? "Every deck" : `At least ${p.decks_per_day} decks a war day`} in every war week of the season, up to the clan's finish${p.allowed_misses ? `, with up to ${p.allowed_misses} day${p.allowed_misses === 1 ? "'s" : "s'"} worth of decks short forgiven` : ""}. Anyone who does it earns it.`;
     case "donations_podium":
@@ -351,19 +350,25 @@ function pointsPodium(participation, members, season, params, filter) {
     .sort((a, b) =>
       b.points !== a.points
         ? b.points - a.points
-        : params.tiebreak === "donations" && b.donations !== a.donations
+        : b.donations !== a.donations
           ? b.donations - a.donations
           : a.player_tag < b.player_tag
             ? -1
             : 1,
     );
+  // rank and tied are on points alone (a tie is named even when donations
+  // split it); the place is on points then donations, so only members
+  // equal in both share one, and a tie in both at the podium's edge keeps
+  // everyone tied.
   assignRanks(rows, "points");
-  // With no tiebreak a tie at the podium's edge keeps every tied member.
-  const podium = rows.filter((r) =>
-    params.tiebreak === "none"
-      ? r.rank <= params.podium
-      : r.official_rank <= params.podium,
-  );
+  let place = 0;
+  rows.forEach((r, i) => {
+    const prev = rows[i - 1];
+    if (!prev || prev.points !== r.points || prev.donations !== r.donations)
+      place = i + 1;
+    r.place = place;
+  });
+  const podium = rows.filter((r) => r.place <= params.podium);
   return { rows, podium };
 }
 
@@ -512,26 +517,21 @@ export function evaluateAwards({
           award.kind === "rookie_podium"
             ? rookieFilter(participation, seasons, season)
             : () => true;
-        const tiebreak = award.params.tiebreak ?? "donations";
         const { rows: all, podium } = pointsPodium(
           participation,
           members,
           season,
-          { ...award.params, tiebreak },
+          award.params,
           filter,
         );
-        // The place a member holds: with no tiebreak a tie stands and both
-        // hold the place (the rule's words); with one, the order it set.
-        const placeOf = (r) => (tiebreak === "none" ? r.rank : r.official_rank);
         rows = all.slice(0, 10).map((r) => ({
           ...r,
-          place: placeOf(r),
           on_podium: podium.includes(r),
         }));
         due = podium.map((r) => ({
           player_tag: r.player_tag,
           player_name: r.name,
-          rank: placeOf(r),
+          rank: r.place,
           metric_value: r.points,
           metric_unit: "points",
           metadata: {

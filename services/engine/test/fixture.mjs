@@ -156,7 +156,7 @@ export const EXAMPLE_AWARDS = {
       description:
         "The season's top war points, on the podium. Ties break on cards donated.",
       enabled: true,
-      params: { podium: 3, tiebreak: "donations" },
+      params: { podium: 3 },
     },
     {
       id: "ever_present",

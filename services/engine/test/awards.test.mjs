@@ -101,19 +101,54 @@ test("Season Champion: points order, donations tiebreak, ties named, podium of t
   assert.ok(r.grants_due.every((g) => g.season_id === 135));
 });
 
-test("with no tiebreak a tie at the podium's edge keeps everyone tied", () => {
+test("equal points go to the higher donor; equal in both, the place is shared, at the podium's edge too", () => {
   const cfg = structuredClone(EXAMPLE_AWARDS);
-  cfg.awards[0].params = { podium: 1, tiebreak: "none" };
-  const r = run(
+  cfg.awards[0].params = { podium: 1 };
+  const same = { war: [16, 16, 16, 16, 16, 8] };
+  const donor = run(
     [
-      member("#AAA", { war: [16, 16, 16, 16, 16, 8] }),
-      member("#BBB", { war: [16, 16, 16, 16, 16, 8] }),
+      member("#AAA", same),
+      member("#BBB", { ...same, donations: [300, 300, 300, 300, 300, 300] }),
       member("#CCC", { war: [8, 8, 8, 8, 8, 8] }),
     ],
     { config: cfg },
   );
-  const due = r.grants_due.filter((g) => g.award_id === "season_champ");
-  assert.deepEqual(due.map((g) => g.player_tag).sort(), ["#AAA", "#BBB"]);
+  assert.deepEqual(
+    donor.grants_due
+      .filter((g) => g.award_id === "season_champ")
+      .map((g) => [g.player_tag, g.rank]),
+    [["#BBB", 1]],
+    "the higher donor takes the tie",
+  );
+  const level = run([member("#AAA", same), member("#BBB", same)], {
+    config: cfg,
+  });
+  assert.deepEqual(
+    level.grants_due
+      .filter((g) => g.award_id === "season_champ")
+      .map((g) => [g.player_tag, g.rank])
+      .sort(),
+    [
+      ["#AAA", 1],
+      ["#BBB", 1],
+    ],
+    "equal in points and donations: both hold first",
+  );
+});
+
+test("a saved document from before still validates: its tiebreak setting is dropped", () => {
+  const old = validateAwards({
+    awards: [
+      {
+        id: "champ",
+        kind: "season_points_podium",
+        name: "Champ",
+        params: { podium: 3, tiebreak: "none" },
+      },
+    ],
+  });
+  assert.equal(old.ok, true, JSON.stringify(old.errors));
+  assert.deepEqual(old.values.awards[0].params, { podium: 3 });
 });
 
 test("a granted (season, award) is never due again; other awards still are", () => {
@@ -287,10 +322,7 @@ test("an awards document validates; bad ids, kinds, parameters and duplicates ar
     awards: [{ id: "champ", kind: "season_points_podium", name: "Champ" }],
   });
   assert.equal(ok.ok, true);
-  assert.deepEqual(ok.values.awards[0].params, {
-    podium: 3,
-    tiebreak: "donations",
-  });
+  assert.deepEqual(ok.values.awards[0].params, { podium: 3 });
   assert.equal("publish" in ok.values, false);
 });
 
