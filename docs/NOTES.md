@@ -1063,3 +1063,34 @@ Later the same night: a leader clearing a member's away now takes back
 `member_away` too, on the leader's grant (Elixir lets a leader attest an
 away, so it lets one remove it). Not done, for a later look: a clan paused below ten members keeps its last standings up;
 the morning run's 25 s Lambda timeout is shared by every clan in turn.
+
+## 2026-09-26 — Social: the clan map
+
+Jamie: "explore social features of Elixir Clans. This would be a section of
+its own 'Social' on the left and let's start with a Clan Map where players
+can provide their city, region on a map and then see where the other clan
+members are." His answers to the eight questions:
+
+1. Precision: country, then state or province, city optional, all from a
+   list; the pin at the city's (or region's) middle; no device location.
+2. Only the clan's verified, signed-in members see it; names beside pins;
+   leaders see what members see.
+3. Opt-in, removable any time, off the map the moment one leaves the
+   roster; nobody edits anyone else's, leaders included.
+4. Not shared with Elixir: "social features are only for the clan".
+5. One place per person (written under each verified tag).
+6. Local time: yes.
+7. Every clan, any size, no policy needed; leaders can turn social
+   features off. Recruit sits in the Social section (it stays when the
+   switch is off: it shares nothing about members).
+8. OpenStreetMap (and Mapbox) approved: OSM's standard tiles, no key.
+   Mapbox would need an account and a public token of Jamie's; the tile
+   URL is one line in `ClanMap.jsx`.
+
+Built: the kit gained `map` and `map-pin` icons (elixir-mcp a0c965a4,
+the pin bumped); Leaflet 1.9 in the web app; GeoNames lists in the engine;
+`manage/social.mjs`, the routes, the rail's Social section, the page, the
+leaders' switch in Clan settings; img-src allows `tile.openstreetmap.org`
+(the smoke pins it). Tests: the lists (every zone formats), the service
+end to end (checking, visibility, roster departures, per person, the
+switch), the rail and the page.

@@ -77,6 +77,8 @@ export function createHandler({
   /** Leader Messages drafted by the clan's model (`manage/drafts.mjs`) */
   drafts = null,
   feedback = null,
+  /** the clan's Social section: the clan map (`manage/social.mjs`) */
+  social = null,
   /** Verified player tags of the product's maintainer(s): MaintainerTags. */
   maintainerTags = [],
   now = () => Date.now(),
@@ -378,6 +380,12 @@ export function createHandler({
     // Which pages the selected clan's policy turns on (nothing in clan
     // management exists until a leader saves one), and the rail's Inbox
     // count for a leader: what is waiting, no evaluation.
+    // Whether the selected clan's Social section is on (the rail's Map).
+    if (social && selected)
+      body.social = await social
+        .setting(selected.clan_tag)
+        .then((x) => ({ enabled: x.enabled }))
+        .catch(() => ({ enabled: true }));
     if (manage && selected) {
       body.policy = await manage
         .policySummary(selected.clan_tag)
@@ -486,19 +494,34 @@ export function createHandler({
       clan = await selectionFor(session, gated.gate);
       if (!clan) return json(409, { error: "no_selection" });
     }
+    const got = await loadRoster(session, gated.gate, clan, {
+      refresh: q.refresh === "1",
+    });
+    if (got.response) return got.response;
+    return json(200, got.body);
+  }
+
+  /**
+   * One of the person's clans' roster, from the session's cache (3 min,
+   * floored at 30 s on a refresh) or Elixir: `{ body }` as the clan page
+   * reads it (with `cached_at`), or `{ response }` to send instead. The
+   * clan page and the clan map both read it here.
+   */
+  async function loadRoster(session, gate, clan, { refresh = false } = {}) {
     const clanTag = clan.clan_tag;
     const t = now();
-    const refresh = q.refresh === "1";
     const cached = session.rosters?.[clanTag];
     const fresh =
       cached &&
       typeof cached.cachedAt === "number" &&
       t - cached.cachedAt < (refresh ? REFRESH_FLOOR_MS : ROSTER_TTL_MS);
     if (fresh)
-      return json(200, {
-        ...cached.body,
-        cached_at: new Date(cached.cachedAt).toISOString(),
-      });
+      return {
+        body: {
+          ...cached.body,
+          cached_at: new Date(cached.cachedAt).toISOString(),
+        },
+      };
 
     // The clan is named explicitly rather than left to the tool's default,
     // which is the first RECORDED clan among the account's claims and can
@@ -506,19 +529,22 @@ export function createHandler({
     const ran = await withToken(session, (token) =>
       mcp.callTool(token, "clans_roster", { clan_tag: clanTag }),
     );
-    if (ran.signInRequired) return signedOut({ reason: "session_expired" });
+    if (ran.signInRequired)
+      return { response: signedOut({ reason: "session_expired" }) };
     const r = ran.result;
     if (!r.ok) {
       if (r.code === "not_recorded" || r.code === "no_subject")
-        return json(200, {
-          clan_tag: clanTag,
-          name: clan.name,
-          not_recorded: true,
-          hint: r.hint ?? null,
-          cached_at: new Date(t).toISOString(),
-        });
+        return {
+          body: {
+            clan_tag: clanTag,
+            name: clan.name,
+            not_recorded: true,
+            hint: r.hint ?? null,
+            cached_at: new Date(t).toISOString(),
+          },
+        };
       log.warn?.("roster_failed", { error: r.error, code: r.code });
-      return json(502, { error: "elixir_unavailable" });
+      return { response: json(502, { error: "elixir_unavailable" }) };
     }
     const body = shapeRoster(r.body, { yourTags: clan.your_tags });
     // The roster read is also how the policy gate learns the clan's size.
@@ -530,14 +556,49 @@ export function createHandler({
         );
     // Bounded: only clans in the set are ever cached, one entry each.
     const rosters = {};
-    for (const c of gated.gate.clans) {
+    for (const c of gate.clans) {
       if (session.rosters?.[c.clan_tag])
         rosters[c.clan_tag] = session.rosters[c.clan_tag];
     }
     rosters[clanTag] = { cachedAt: t, body };
     await store.updateSession(session.id, { rosters });
     session.rosters = rosters;
-    return json(200, { ...body, cached_at: new Date(t).toISOString() });
+    return { body: { ...body, cached_at: new Date(t).toISOString() } };
+  }
+
+  /** A person's verified player tags: one place is written under each. */
+  const verifiedTags = (gate) =>
+    (gate.identities ?? [])
+      .filter((i) => i.claim_status === "verified")
+      .map((i) => i.player_tag);
+
+  /** The person's own place for the clan map: read, set, cleared. One
+   *  place per person, whichever of their clans they set it from. */
+  async function placeRoute(event, method) {
+    const session = await loadSession(event);
+    if (!session) return signedOut();
+    const gated = await gateFor(session);
+    if (gated.signInRequired) return signedOut({ reason: "session_expired" });
+    if (gated.error) return json(502, { error: "elixir_unavailable" });
+    const tags = verifiedTags(gated.gate);
+    if (!tags.length) return json(403, { error: "gate", reason: "unverified" });
+    const person = { tags };
+    try {
+      if (method === "GET")
+        return json(200, { place: await social.myPlace(person) });
+      if (method === "PUT") {
+        const body = parseBody(event);
+        if (body === null) return json(400, { error: "bad_request" });
+        return json(200, { place: await social.setMyPlace(person, body) });
+      }
+      if (method === "DELETE")
+        return json(200, await social.clearMyPlace(person));
+      return json(404, { error: "not_found" });
+    } catch (err) {
+      if (err?.status)
+        return json(err.status, { error: err.code, ...(err.detail ?? {}) });
+      throw err;
+    }
   }
 
   /**
@@ -604,6 +665,25 @@ export function createHandler({
       method === "GET" || method === "DELETE" ? {} : parseBody(event);
     if (body === null) return json(400, { error: "bad_request" });
     try {
+      // Social (2026-09-26): the clan map for the clan's members; the
+      // switch is read by every member and set by leaders.
+      if (social && rest === "/social") {
+        if (method === "GET") return json(200, await social.setting(tag));
+        if (method === "PUT")
+          return json(200, await social.setEnabled(tag, who, body.enabled));
+      }
+      if (social && method === "GET" && rest === "/map") {
+        const got = await loadRoster(ctx.session, ctx.gate, clan);
+        if (got.response) return got.response;
+        if (got.body.not_recorded)
+          return json(200, { clan_tag: tag, not_recorded: true, entries: [] });
+        return json(
+          200,
+          await social.map(tag, got.body.members ?? [], {
+            tags: verifiedTags(ctx.gate),
+          }),
+        );
+      }
       // Recruiting: every member reads and copies; leaders write the pitch.
       if (recruit && rest === "/recruit") {
         if (method === "GET")
@@ -864,7 +944,10 @@ export function createHandler({
 
   async function dispatch(event, method, path) {
     try {
-      if ((manage || awards || recruit) && path.startsWith("/api/clans/")) {
+      if (
+        (manage || awards || recruit || social) &&
+        path.startsWith("/api/clans/")
+      ) {
         const answered = await manageRoute(event, method, path);
         if (answered) return answered;
       }
@@ -886,6 +969,8 @@ export function createHandler({
         return await select(event);
       if (method === "GET" && path === "/api/roster")
         return await roster(event);
+      if (social && path === "/api/me/place")
+        return await placeRoute(event, method);
       return json(404, { error: "not_found" });
     } catch (error) {
       log.error?.("unhandled", { path, error: error?.message });

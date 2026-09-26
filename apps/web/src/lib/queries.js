@@ -26,6 +26,7 @@ import { api, feedbackApi, manageApi } from "../api.js";
 export const keys = {
   me: ["me"],
   away: (tag) => ["me", "away", tag],
+  place: ["me", "place"],
   feedback: ["me", "feedback"],
   feedbackItem: (id) => ["me", "feedback", id],
   clan: (tag) => ["clan", tag],
@@ -37,6 +38,8 @@ export const keys = {
   recruit: (tag) => ["clan", tag, "recruit"],
   model: (tag) => ["clan", tag, "model"],
   sharing: (tag) => ["clan", tag, "sharing"],
+  map: (tag) => ["clan", tag, "map"],
+  social: (tag) => ["clan", tag, "social"],
   standing: (tag) => ["clan", tag, "standing"],
   trophies: (tag) => ["clan", tag, "trophies"],
   actions: (tag) => ["clan", tag, "actions"],
@@ -126,6 +129,14 @@ export const useModel = (tag) =>
 /** What the clan records in Elixir, and who sees it there (read-only). */
 export const useSharing = (tag) =>
   useGated(keys.sharing(tag), () => manageApi.sharing(tag));
+
+/** Social (2026-09-26): the clan map, the clan's switch, your place. */
+export const useClanMap = (tag) =>
+  useGated(keys.map(tag), () => manageApi.map(tag));
+export const useSocial = (tag) =>
+  useGated(keys.social(tag), () => manageApi.social(tag));
+export const useMyPlace = () =>
+  useQuery({ queryKey: keys.place, queryFn: payload(() => api.myPlace()) });
 
 export const useHistory = (tag) =>
   useQuery({

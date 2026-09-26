@@ -179,6 +179,7 @@ describe("feedback", () => {
       "actions",
       "standing",
       "trophies",
+      "map",
       "recruit",
       "board",
       "history",
@@ -196,6 +197,7 @@ describe("feedback", () => {
       "actions",
       "standing",
       "trophies",
+      "map",
       "recruit",
       "awards",
       "scout",
@@ -209,6 +211,7 @@ describe("feedback", () => {
       "actions",
       "standing",
       "trophies",
+      "map",
       "recruit",
       "you",
       "away",
@@ -221,6 +224,7 @@ describe("feedback", () => {
     expect(keys("leader", noPolicy)).toEqual([
       "clan",
       "me",
+      "map",
       "recruit",
       "policy",
       "settings",
@@ -231,6 +235,7 @@ describe("feedback", () => {
     expect(keys("elder", noPolicy)).toEqual([
       "clan",
       "me",
+      "map",
       "recruit",
       "scout",
       "you",
@@ -239,6 +244,7 @@ describe("feedback", () => {
     expect(keys("member", noPolicy)).toEqual([
       "clan",
       "me",
+      "map",
       "recruit",
       "you",
       "feedback",
@@ -248,6 +254,20 @@ describe("feedback", () => {
     const paused = { set: true, active: false, members: 7, away: false };
     expect(keys("leader", paused)).toEqual(keys("leader", noPolicy));
     expect(keys("member", paused)).toEqual(keys("member", noPolicy));
+    // Social (2026-09-26): the map in every clan, at any size, unless its
+    // leaders turned the clan's social features off; Recruit stays, and
+    // opens the section either way.
+    const social = (enabled) =>
+      railItems({
+        ...me,
+        policy: noPolicy,
+        social: { enabled },
+        selected: { ...me.selected, role: "member" },
+      });
+    expect(social(true).find((r) => r.key === "map").group).toBe("Social");
+    expect(social(false).map((r) => r.key)).not.toContain("map");
+    expect(social(false).find((r) => r.key === "recruit").group).toBe("Social");
+    expect(railKey("/clan/2PQRJ8LV/map")).toBe("map");
     // Away only when the policy offers it.
     expect(keys("member", { ...withPolicy, away: false })).not.toContain(
       "away",

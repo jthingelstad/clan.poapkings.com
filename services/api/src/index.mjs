@@ -18,6 +18,8 @@ import { createScheduledRun } from "./scheduled.mjs";
 import { createDrafts } from "./manage/drafts.mjs";
 import { createScout } from "./manage/scout.mjs";
 import { createFeedbackService } from "./feedback.mjs";
+import { createSocialService } from "./manage/social.mjs";
+import { diskGeo } from "./geo.mjs";
 import { createSnsNotifier } from "./notify.mjs";
 
 const env = (name, fallback) => {
@@ -78,6 +80,8 @@ const http = createHandler({
   awards,
   scout: createScout({ mcp }),
   recruit: createRecruitService({ ledger, mcp, model }),
+  // Social (2026-09-26): the clan map, on the place lists beside the bundle.
+  social: createSocialService({ ledger, geo: diskGeo() }),
   feedback: createFeedbackService({
     ledger,
     notify: createSnsNotifier({

@@ -55,7 +55,7 @@ chosen: `docs/VISION.md`. Read it before proposing a feature.
 apps/web/          React 19 + Vite SPA on Elixir's kit (TanStack Router + Query,
                    Tailwind v4 over Elixir's tokens): /, /clans, /clan/<TAG>,
                    /clan/<TAG>/actions[/<number>], /clan/<TAG>/standing, /clan/<TAG>/trophies,
-                   /clan/<TAG>/recruit, /clan/<TAG>/manage/{board,history,policy,awards,scout,settings},
+                   /clan/<TAG>/recruit, /clan/<TAG>/map, /clan/<TAG>/manage/{board,history,policy,awards,scout,settings},
                    /you, /you/away, /feedback, /maintain/feedback, /refused/<reason>
 services/engine/   the management engine, PURE: policy schema, facts, standing,
                    evaluate, render, awards, recruit, chat, words. No I/O, no clock.
@@ -300,6 +300,38 @@ and your own. Opening Trophies evaluates, so a closed season's grants are
 written by whichever member looks first. Nothing is published outside the
 app; what reaches Elixir (announced winners, and the app's own morning
 standings) is shown there only to the clan and its agent.
+
+## Social (2026-09-26)
+
+The clan's own section on the rail, for the people in it rather than for
+running it (Jamie: "a section of its own"). Every clan has it, with or
+without a policy and at any size; a leader or co-leader turns the clan's
+social features off in Clan settings (`social#<clan>`, `PUT
+/api/clans/<TAG>/social`), which hides the map; Recruit sits in the
+section and stays either way. `/api/me` carries `social.enabled` for the
+rail. Social features are for the clan alone: nothing in them goes to
+Elixir as a fact, and the clan's agent never sees them.
+
+**The clan map** (`/clan/<TAG>/map`, `GET /api/clans/<TAG>/map`,
+`manage/social.mjs`): a member adds where they play from, a country, its
+state or region and, if they like, a city, picked from lists (never typed,
+never an address, never the device's location). The lists are GeoNames'
+(CC BY 4.0: 245 countries, first-level regions, every city of 5,000 people
+or more, each with its time zone), built by `scripts/geo.mjs` into
+`services/engine/geo/*.json` and committed; `createGeo` in the engine
+resolves a picked place to its pin and zone (a city's own; a region's middle
+and its largest city's zone, so a member who names only a region is never
+pinned to a city). The browser loads one country's file when it is picked;
+the API reads them from disk beside the bundle (`infra/scripts/build.mjs`
+copies them in and hashes them into the code key). One place per person:
+`PUT /api/me/place` writes `place#<tag>` under each of their verified tags,
+so it shows in every clan they are in; `DELETE` removes it; nobody places
+or edits anyone else, leaders included. Only verified members of a clan see
+its map, names beside pins and each one's local time (and how far that is
+from yours); the map is drawn from today's roster, so someone who leaves is
+gone from it at once. The map is Leaflet over OpenStreetMap's tiles (the
+only third party beside the analytics, img-src only; tile requests carry
+this site's origin as referrer, never a path).
 
 ## Recruit
 
@@ -605,7 +637,7 @@ overwritten each evaluation), actions (`card#`, kept: this ledger is how a
 leave is told from a kick; each carries its `number`) and each action's
 log (`action_log#`), holds,
 and notes (tiered `leader` / `elder`), and the uses of the clan's model
-(`model_call#`, 90 days), what the morning run last shared (`standings#`),
+(`model_call#`, 90 days), the Social switch (`social#`), what the morning run last shared (`standings#`),
 whom it last emailed (`mailed#`) and the morning list (`schedule#`). Tags and summaries, never Elixir payloads.
 **Names ride beside tags** (Jamie, 2026-09-25, closing Guard the Door's
 question of 2026-09-20): a member's in-game name on their actions, and
@@ -727,7 +759,9 @@ embed records the document load; the route bridge records pushState
 navigation as virtual hits with the page collapsed (`/clan/<TAG>/manage/board`
 reports as `/clan/manage/board?clan=#TAG`; `/feedback/<id>` as
 `/feedback?id=`). localhost never tracks. The CSP allows `tinylytics.app` for
-script, connect and img and no other third party (the smoke pins it).
+script, connect and img, and OpenStreetMap's tiles (`tile.openstreetmap.org`,
+img only, for the clan map; Jamie, 2026-09-26), and no other third party
+(the smoke pins both).
 Events are counted the Tinylytics way, a hidden `data-tinylytics-event`
 node clicked once (`trackEvent`), or the attribute on a real link. The
 taxonomy, and it is REAL (add here when adding there):
@@ -746,6 +780,8 @@ taxonomy, and it is REAL (add here when adding there):
 | `clan.action_link_copied` | (none) |
 | `clan.invite_copied` | `leaders` \| `clanmates` \| `link` |
 | `clan.recruit_copied`, `clan.recruit_saved` | `personal` \| `post`; `v<n>` |
+| `clan.place_set`, `clan.place_cleared` | `city` \| `region` \| `country`; (none) |
+| `clan.social_set` | `on` \| `off` |
 | `clan.model_key_set`, `clan.model_key_removed`, `clan.model_drafted` | (none); (none); the purpose (`recruit_pitch` \| `leader_message`) |
 | `web.api_timeout`, `web.api_network`, `web.api_bad_response`, `web.api_slow` (over 3 s) | the route key, ids as `*` |
 

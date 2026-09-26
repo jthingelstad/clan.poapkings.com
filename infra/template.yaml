@@ -360,7 +360,7 @@ Resources:
               form-action 'self';
               script-src 'self' https://tinylytics.app;
               connect-src 'self' https://tinylytics.app;
-              img-src 'self' data: https://tinylytics.app;
+              img-src 'self' data: https://tinylytics.app https://tile.openstreetmap.org;
               font-src 'self' https://fonts.gstatic.com;
               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com
           ContentTypeOptions:

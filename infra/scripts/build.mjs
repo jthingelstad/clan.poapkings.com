@@ -8,7 +8,7 @@
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,13 +35,21 @@ export async function buildApi() {
     minify: false,
     logLevel: "error",
   });
+  // The clan map's place lists ride beside the bundle, read from disk one
+  // country at a time (services/api/src/geo.mjs), never parsed at start.
+  const geoSrc = path.join(repoRoot, "services/engine/geo");
+  await cp(geoSrc, path.join(outDir, "geo"), { recursive: true });
   const zipPath = path.join(distRoot, "api.zip");
   await rm(zipPath, { force: true });
   execFileSync("zip", ["-qrX", zipPath, "."], { cwd: outDir });
   const body = await readFile(zipPath);
   const bundle = await readFile(path.join(outDir, "index.mjs"));
   // Hash the bundle, not the zip: zip carries timestamps.
-  const sha = createHash("sha256").update(bundle).digest("hex").slice(0, 16);
+  const hash = createHash("sha256").update(bundle);
+  // ...and the place lists: a data-only change is a new key too.
+  for (const name of (await readdir(geoSrc)).sort())
+    hash.update(name).update(await readFile(path.join(geoSrc, name)));
+  const sha = hash.digest("hex").slice(0, 16);
   return { zipPath, body, codeKey: `code/api/${sha}.zip` };
 }
 

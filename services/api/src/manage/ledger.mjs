@@ -55,12 +55,21 @@
  *                            grants are facts of the record, manual ones
  *                            a leader's (kept: this is the trophy case)
  *
- * And one kind that belongs to no clan (2026-09-12):
+ *   social#<clan>            the clan's Social switch (2026-09-26): on
+ *                            unless a leader turned it off, who and when
+ *
+ * And kinds that belong to no clan:
  *
  *   feedback#<id>            what a person told the maintainer and what was
  *                            done about it, in ONE partition (feedback#queue)
  *                            because the whole queue is small and a person's
- *                            own list is a filter over it
+ *                            own list is a filter over it (2026-09-12)
+ *   place#<tag>              where a person says they play from, for the
+ *                            clan map (2026-09-26): a country, region and
+ *                            city picked from the lists, written under each
+ *                            of their verified tags (one place per person,
+ *                            in every clan they are in), removed when they
+ *                            clear it
  *
  * Deleted as a set when a clan's last verified leader disconnects
  * (deleteClan). Retention: cards and notes are kept; the verdict snapshot
@@ -555,6 +564,32 @@ function ledgerOver(io) {
       return item;
     },
     // ---- the whole clan ------------------------------------------------
+    // ---- social (2026-09-26): a person's place, under each of their
+    // verified tags; the clan's switch, in the clan's partition ----------
+    async places(tags) {
+      const items = await Promise.all(tags.map((t) => io.get(`place#${t}`)));
+      return items.filter(Boolean).map(stripKeys);
+    },
+    async savePlace(tags, place) {
+      for (const tag of tags)
+        await io.put({ pk: `place#${tag}`, player_tag: tag, ...place });
+    },
+    async removePlaces(tags) {
+      for (const tag of tags) await remove(`place#${tag}`);
+    },
+    async socialSetting(clanTag) {
+      const item = await io.get(`social#${clanTag}`);
+      return item ? stripKeys(item) : null;
+    },
+    async saveSocialSetting(clanTag, value) {
+      await io.put({
+        pk: `social#${clanTag}`,
+        gsi1pk: clanKey(clanTag),
+        gsi1sk: "social",
+        clan_tag: clanTag,
+        ...value,
+      });
+    },
     async deleteClan(clanTag) {
       const all = await io.listByPrefix(clanTag, "");
       for (const item of all) await remove(item.pk);

@@ -185,6 +185,12 @@ to the maintainer. See `AGENTS.md` for how.
    clan below 10 helped toward 10; members inviting their leaders.
 9. **Families** (horizon): a main clan and its feeder, and graduating
    between them.
+10. **Social** (Jamie, 2026-09-26): the clan's own section, for the people
+    in it rather than for running it. Started with the clan map (members add
+    a city or region and see where the clan plays from, with each one's
+    local time); Recruit sits in it. Every clan has it at any size; its
+    leaders can turn it off. Social features are for the clan alone:
+    nothing in them goes to Elixir or the clan's agent.
 
 ## How we choose the next step
 

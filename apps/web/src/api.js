@@ -75,6 +75,10 @@ export const manageApi = {
   removeModelKey: (tag) => del(`${clanBase(tag)}/model`),
   // What the clan records in Elixir (door 3): read-only, always on.
   sharing: (tag) => get(`${clanBase(tag)}/sharing`),
+  // Social (2026-09-26): the clan map, and the switch leaders turn off.
+  map: (tag) => get(`${clanBase(tag)}/map`),
+  social: (tag) => get(`${clanBase(tag)}/social`),
+  setSocial: (tag, enabled) => put(`${clanBase(tag)}/social`, { enabled }),
   // Away: the member's own word (2026-09-12).
   myAway: (tag) => get(`${clanBase(tag)}/me/away`),
   setAway: (tag, body) => put(`${clanBase(tag)}/me/away`, body),
@@ -114,4 +118,8 @@ export const api = {
     return get(qs ? `/api/roster?${qs}` : "/api/roster");
   },
   select: (clanTag) => post("/api/select", { clan_tag: clanTag }),
+  // Where you play from, for every clan map you are on (one per person).
+  myPlace: () => get("/api/me/place"),
+  setMyPlace: (place) => put("/api/me/place", place),
+  clearMyPlace: () => del("/api/me/place"),
 };

@@ -54,7 +54,20 @@ export function railItems(me) {
         icon: "award",
         to: `${base}/trophies`,
       });
+    // Social (Jamie, 2026-09-26): the clan's own section, in every clan at
+    // any size, with or without a policy. The map is the members' own
+    // sharing, which a leader can turn off; Recruit stays either way.
+    const social = me?.social?.enabled !== false;
+    if (social)
+      items.push({
+        group: "Social",
+        key: "map",
+        label: "Map",
+        icon: "map",
+        to: `${base}/map`,
+      });
     items.push({
+      ...(social ? {} : { group: "Social" }),
       key: "recruit",
       label: "Recruit",
       icon: "megaphone",
@@ -152,12 +165,14 @@ export function railKey(path) {
   if (path.startsWith("/feedback")) return "feedback";
   if (path.startsWith("/maintain")) return "maintain";
   const m =
-    /^\/clan\/[0-9A-Za-z]+(?:\/(me|actions|standing|trophies|recruit|manage)(?:\/([a-z0-9-]+))?)?\/?$/.exec(
+    /^\/clan\/[0-9A-Za-z]+(?:\/(me|actions|standing|trophies|recruit|map|manage)(?:\/([a-z0-9-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
   if (!m[1]) return "clan";
-  if (["me", "actions", "standing", "trophies", "recruit"].includes(m[1]))
+  if (
+    ["me", "actions", "standing", "trophies", "recruit", "map"].includes(m[1])
+  )
     return m[1];
   if (m[2] === "model") return "settings";
   return !m[2] || m[2] === "inbox" ? "actions" : m[2];

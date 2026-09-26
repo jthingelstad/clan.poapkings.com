@@ -12,3 +12,4 @@ export * from "./member.mjs";
 export * from "./chat.mjs";
 export * from "./words.mjs";
 export * from "./mail.mjs";
+export * from "./geo.mjs";

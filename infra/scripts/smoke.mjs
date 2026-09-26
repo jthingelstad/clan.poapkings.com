@@ -93,6 +93,20 @@ check(
   scriptSrc,
 );
 
+// Images from a third party: the analytics pixel and, for the clan map
+// (Social, 2026-09-26), OpenStreetMap's tiles. Nothing else.
+const imgSrc = /img-src ([^;]+)/.exec(csp)?.[1] ?? "";
+check(
+  "app shell CSP allows images only from tinylytics and OpenStreetMap's tiles",
+  imgSrc
+    .split(/\s+/)
+    .filter((s) => s.startsWith("http"))
+    .every((s) =>
+      ["https://tinylytics.app", "https://tile.openstreetmap.org"].includes(s),
+    ),
+  imgSrc,
+);
+
 const route = await timed(`${base}/clan`);
 check(
   "GET /clan serves the app shell (SPA router)",

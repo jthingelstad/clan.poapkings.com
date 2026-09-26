@@ -1,5 +1,7 @@
 import {
+  Suspense,
   createContext,
+  lazy,
   useCallback,
   useContext,
   useEffect,
@@ -45,6 +47,11 @@ import { Recruit } from "./views/Recruit.jsx";
 import { Trophies } from "./views/Trophies.jsx";
 import { ActionDetail, Actions } from "./views/Actions.jsx";
 import { YouHere } from "./views/YouHere.jsx";
+
+// The clan map brings Leaflet and the place lists: loaded when opened.
+const ClanMap = lazy(() =>
+  import("./views/ClanMap.jsx").then((m) => ({ default: m.ClanMap })),
+);
 import { Feedback, FeedbackItem } from "./views/Feedback.jsx";
 import { MaintainItem, MaintainQueue } from "./views/Maintain.jsx";
 
@@ -65,7 +72,7 @@ export const clanPath = (tag) => `/clan/${String(tag).replace(/^#/, "")}`;
  *  action's number (`/clan/<TAG>/actions/37`). */
 export function parseClanPath(path) {
   const m =
-    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|me|actions|standing|trophies|recruit)(?:\/([a-z0-9-]+))?)?\/?$/.exec(
+    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|me|actions|standing|trophies|recruit|map)(?:\/([a-z0-9-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
@@ -243,6 +250,12 @@ const clanRoute = createRoute({
       return <Trophies key={clan.clan_tag} clan={clan} who={who} />;
     if (parsed.section === "recruit")
       return <Recruit key={clan.clan_tag} clan={clan} navigate={navigate} />;
+    if (parsed.section === "map")
+      return (
+        <Suspense fallback={<p className="page__lede">Reading…</p>}>
+          <ClanMap key={clan.clan_tag} clan={clan} />
+        </Suspense>
+      );
     return <Clan key={clan.clan_tag} me={me} clan={clan} navigate={navigate} />;
   },
 });
