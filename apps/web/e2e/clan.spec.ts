@@ -1,7 +1,19 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { ME, mockApi, signedIn } from "./fixtures.ts";
-import { FIELDS, GROUPS, TABS, policyFromGoals } from "@elixir-clan/engine";
+import {
+  FIELDS,
+  GROUPS,
+  TABS,
+  policyFromGoals,
+  weeklyReport,
+} from "@elixir-clan/engine";
+import {
+  member,
+  participation,
+  NOW,
+  EXAMPLE_POLICY,
+} from "../../../services/engine/test/fixture.mjs";
 
 /** A saved policy as the editor reads it: a war clan, version 1. */
 const POLICY_VIEW = {
@@ -439,6 +451,74 @@ test.describe("signed in", () => {
     await expect(page).toHaveURL(/\/actions$/);
     await page.goto("/clan/2PQRJ8LV/actions/99");
     await expect(page.getByText("No action #99 here")).toBeVisible();
+  });
+
+  test("the week: what the clan counts, everyone who took part, earlier weeks", async ({
+    page,
+  }) => {
+    const part = participation([
+      member("#20QQL8CCRU", { name: "Ada" }),
+      member("#UQ8LP2R9C", { name: "Ben", war: [16, 16, 16, 16, 10, 0] }),
+      member("#M1", {
+        name: "Zed",
+        war: [0, 0, 0, 0, 0, 0],
+        donations: [0, 0, 0, 0, 0, 0],
+      }),
+    ]);
+    const roster = {
+      recent_events: [
+        {
+          type: "member_left",
+          at: "2026-09-02T00:00:00Z",
+          detail: { player_tag: "#L", name: "Lu" },
+        },
+      ],
+    };
+    await mockApi(
+      page,
+      signedIn({
+        "GET /api/clans/2PQRJ8LV/week": (route) => {
+          const week = new URL(route.request().url()).searchParams.get("week");
+          return [
+            200,
+            {
+              clan_tag: "#2PQRJ8LV",
+              clan_name: "Example Clan",
+              as_of: NOW.toISOString(),
+              freshness_seconds: 60,
+              policy: { set: true, active: true },
+              ...weeklyReport(part, {
+                roster,
+                policy: EXAMPLE_POLICY,
+                now: NOW,
+                week,
+              }),
+            },
+          ];
+        },
+      }),
+    );
+    await page.goto("/clan/2PQRJ8LV");
+    const rail = page.locator(".rail");
+    await rail.getByRole("link", { name: /^The week/ }).click();
+    await expect(page).toHaveURL(/\/week$/);
+    await expect(page.getByRole("heading", { name: "The week" })).toBeVisible();
+    await expect(page.getByText(/what this clan counts/)).toBeVisible();
+    const war = page.getByRole("list", { name: "Clan Wars: who took part" });
+    await expect(war).toContainText("Ada · 16 ✓");
+    await expect(war).toContainText("Ben · 10");
+    await expect(war).not.toContainText("Zed");
+    await expect(page.getByText("Departed", { exact: true })).toBeVisible();
+    await rendered(page);
+    await accessible(page, "the week");
+    await page.getByRole("link", { name: /← Week of/ }).click();
+    await expect(page).toHaveURL(/\/week\/2026-w35$/);
+    await expect(rail.getByRole("link", { name: /^The week/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(page.getByText(/This week so far/)).toHaveCount(0);
+    await rendered(page);
   });
 
   test("@narrow the rail is a disclosure above the content", async ({

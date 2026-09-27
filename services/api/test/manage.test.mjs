@@ -1538,6 +1538,76 @@ test("you here: with no policy, or below 10 members, it is your statistics alone
   assert.deepEqual(b.body.trophies, []);
 });
 
+// ---- The week in the clan (2026-09-27) ---------------------------------------
+
+test("week: the latest closed week for any member, everyone who took part named, highlighted by the active policy", async () => {
+  const h = harness({
+    players: [
+      player({ player_tag: "#8QCV", name: "Sleepy", clan_role: "member" }),
+    ],
+    part: partClan(),
+  });
+  const cookies = await leader(h);
+  const r = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/week");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.week.iso_week, "2026-W36");
+  assert.deepEqual(r.body.policy, { set: true, active: true });
+  assert.equal(r.body.highlight.basis, "policy");
+  const war = r.body.areas.find((a) => a.key === "war");
+  assert.equal(war.highlighted, true);
+  // Sleepy played no war decks: named nowhere in Clan Wars.
+  assert.ok(!war.participants.some((p) => p.player_tag === "#8QCV"));
+  assert.ok(war.participants.some((p) => p.player_tag === "#20QQL8CCRU"));
+  assert.equal(r.body.weeks.length, 5);
+  // An older week by its id; a week that is not closed is none.
+  const older = await api(
+    h,
+    cookies,
+    "GET",
+    "/api/clans/2PQRJ8LV/week?week=2026-W33",
+  );
+  assert.equal(older.body.week.iso_week, "2026-W33");
+  const open = await api(
+    h,
+    cookies,
+    "GET",
+    "/api/clans/2PQRJ8LV/week?week=2026-W37",
+  );
+  assert.equal(open.status, 404);
+  assert.equal(open.body.error, "no_week");
+  const bad = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/week?week=x");
+  assert.equal(bad.status, 400);
+  // Opening it raised no action.
+  assert.deepEqual(await h.ledger.cards("#2PQRJ8LV"), []);
+});
+
+test("week: with no policy, or below 10 members, the busiest areas are highlighted", async () => {
+  const none = harness({ part: partClan(), policy: null });
+  const a = await api(
+    none,
+    await leader(none),
+    "GET",
+    "/api/clans/2PQRJ8LV/week",
+  );
+  assert.equal(a.status, 200);
+  assert.deepEqual(a.body.policy, { set: false, active: false });
+  assert.equal(a.body.highlight.basis, "activity");
+  const small = harness({
+    part: participation([king, ...others.slice(0, 5)], {
+      clan_tag: "#2PQRJ8LV",
+    }),
+  });
+  const b = await api(
+    small,
+    await leader(small),
+    "GET",
+    "/api/clans/2PQRJ8LV/week",
+  );
+  assert.equal(b.status, 200);
+  assert.deepEqual(b.body.policy, { set: true, active: false });
+  assert.equal(b.body.highlight.basis, "activity");
+});
+
 // ---- sharing with Elixir (door 3) ----------------------------------------------
 
 test("sharing: always on, nothing to switch; a completed removal is shared as a kick, logged, and answered", async () => {

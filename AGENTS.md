@@ -55,6 +55,7 @@ chosen: `docs/VISION.md`. Read it before proposing a feature.
 ```
 apps/web/          React 19 + Vite SPA on Elixir's kit (TanStack Router + Query,
                    Tailwind v4 over Elixir's tokens): /, /clans, /clan/<TAG>,
+                   /clan/<TAG>/me, /clan/<TAG>/week[/<iso week>],
                    /clan/<TAG>/actions[/<number>], /clan/<TAG>/standing, /clan/<TAG>/trophies,
                    /clan/<TAG>/recruit, /clan/<TAG>/map, /clan/<TAG>/manage/{board,history,policy,awards,scout,settings},
                    /you, /you/away, /feedback, /maintain/feedback, /refused/<reason>, /verify
@@ -475,7 +476,7 @@ The rail is Elixir's console rail, groups and all.
 Not features here, by decision (Jamie): premise-fingerprint re-nomination
 and member shields; **alt accounts are Elixir's knowledge** (a fact request
 to Elixir if ever needed, never recorded here); Discord webhooks are
-deferred. The weekly clan report by email is agreed and is not built yet.
+deferred. The weekly clan report is a page (The week); its email waits on Elixir's mail kind for it.
 Scheduled evaluation: see "The morning evaluation".
 
 ## Actions (2026-09-25)
@@ -582,6 +583,46 @@ read, judged on the spot with `evaluate`: opening it never raises an
 action. Only the viewer's own lines: no one else's, no notes, no removal
 action about them.
 
+## The week (2026-09-27)
+
+The weekly clan report, as a page first (`/clan/<TAG>/week[/<iso
+week>]`, `GET /api/clans/<TAG>/week[?week=2026-W38]`, `weeklyReport` in
+`services/engine/src/week.mjs`); its email waits on a
+`clan_weekly_report` mail kind in Elixir, and will send the same
+report. Every member of any clan reads it, with or without a policy, at
+any size, on the rail's main group beside You here. One participation
+read and one roster read; opening it evaluates nothing and raises no
+action. Jamie's calls:
+
+- **Tied to the Monday reset.** A week is the ISO week (Monday 00:00
+  UTC, when the donation counter resets), and it closes when the war
+  week ending that Monday finishes, or at the game's 10:00 UTC Monday
+  reset, whichever is first. The latest closed week is shown; any
+  closed week in the record's eight is one click back
+  (`/week/2026-w36`); an open or unknown week is `404 no_week`. The week
+  still running shows below as "so far" (totals and how many took part).
+- **Everyone who took part is named, with what they did**: war decks
+  (a check for every deck asked, `4 × days asked` as the engine counts
+  them), cards donated, ranked battles, battles. Nobody with nothing in
+  an area is listed there, and a member absent all week appears
+  nowhere. A member whose stint began after the week is not in it; one
+  who joined during it is marked new.
+- **What is highlighted follows the policy.** An ACTIVE policy
+  highlights exactly the categories it counts, in its order (trophy
+  road, which has no weekly number in the record, as battles played).
+  With no policy, a paused one, or one counting nothing: the areas at
+  least half the clan took part in, else the busiest one. The rest
+  fold under "Also this week".
+- **Who came and went** from the roster's recent events inside the
+  week: joined, **departed** (never kick or leave), promoted, demoted.
+  A week older than the roster's events says so instead of showing
+  nobody.
+
+Numbers are today's members' (Elixir's participation lists no one who
+has left). No actions, removal clocks or award standings are in it: an
+action count could tell a member a removal exists, and standings live
+on Trophies.
+
 ## Sharing with Elixir (2026-09-25, door 3)
 
 What the clan did goes back to Elixir as **attested facts**, on the acting
@@ -677,8 +718,8 @@ current JSON API version (see `packages/contracts/integration-api.openapi.json`
 | Operation | Tool result | Used for |
 |---|---|---|
 | `GET /api/v1/me` | principal + `elixir_my_players` | the gate |
-| `GET /api/v1/clans/{tag}/roster` | `clans_roster` | the clan page, departures, history, today's trophies when the policy counts trophy road |
-| `GET /api/v1/clans/{tag}/participation?weeks=8` | `clans_participation` | every evaluation: one call, eight weeks, no agent-sized cap |
+| `GET /api/v1/clans/{tag}/roster` | `clans_roster` | the clan page, departures, history, the week's comings and goings, today's trophies when the policy counts trophy road |
+| `GET /api/v1/clans/{tag}/participation?weeks=8` | `clans_participation` | every evaluation, You here and the week: one call, eight weeks, no agent-sized cap |
 | `POST /api/v1/players/names` | `players_names` | name legacy departure cards whose roster event carried only a tag |
 | `GET /api/v1/players/{tag}/profile?fresh=1`, `GET /api/v1/players/{tag}/battles?limit=25&fresh=1` | `players_profile`, `battles_query` | scouting an applicant; `live_pending` is passed through with `retry_after_s` |
 | `GET /api/v1/clans/{tag}/live` | `live_fetch /clans/{tag}` | recruit facts |

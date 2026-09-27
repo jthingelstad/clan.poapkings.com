@@ -44,6 +44,7 @@ export function analyticsLocation(
       url.searchParams.set("id", rest[1]);
       rest[1] = "detail";
     }
+    if (rest[0] === "week" && rest[1]) url.searchParams.set("id", rest.pop());
     page = `/clan${rest.length ? `/${rest.join("/")}` : ""}`;
   } else if (
     (segments[0] === "feedback" && segments[1]) ||

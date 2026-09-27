@@ -176,6 +176,7 @@ describe("feedback", () => {
     expect(keys("leader")).toEqual([
       "clan",
       "me",
+      "week",
       "actions",
       "standing",
       "trophies",
@@ -194,6 +195,7 @@ describe("feedback", () => {
     expect(keys("elder")).toEqual([
       "clan",
       "me",
+      "week",
       "actions",
       "standing",
       "trophies",
@@ -208,6 +210,7 @@ describe("feedback", () => {
     expect(keys("member")).toEqual([
       "clan",
       "me",
+      "week",
       "actions",
       "standing",
       "trophies",
@@ -224,6 +227,7 @@ describe("feedback", () => {
     expect(keys("leader", noPolicy)).toEqual([
       "clan",
       "me",
+      "week",
       "map",
       "recruit",
       "policy",
@@ -235,6 +239,7 @@ describe("feedback", () => {
     expect(keys("elder", noPolicy)).toEqual([
       "clan",
       "me",
+      "week",
       "map",
       "recruit",
       "scout",
@@ -244,6 +249,7 @@ describe("feedback", () => {
     expect(keys("member", noPolicy)).toEqual([
       "clan",
       "me",
+      "week",
       "map",
       "recruit",
       "you",

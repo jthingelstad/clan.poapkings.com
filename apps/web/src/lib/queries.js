@@ -45,6 +45,7 @@ export const keys = {
   actions: (tag) => ["clan", tag, "actions"],
   action: (tag, number) => ["clan", tag, "actions", number],
   memberView: (tag) => ["clan", tag, "me"],
+  week: (tag, week) => ["clan", tag, "week", week ?? "latest"],
   memberNotes: (tag, player) => ["clan", tag, "member", player, "notes"],
   memberAwards: (tag, player) => ["clan", tag, "member", player, "awards"],
   maintain: ["maintain", "feedback"],
@@ -161,6 +162,9 @@ export const useStanding = (tag) =>
 
 export const useMemberView = (tag) =>
   useGated(keys.memberView(tag), () => manageApi.memberView(tag));
+
+export const useWeek = (tag, week) =>
+  useGated(keys.week(tag, week), () => manageApi.week(tag, week));
 
 export const useActions = (tag) =>
   useGated(keys.actions(tag), (refresh) => manageApi.actions(tag, refresh));

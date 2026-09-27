@@ -872,6 +872,13 @@ export function createHandler({
       // "You here": a member's own numbers and place in this clan.
       if (method === "GET" && rest === "/me")
         return json(200, await manage.memberView(tag, who, token));
+      // The week in the clan: every member's, any clan, any size.
+      if (method === "GET" && rest === "/week") {
+        const week = event.queryStringParameters?.week ?? null;
+        if (week !== null && !/^[0-9]{4}-[Ww][0-9]{2}$/.test(week))
+          return json(400, { error: "bad_request" });
+        return json(200, await manage.weekView(tag, who, token, { week }));
+      }
       // A member's own away: their page, their word, the policy's cap.
       if (rest === "/me/away") {
         if (method === "GET") return json(200, await manage.myAway(tag, who));

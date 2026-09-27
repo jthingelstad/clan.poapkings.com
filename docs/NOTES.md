@@ -1181,3 +1181,48 @@ Two server-side defects were real and are fixed:
   now lets one request spend it; the others wait for the stored pair.
 - A refresh Elixir did not answer (a timeout, a 5xx) signed the person out
   and cleared the cookie. It is now a 502 that keeps both.
+
+## 2026-09-27 — The week: the weekly clan report, as a page (Jamie)
+
+A build-loop round. Proposed: the weekly clan report (theme 2's "next"),
+built as a page now because its email needs a `clan_weekly_report` mail
+kind in Elixir, out of this round's reach; runner-up, a season recap on
+Trophies. Jamie took it, with these answers:
+
+1. Page now, the email once Elixir has the kind: agreed.
+2. Every member of any clan, no policy or size gate: agreed.
+3. "Name everyone that participated. If they played any war decks. If
+   they donated any cards. Don't list people that were absent and not
+   participating. What is highlighted should align with policy...
+   If no policy is set highlight the areas with the most activity."
+4. A member who left is "Departed" (not kick or leave).
+5. "Tied to Monday reset for sure."
+6. The main group of the rail.
+
+Built: `weeklyReport` and `reportWeeks` in the engine (`week.mjs`;
+`warDaysAsked` moved there from `member.mjs`, which imports it), the
+`GET /api/clans/<TAG>/week` route (`manage.weekView`: one participation
+read, one roster read, no evaluation), the page `/clan/<TAG>/week[/<iso
+week>]` ("The week" on the rail, under You here), and tests: 10 engine,
+2 API, 4 web, one browser journey with axe.
+
+Choices made here, for Jamie to confirm:
+
+- The week is the ISO week (Monday 00:00 UTC, the donation counter's
+  reset), closed at the finish of the war week ending that Monday or at
+  the game's 10:00 UTC reset, whichever is first. Elixir's weekly
+  columns are ISO weeks, so battles and donations cannot be cut at
+  10:00 UTC; the war week is paired with the ISO week it ends after.
+- "Most activity" is measured as how many members took part in an area
+  (comparable across decks, cards and battles): the areas at least half
+  the clan took part in, else the busiest one. In practice battles
+  usually lead a clan with no policy.
+- A saved policy paused below 10 members does not steer the highlight
+  (the statistics view rule); a policy that counts nothing falls back to
+  activity. Trophy road, with no weekly number, shows as battles played.
+- Each person's number is shown beside their name, most first, with no
+  place numbers. Left out: action counts (a count could tell a member a
+  removal exists) and award standings (Trophies has them).
+- Checked against POAP KINGS' live participation (read-only, 2026-09-27):
+  the shapes match the fixture (ISO weeks at 00:00 UTC; war weeks
+  finishing Mondays about 09:38 UTC, early finishes at war day 3).

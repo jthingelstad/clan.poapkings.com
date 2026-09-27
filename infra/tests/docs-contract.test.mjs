@@ -14,9 +14,10 @@ test("the weekly clan report has one status across the product contract", async 
 
   assert.match(
     agents,
-    /The weekly clan report by email is agreed and is not built yet\./,
+    /The weekly clan report is a page \(The week\); its email waits on Elixir's mail kind for it\./,
   );
   assert.match(vision, /weekly clan\s+report by email is next\./);
   assert.match(notes, /The weekly clan report is its own later round\./);
+  assert.match(notes, /The week: the weekly clan report, as a page/);
   assert.doesNotMatch(agents, /weekly digest/);
 });

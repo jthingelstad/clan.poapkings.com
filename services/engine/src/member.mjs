@@ -7,17 +7,9 @@
  * Pure: the participation answer, a roster and a tag in; one member out.
  */
 
-const DAY_MS = 86400_000;
+import { warDaysAsked as daysAsked } from "./week.mjs";
 
-/** Days a war week asks for: four a day up to the clan's finish, or all
- *  four days in Colosseum (null while the week is open). */
-function daysAsked(w) {
-  if (!w.finished_observed_at) return null;
-  if (w.is_colosseum) return 4;
-  return Number.isInteger(w.finish_war_day)
-    ? Math.min(4, Math.max(1, w.finish_war_day))
-    : 4;
-}
+const DAY_MS = 86400_000;
 
 /**
  * @param {object} participation the clans_participation answer
