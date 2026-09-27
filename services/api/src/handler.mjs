@@ -107,12 +107,17 @@ export function createHandler({
   // ---- sessions ---------------------------------------------------------
 
   async function loadSession(event) {
-    const id = verifySessionCookie(
-      sessionSecret,
-      readCookies(event)[SESSION_COOKIE],
-    );
-    if (!id) return null;
+    const raw = readCookies(event)[SESSION_COOKIE];
+    const id = verifySessionCookie(sessionSecret, raw);
+    // Why a request reads as signed out, on its log line: the browser
+    // sent no cookie, one that fails its signature, or one whose session
+    // is gone. The three have different causes (2026-09-26).
+    if (!id) {
+      annotate({ cookie: raw ? "bad_signature" : "absent" });
+      return null;
+    }
     const session = await store.getSession(id);
+    if (!session) annotate({ cookie: "no_session" });
     return session ? { id, ...session } : null;
   }
 
