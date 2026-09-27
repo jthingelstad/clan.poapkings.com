@@ -118,7 +118,14 @@ test("callback: the refusal pages, in gate order, each with a session except the
       false,
     ],
     [{ players: [] }, "no_primary_player", true],
-    [{ players: [player({ claim_status: "unverified" })] }, "unverified", true],
+    // Following a friend is not having a player of your own.
+    [
+      {
+        players: [player({ relationship: "friend", is_primary: false })],
+      },
+      "no_primary_player",
+      true,
+    ],
     [
       { players: [player({ clan_tag: null, clan_role: null })] },
       "no_clan",
@@ -228,6 +235,85 @@ test("session: a refresh Elixir refuses ends the session and asks for a fresh si
   assert.equal(JSON.parse(r.body).reason, "session_expired");
   const id = sessionCookie.split("=")[1].split(".")[0];
   assert.equal(h.store.items.has(`session#${id}`), false);
+});
+
+test("session: requests racing one expiry spend the refresh token once and share the new pair", async () => {
+  const h = harness();
+  const { sessionCookie } = await signIn(h);
+  const cookies = cookieHeader(sessionCookie);
+  h.clock.t += 2 * HOUR;
+  h.mcp.state.acceptedTokens = new Set(["eat_2"]);
+  let release;
+  h.oauth.state.refreshHeld = new Promise((resolve) => (release = resolve));
+  const racing = [
+    h.handler(req("GET", "/api/me", { cookies })),
+    h.handler(req("GET", "/api/roster", { cookies })),
+    h.handler(req("GET", "/api/me", { cookies })),
+  ];
+  for (let i = 0; i < 5; i += 1)
+    await new Promise((resolve) => setImmediate(resolve));
+  release();
+  const answers = await Promise.all(racing);
+  assert.deepEqual(
+    answers.map((r) => r.statusCode),
+    [200, 200, 200],
+  );
+  assert.equal(h.oauth.calls.filter((c) => c[0] === "refresh").length, 1);
+  const id = sessionCookie.split("=")[1].split(".")[0];
+  const stored = h.store.items.get(`session#${id}`);
+  assert.equal(stored.refreshToken, "ert_2");
+  assert.equal(stored.refreshLockUntil, 0);
+});
+
+test("session: a request holding a stale copy of the session uses the pair another already stored", async () => {
+  const h = harness();
+  const { sessionCookie } = await signIn(h);
+  const cookies = cookieHeader(sessionCookie);
+  const id = sessionCookie.split("=")[1].split(".")[0];
+  h.clock.t += 2 * HOUR;
+  h.mcp.state.acceptedTokens = new Set(["eat_2"]);
+  // Another request rotated the pair between this one's read and refresh.
+  const getSession = h.store.getSession;
+  let first = true;
+  h.store.getSession = async (sid) => {
+    const item = await getSession(sid);
+    if (first && item) {
+      first = false;
+      const stale = { ...item };
+      h.store.items.set(`session#${sid}`, {
+        ...item,
+        accessToken: "eat_2",
+        accessExpiresAt: h.clock.t + HOUR,
+        refreshToken: "ert_2",
+      });
+      return stale;
+    }
+    return item;
+  };
+  const r = await h.handler(req("GET", "/api/me", { cookies }));
+  assert.equal(r.statusCode, 200);
+  assert.equal(h.oauth.calls.filter((c) => c[0] === "refresh").length, 0);
+  assert.equal(h.store.items.get(`session#${id}`).refreshToken, "ert_2");
+});
+
+test("session: Elixir not answering a refresh keeps the session and the cookie", async () => {
+  const h = harness();
+  const { sessionCookie } = await signIn(h);
+  const cookies = cookieHeader(sessionCookie);
+  const id = sessionCookie.split("=")[1].split(".")[0];
+  h.clock.t += 2 * HOUR;
+  h.oauth.state.refreshDown = true;
+  const down = await h.handler(req("GET", "/api/me", { cookies }));
+  assert.equal(down.statusCode, 502);
+  assert.equal(JSON.parse(down.body).error, "elixir_unavailable");
+  assert.equal(down.cookies, undefined);
+  assert.equal(h.store.items.get(`session#${id}`).refreshToken, "ert_1");
+  // The claim is let go, so the next request refreshes at once.
+  h.oauth.state.refreshDown = false;
+  h.mcp.state.acceptedTokens = new Set(["eat_2"]);
+  const back = await h.handler(req("GET", "/api/me", { cookies }));
+  assert.equal(back.statusCode, 200);
+  assert.equal(h.store.items.get(`session#${id}`).refreshToken, "ert_2");
 });
 
 test("session: the 90-day family ends without asking Elixir", async () => {

@@ -147,7 +147,10 @@ export function createActionStore({ ledger, now = () => Date.now() }) {
     audience: audienceOf(c),
     label: ACTION_TYPES[c.type]?.label ?? c.type,
     ...wordsFor(c),
-    can_act: c.status === "proposed" && (!who || canAct(c, who)),
+    // An unverified player sees its own actions and takes none of them.
+    can_act:
+      c.status === "proposed" &&
+      (!who || (canAct(c, who) && who.verified !== false)),
     log: logOf(c, stored),
   });
 

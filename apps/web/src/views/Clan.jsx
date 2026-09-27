@@ -235,10 +235,10 @@ export function Clan({ me, clan, navigate }) {
             Elixir is not recording {clan.name ?? state.roster.clan_tag} yet
           </div>
           <p className="empty__body">
-            Your player is verified and in this clan, but the clan itself is not
-            on Elixir&rsquo;s record, so there is no roster to read. Add it
-            under Elixir → Tracking (clans), and the roster arrives with the
-            first poll.
+            Your player is in this clan, but the clan itself is not on
+            Elixir&rsquo;s record, so there is no roster to read. Add it under
+            Elixir → Tracking (clans), and the roster arrives with the first
+            poll.
           </p>
           <a className="btn btn--primary" href={ELIXIR_LINKS.tracking}>
             Elixir → Tracking ›

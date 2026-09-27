@@ -205,14 +205,19 @@ test("feedback: the maintainer reads the queue and answers; the person sees the 
 test("feedback: a person the gate refuses can still file (that is feedback worth having)", async () => {
   const h = harness({
     players: [
-      player({ player_tag: "#8QCV", name: "Amy", claim_status: "unverified" }),
+      player({
+        player_tag: "#8QCV",
+        name: "Amy",
+        clan_tag: null,
+        clan_role: null,
+      }),
     ],
   });
   const cookies = await signedIn(h);
   const me = await api(h, cookies, "GET", "/api/me");
   assert.equal(me.body.ok, false);
   const filed = await api(h, cookies, "POST", "/api/feedback", {
-    message: "Stuck at unverified: the battle never showed.",
+    message: "Stuck at no clan: I joined one yesterday.",
     category: "bug",
   });
   assert.equal(filed.status, 200, JSON.stringify(filed.body));

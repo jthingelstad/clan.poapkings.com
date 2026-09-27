@@ -2,8 +2,9 @@
 
 Elixir Clan: being in a clan, on top of Elixir. `clan.poapkings.com`, one of
 the Elixir family's verticals (`../elixir-family/MAP.md`). It signs people
-in with Elixir's OAuth, requires a verified player, shows them their clan
-with their own role, and runs each clan's own policy against the record:
+in with Elixir's OAuth, takes anyone with a player in a clan as a member
+(an Elder's, Co-leader's or Leader's tools wait for a verified player),
+shows them their clan with their own role, and runs each clan's own policy against the record:
 Elder by participation or by hand, the removal clock, action cards leaders
 decide, departures, notes, holds, awards, recruiting copy and scouting.
 It is a general clan-management tool for any Clash Royale clan (Jamie,
@@ -56,7 +57,7 @@ apps/web/          React 19 + Vite SPA on Elixir's kit (TanStack Router + Query,
                    Tailwind v4 over Elixir's tokens): /, /clans, /clan/<TAG>,
                    /clan/<TAG>/actions[/<number>], /clan/<TAG>/standing, /clan/<TAG>/trophies,
                    /clan/<TAG>/recruit, /clan/<TAG>/map, /clan/<TAG>/manage/{board,history,policy,awards,scout,settings},
-                   /you, /you/away, /feedback, /maintain/feedback, /refused/<reason>
+                   /you, /you/away, /feedback, /maintain/feedback, /refused/<reason>, /verify
 services/engine/   the management engine, PURE: policy schema, facts, standing,
                    evaluate, render, awards, recruit, chat, words. No I/O, no clock.
                    Golden tests in test/.
@@ -76,7 +77,7 @@ docs/NOTES.md      decisions, newest last; what is waiting on Jamie
 | Discovery | `GET {ElixirUrl}/.well-known/oauth-authorization-server` | endpoints, cached 300 s (`services/api/src/oauth.mjs`) |
 | Client registration | `POST /oauth/register` | once, by `infra/scripts/register-client.mjs`; the `client_id` is the stack parameter `OAuthClientId`. Public client, PKCE, no secret. Lives 365 days from last use. |
 | Authorize | `/oauth/authorize` | `scope=cr:read clans:attest` (`clans:attest` since 2026-09-25: only the family's own apps may ask for it), `resource=https://elixir.poapkings.com/api/v1` (required, RFC 8707), S256. An `/mcp` grant is refused at `/api/v1`. A session signed in before the change holds `cr:read` alone: its shares are logged as not shared, and every page asks the person to sign in again (`canShare` in `App.jsx`, from `/api/me`'s `scope`). |
-| Tokens | `/oauth/token` | access 1 h, refresh 30 d rotating, family 90 d. Refreshed server-side; a rotated refresh token is STORED before any reuse (presenting it twice revokes the grant). |
+| Tokens | `/oauth/token` | access 1 h, refresh 30 d rotating, family 90 d. Refreshed server-side; a rotated refresh token is STORED before any reuse (presenting it twice revokes the grant). One request spends it: `store.claimRefresh` is a conditional write on the stored token, and a request that loses waits for the pair the winner stores (2026-09-26; parallel page calls revoked a grant on 2026-09-13). Elixir refusing the refresh (400) ends the session; Elixir not answering is a 502 that keeps the session and the cookie. |
 | The door | `/api/v1/*` | Elixir's JSON API (`services/api/src/elixir-api.mjs`). It keeps the old MCP client's `initialize`/`callTool` interface: each tool name maps to one operation, answered with that tool's structured result, and a refusal comes back as problem+json carrying the tool's code. Plan: `../elixir-family/plans/clan-app-api.md` |
 
 Elixir's contract is documented at <https://elixir.poapkings.com/docs>
@@ -97,15 +98,27 @@ first refusal wins and each has its own page
    stays behind it)
 2. at least one player on the account → else `no_primary_player` (Elixir →
    Tracking)
-3. at least one claim with `claim_status === "verified"` → else `unverified`
-   (Elixir → Verify, one battle with a named deck); the page lists the
-   players
-4. at least one verified claim in a clan → else `no_clan`
+3. at least one of the person's own claims (primary or alt) in a clan →
+   else `no_clan`
+
+**Unverified players are members (Jamie, 2026-09-26).** Any claim counts
+for membership, verified or not; the in-game role counts only when the
+claim is verified (`actingRole`). An unverified Leader, Co-leader or Elder
+is a member here who reads: no away notice, no comments, no decisions, no
+place on or view of the clan map. Every Manage write and the map answer
+`403 unverified` (`manageRoute`), and each clan carries `verified` and,
+when the game role is bigger than the one used, `unlock` (the player to
+verify). After sign-in such a person lands on `/verify` (`verifyNotice`):
+the clans and players waiting on Elixir → Verify, and a link there. They
+say they have read it (`POST /api/verify-notice`, stored on the session as
+`verifyAck`) before going on; a fresh sign-in, or a changed list, asks
+again. A clan page keeps a banner with the same link.
 
 **The identity set and the clan set (2026-09-12).** `identities` is every
-claim; `clans` is the distinct clans of the verified primary/alt claims
-(`clansOf`), each with `acting_as` (the tag you hold there; two verified
-tags in one clan are one clan acting as the higher role, `your_tags` both).
+claim; `clans` is the distinct clans of the primary/alt claims
+(`clansOf`), each with `acting_as` (the tag you hold there; two tags in one
+clan are one clan acting as the higher role, verified before unverified,
+`your_tags` all of them).
 Friends and watching never act. **Selection** is `{ clan_tag, player_tag }`
 on the session: a remembered preference (`pref#<primary tag>`, the ONE
 non-session item this app stores) wins, then a lone clan, else the chooser
@@ -139,7 +152,7 @@ size, and encryption without reading rows or connecting the restored table to
 the application, then removes only that isolated rehearsal table.
 
 **Session caches are bounded:** gate 2 min, roster 3 min per clan, bounded
-to the verified clan set. No independent player profile or game-history
+to the clan set. No independent player profile or game-history
 database is kept here. The remembered clan choice, management ledger,
 recruiting facts cache, awards and feedback are described below; their
 retention is separate from the session cache window.

@@ -56,8 +56,9 @@ export function railItems(me) {
       });
     // Social (Jamie, 2026-09-26): the clan's own section, in every clan at
     // any size, with or without a policy. The map is the members' own
-    // sharing, which a leader can turn off; Recruit stays either way.
-    const social = me?.social?.enabled !== false;
+    // sharing, which a leader can turn off; Recruit stays either way. It
+    // is for verified members: an unverified player does not see it.
+    const social = me?.social?.enabled !== false && clan.verified !== false;
     if (social)
       items.push({
         group: "Social",

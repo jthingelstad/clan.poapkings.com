@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { mockApi, signedIn } from "./fixtures.ts";
+import { ME, mockApi, signedIn } from "./fixtures.ts";
 import { FIELDS, GROUPS, TABS, policyFromGoals } from "@elixir-clan/engine";
 
 /** A saved policy as the editor reads it: a war clan, version 1. */
@@ -63,6 +63,75 @@ test("signed out: the landing, the way in on the bar, and a clan path sent home"
   ).toBeVisible();
   await expect(page.locator(".rail")).toHaveCount(0);
   await accessible(page, "landing");
+});
+
+test("an unverified Leader: the notice first, then the clan as a member with the way to verify", async ({
+  page,
+}) => {
+  const clan = {
+    ...ME.clans[0],
+    role: "member",
+    role_label: "Member",
+    verified: false,
+    unlock: {
+      player_tag: "#20QQL8CCRU",
+      name: "Ada",
+      role: "leader",
+      role_label: "Leader",
+    },
+  };
+  const notice = {
+    clans: [
+      {
+        clan_tag: clan.clan_tag,
+        clan_name: clan.name,
+        player_tag: "#20QQL8CCRU",
+        player_name: "Ada",
+        role: "leader",
+        role_label: "Leader",
+      },
+    ],
+  };
+  let me = {
+    ...ME,
+    identities: [{ ...ME.identities[0], claim_status: "unverified" }],
+    clans: [clan],
+    selected: clan,
+    verify_notice: { ...notice, acknowledged: false },
+  };
+  await mockApi(
+    page,
+    signedIn({
+      "GET /api/me": () => [200, me],
+      "POST /api/verify-notice": () => {
+        me = { ...me, verify_notice: { ...notice, acknowledged: true } };
+        return [200, me];
+      },
+    }),
+  );
+  await page.goto("/clan/2PQRJ8LV");
+  await expect(page).toHaveURL(/\/verify$/);
+  await expect(
+    page.getByRole("heading", { name: "Verify your player to lead here" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Verify in Elixir/ }),
+  ).toBeVisible();
+  await accessible(page, "verify notice");
+
+  await page
+    .getByRole("button", { name: "I understand, continue as a member" })
+    .click();
+  await expect(page).toHaveURL(/\/clan\/2PQRJ8LV$/);
+  await expect(page.getByText("Ben")).toBeVisible();
+  const rail = page.locator(".rail");
+  await expect(rail.getByRole("link", { name: /^Board/ })).toHaveCount(0);
+  await expect(rail.getByRole("link", { name: /^Map/ })).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: /Verify in Elixir/ }).first(),
+  ).toBeVisible();
+  await rendered(page);
+  await accessible(page, "unverified clan page");
 });
 
 test.describe("signed in", () => {
