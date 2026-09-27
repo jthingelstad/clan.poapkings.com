@@ -24,7 +24,7 @@ import {
   setSessionCookie,
   verifySessionCookie,
 } from "./cookies.mjs";
-import { normalizeTag, runGate } from "./gate.mjs";
+import { normalizeTag, runGate, verifyNotice } from "./gate.mjs";
 import {
   withTrace,
   current,
@@ -42,6 +42,13 @@ const ACCESS_SKEW_MS = 60_000;
 const FAMILY_MS = 90 * 24 * 3600_000;
 const REFRESH_MS = 30 * 24 * 3600_000;
 const SESSION_TTL_S = 90 * 24 * 3600;
+/** How long one request holds the refresh (the token call times out at
+ *  20 s), and how long another waits for the pair it stores. */
+const REFRESH_LOCK_MS = 25_000;
+const ADOPT_WAIT_MS = 250;
+const ADOPT_TRIES = 20;
+/** Elixir did not answer the refresh: try again later, still signed in. */
+const UNAVAILABLE = Symbol("unavailable");
 
 const json = (statusCode, body, extra = {}) => ({
   statusCode,
@@ -82,6 +89,7 @@ export function createHandler({
   /** Verified player tags of the product's maintainer(s): MaintainerTags. */
   maintainerTags = [],
   now = () => Date.now(),
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   log = console,
 }) {
   for (const [k, v] of Object.entries({
@@ -111,7 +119,13 @@ export function createHandler({
   /**
    * A usable access token for this session, refreshing when it is about
    * to expire. `null` means sign in again: the family ran out, or Elixir
-   * refused the refresh (a revoked grant, a rotated token).
+   * refused the refresh (a revoked grant, a rotated token). `UNAVAILABLE`
+   * means Elixir did not answer; the session stays and so does the cookie.
+   *
+   * Only one request spends a refresh token (`store.claimRefresh`); any
+   * other that needs one at the same moment waits for the pair the first
+   * stores and uses it. Presenting a rotated token twice revokes the whole
+   * grant, and a page load fires several API calls at once.
    */
   async function accessToken(session, { force = false } = {}) {
     const t = now();
@@ -125,13 +139,26 @@ export function createHandler({
       await store.deleteSession(session.id);
       return null;
     }
+    const claimed = await store.claimRefresh(session.id, {
+      refreshToken: session.refreshToken,
+      nowMs: t,
+      untilMs: t + REFRESH_LOCK_MS,
+    });
+    if (!claimed) return adoptRefreshed(session);
     const refreshed = await oauth.refresh({
       refreshToken: session.refreshToken,
     });
     if (!refreshed.ok) {
-      log.warn?.("refresh_failed", { error: refreshed.error });
-      if (refreshed.status === 400) await store.deleteSession(session.id);
-      return null;
+      log.warn?.("refresh_failed", {
+        error: refreshed.error,
+        status: refreshed.status ?? null,
+      });
+      if (refreshed.status === 400) {
+        await store.deleteSession(session.id);
+        return null;
+      }
+      await store.updateSession(session.id, { refreshLockUntil: 0 });
+      return UNAVAILABLE;
     }
     const patch = {
       accessToken: refreshed.tokens.accessToken,
@@ -139,6 +166,7 @@ export function createHandler({
       refreshToken: refreshed.tokens.refreshToken ?? session.refreshToken,
       refreshExpiresAt: t + REFRESH_MS,
       scope: refreshed.tokens.scope,
+      refreshLockUntil: 0,
     };
     // Stored BEFORE any further use: a rotated refresh token presented
     // twice revokes the whole grant on Elixir's side.
@@ -147,13 +175,38 @@ export function createHandler({
     return session.accessToken;
   }
 
+  /** Another request is refreshing, or already has: use what it stores. */
+  async function adoptRefreshed(session) {
+    for (let i = 0; i < ADOPT_TRIES; i += 1) {
+      const stored = await store.getSession(session.id);
+      if (!stored) return null;
+      if (stored.refreshToken !== session.refreshToken) {
+        log.info?.("refresh_adopted", { waits: i });
+        for (const k of [
+          "accessToken",
+          "accessExpiresAt",
+          "refreshToken",
+          "refreshExpiresAt",
+          "scope",
+        ])
+          session[k] = stored[k];
+        return session.accessToken;
+      }
+      await sleep(ADOPT_WAIT_MS);
+    }
+    log.warn?.("refresh_wait_timeout", {});
+    return UNAVAILABLE;
+  }
+
   /** Run `fn(token)`; on a 401 from the door, refresh once and retry. */
   async function withToken(session, fn) {
     let token = await accessToken(session);
+    if (token === UNAVAILABLE) return { unavailable: true };
     if (!token) return { signInRequired: true };
     let result = await fn(token);
     if (result?.status === 401) {
       token = await accessToken(session, { force: true });
+      if (token === UNAVAILABLE) return { unavailable: true };
       if (!token) return { signInRequired: true };
       result = await fn(token);
       if (result?.status === 401) {
@@ -178,6 +231,7 @@ export function createHandler({
       return { gate: cached.result, checkedAt: cached.checkedAt };
     const ran = await withToken(session, (token) => runGate({ mcp, token }));
     if (ran.signInRequired) return { signInRequired: true };
+    if (ran.unavailable) return { error: "refresh_unavailable" };
     const gate = ran.result;
     if (gate.error) return { error: gate.error };
     await store.updateSession(session.id, {
@@ -240,6 +294,21 @@ export function createHandler({
     };
   };
 
+  /**
+   * The notice after sign-in: where an unverified player's in-game role
+   * (Elder and up) waits for Elixir → Verify. `acknowledged` once the
+   * person has said so for this very list in this session; a new one
+   * (another clan, another role) is shown again.
+   */
+  const noticeFor = (session, gate) => {
+    const notice = gate.ok ? verifyNotice(gate) : null;
+    if (!notice) return null;
+    return {
+      clans: notice.clans,
+      acknowledged: session.verifyAck === notice.key,
+    };
+  };
+
   const meBody = (session, gate, checkedAt, selected, person = null) => ({
     signed_in: true,
     maintainer: person?.maintainer === true,
@@ -257,9 +326,12 @@ export function createHandler({
           player_name: selected.acting_as_name,
           role: selected.role,
           role_label: selected.role_label,
+          verified: selected.verified !== false,
+          unlock: selected.unlock ?? null,
           your_tags: selected.your_tags,
         }
       : null,
+    verify_notice: noticeFor(session, gate),
     checked_at: new Date(checkedAt).toISOString(),
     scope: session.scope ?? null,
     elixir_url: elixirUrl,
@@ -343,9 +415,11 @@ export function createHandler({
     const selected = gate.ok ? await selectionFor(session, gate) : null;
     const to = !gate.ok
       ? `/refused/${gate.reason}`
-      : selected
-        ? `/clan/${selected.clan_tag.slice(1)}`
-        : "/clans";
+      : verifyNotice(gate)
+        ? "/verify"
+        : selected
+          ? `/clan/${selected.clan_tag.slice(1)}`
+          : "/clans";
     return redirect(`${appUrl}${to}`, [
       ...cleared,
       setSessionCookie(sessionSecret, id),
@@ -438,6 +512,32 @@ export function createHandler({
     }
   }
 
+  /** "I understand": the notice after sign-in is acknowledged for this
+   *  session, for the list it showed. */
+  async function acknowledgeVerify(event) {
+    const session = await loadSession(event);
+    if (!session) return signedOut();
+    const gated = await gateFor(session);
+    if (gated.signInRequired) return signedOut({ reason: "session_expired" });
+    if (gated.error) return json(502, { error: "elixir_unavailable" });
+    const notice = gated.gate.ok ? verifyNotice(gated.gate) : null;
+    if (notice) {
+      await store.updateSession(session.id, { verifyAck: notice.key });
+      session.verifyAck = notice.key;
+    }
+    const selected = await selectionFor(session, gated.gate);
+    return json(
+      200,
+      meBody(
+        session,
+        gated.gate,
+        gated.checkedAt,
+        selected,
+        personFor(gated.gate),
+      ),
+    );
+  }
+
   /** Choose the clan to work in. Remembered for the next sign-in too. */
   async function select(event) {
     const session = await loadSession(event);
@@ -482,7 +582,7 @@ export function createHandler({
       return json(403, { error: "gate", reason: gated.gate.reason });
 
     // The clan is named in the query (the page's URL), else the selection.
-    // Either way it must be one of the person's verified clans.
+    // Either way it must be one of the person's clans.
     const q = event.queryStringParameters ?? {};
     let clan = null;
     if (q.clan) {
@@ -531,6 +631,8 @@ export function createHandler({
     );
     if (ran.signInRequired)
       return { response: signedOut({ reason: "session_expired" }) };
+    if (ran.unavailable)
+      return { response: json(502, { error: "elixir_unavailable" }) };
     const r = ran.result;
     if (!r.ok) {
       if (r.code === "not_recorded" || r.code === "no_subject")
@@ -628,6 +730,8 @@ export function createHandler({
         }),
       };
     const token = await accessToken(session);
+    if (token === UNAVAILABLE)
+      return { response: json(502, { error: "elixir_unavailable" }) };
     if (!token) return { response: signedOut({ reason: "session_expired" }) };
     return {
       session,
@@ -638,6 +742,7 @@ export function createHandler({
         player_tag: clan.acting_as,
         name: clan.acting_as_name ?? null,
         role: clan.role,
+        verified: clan.verified !== false,
       },
     };
   }
@@ -661,6 +766,12 @@ export function createHandler({
     const { clan, who, token } = ctx;
     const tag = clan.clan_tag;
     annotate({ clan: tag, role: who.role });
+    // An unverified player is a member who reads (Jamie, 2026-09-26):
+    // Elixir lets several accounts claim one tag unproven, so nothing is
+    // done here in its name, and the map, where members say where they
+    // play from, stays with verified members.
+    if (!who.verified && (method !== "GET" || rest === "/map"))
+      return json(403, { error: "unverified", player_tag: who.player_tag });
     const body =
       method === "GET" || method === "DELETE" ? {} : parseBody(event);
     if (body === null) return json(400, { error: "bad_request" });
@@ -967,6 +1078,8 @@ export function createHandler({
       if (method === "GET" && path === "/api/me") return await me(event);
       if (method === "POST" && path === "/api/select")
         return await select(event);
+      if (method === "POST" && path === "/api/verify-notice")
+        return await acknowledgeVerify(event);
       if (method === "GET" && path === "/api/roster")
         return await roster(event);
       if (social && path === "/api/me/place")

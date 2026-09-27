@@ -267,6 +267,15 @@ describe("feedback", () => {
     expect(social(true).find((r) => r.key === "map").group).toBe("Social");
     expect(social(false).map((r) => r.key)).not.toContain("map");
     expect(social(false).find((r) => r.key === "recruit").group).toBe("Social");
+    // The map is for verified members; an unverified one keeps Recruit.
+    const unverified = railItems({
+      ...me,
+      policy: noPolicy,
+      social: { enabled: true },
+      selected: { ...me.selected, role: "member", verified: false },
+    });
+    expect(unverified.map((r) => r.key)).not.toContain("map");
+    expect(unverified.find((r) => r.key === "recruit").group).toBe("Social");
     expect(railKey("/clan/2PQRJ8LV/map")).toBe("map");
     // Away only when the policy offers it.
     expect(keys("member", { ...withPolicy, away: false })).not.toContain(

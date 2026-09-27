@@ -2,6 +2,7 @@ import { useState } from "react";
 import { manageApi } from "../api.js";
 import { keys, useInvalidate, useMyAway } from "../lib/queries.js";
 import { trackEvent } from "../analytics.js";
+import { ELIXIR_LINKS } from "../lib/links.js";
 
 /**
  * Away: a member tells the clan they will be gone, on their own page
@@ -88,6 +89,14 @@ export function Away({ me }) {
               </button>
             ) : null}
           </div>
+        </div>
+      ) : state.allowed && state.verified === false ? (
+        <div className="callout callout--info">
+          <span>
+            Saying you are away pauses your inactivity clock and tells Elixir in
+            your player&rsquo;s name, so it waits until your player is verified.{" "}
+            <a href={ELIXIR_LINKS.verify}>Verify in Elixir ›</a>
+          </span>
         </div>
       ) : state.allowed ? (
         <form

@@ -12,6 +12,7 @@ import { Refused, REFUSALS } from "../src/views/Refused.jsx";
 import { Landing } from "../src/views/Landing.jsx";
 import { Disclaimer } from "elixir-mcp/packages/ui/src/index.ts";
 import { Clans } from "../src/views/Clans.jsx";
+import { VerifyNotice } from "../src/views/VerifyNotice.jsx";
 import { clanFromPath, clanPath } from "../src/App.jsx";
 
 afterEach(cleanup);
@@ -173,11 +174,11 @@ describe("the gate pages", () => {
     },
   );
 
-  test("the four refusals point at four different Elixir places", () => {
+  test("the three refusals point at three different Elixir places; an unverified player is not one", () => {
     const hrefs = Object.values(REFUSALS).map((p) => p.link[0]);
-    expect(new Set(hrefs).size).toBe(4);
+    expect(new Set(hrefs).size).toBe(3);
     expect(REFUSALS.no_primary_player.link[0]).toContain("/account/tracking");
-    expect(REFUSALS.unverified.link[0]).toContain("/account/verify");
+    expect(REFUSALS.unverified).toBeUndefined();
   });
 
   test("an agent's grant offers a fresh sign-in, the others offer a re-check", () => {
@@ -189,7 +190,7 @@ describe("the gate pages", () => {
     ).toBe("/auth/login");
     cleanup();
     renderWithProviders(
-      <Refused reason="unverified" me={me} onRecheck={() => {}} />,
+      <Refused reason="no_clan" me={me} onRecheck={() => {}} />,
     );
     expect(screen.getByRole("button", { name: /check again/i })).toBeTruthy();
   });
@@ -199,7 +200,7 @@ describe("the landing page", () => {
   test("names both prerequisites before the button", () => {
     renderWithProviders(<Landing />);
     expect(screen.getByText(/An Elixir account/)).toBeTruthy();
-    expect(screen.getByText(/A verified player/)).toBeTruthy();
+    expect(screen.getByText(/2\. Your player/)).toBeTruthy();
     expect(
       screen.getByRole("link", { name: /Request access/ }).getAttribute("href"),
     ).toContain("elixir.poapkings.com");
@@ -340,5 +341,75 @@ describe("choosing a clan", () => {
       <RosterTable members={members} now={0} />,
     );
     expect(container.querySelectorAll("tr[data-you='true']").length).toBe(2);
+  });
+});
+
+describe("an unverified player", () => {
+  test("the notice after sign-in names the role waiting, links to Verify and goes on only when acknowledged", async () => {
+    let acknowledged = 0;
+    renderWithProviders(
+      <VerifyNotice
+        me={{
+          ...me,
+          verify_notice: {
+            acknowledged: false,
+            clans: [
+              {
+                clan_tag: "#2PQRJ8LV",
+                clan_name: "Example Clan",
+                player_tag: "#20QQL8CCRU",
+                player_name: "Ada",
+                role: "leader",
+                role_label: "Leader",
+              },
+            ],
+          },
+        }}
+        onAcknowledge={async () => {
+          acknowledged += 1;
+        }}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: /Verify your player to lead/ }),
+    ).toBeTruthy();
+    expect(screen.getByText("Leader")).toBeTruthy();
+    expect(screen.getByText(/Example Clan/)).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: /Verify in Elixir/ })
+        .getAttribute("href"),
+    ).toContain("/account/verify");
+    fireEvent.click(
+      screen.getByRole("button", { name: /I understand, continue/ }),
+    );
+    await Promise.resolve();
+    expect(acknowledged).toBe(1);
+  });
+
+  test("the chooser shows its clan as a member's, marked unverified, with the role verifying brings", () => {
+    const unverifiedClan = {
+      ...poap,
+      role: "member",
+      role_label: "Member",
+      verified: false,
+      unlock: {
+        player_tag: "#20QQL8CCRU",
+        name: "Ada",
+        role: "leader",
+        role_label: "Leader",
+      },
+    };
+    render(
+      <Clans
+        me={{ ...me, clans: [unverifiedClan] }}
+        onSelect={() => {}}
+        selecting={false}
+      />,
+    );
+    const [card] = screen.getAllByRole("button");
+    expect(within(card).getByText("Member")).toBeTruthy();
+    expect(within(card).getByText("unverified")).toBeTruthy();
+    expect(within(card).getByText(/Leader in the game, once Ada/)).toBeTruthy();
   });
 });

@@ -118,6 +118,8 @@ export const api = {
     return get(qs ? `/api/roster?${qs}` : "/api/roster");
   },
   select: (clanTag) => post("/api/select", { clan_tag: clanTag }),
+  /** "I understand" on the notice after sign-in. */
+  acknowledgeVerify: () => post("/api/verify-notice", {}),
   // Where you play from, for every clan map you are on (one per person).
   myPlace: () => get("/api/me/place"),
   setMyPlace: (place) => put("/api/me/place", place),

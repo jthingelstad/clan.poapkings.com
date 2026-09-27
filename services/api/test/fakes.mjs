@@ -159,7 +159,14 @@ export function fakeMcp({
 export function fakeOAuth({ now }) {
   const calls = [];
   let n = 0;
-  const state = { failExchange: null, failRefresh: null };
+  const state = {
+    failExchange: null,
+    failRefresh: null,
+    // Elixir did not answer: a transport error, or a 5xx.
+    refreshDown: false,
+    // A promise the refresh waits on, to hold it open while others race.
+    refreshHeld: null,
+  };
   const tokens = () => {
     n += 1;
     return {
@@ -184,6 +191,8 @@ export function fakeOAuth({ now }) {
     },
     async refresh(args) {
       calls.push(["refresh", args]);
+      if (state.refreshHeld) await state.refreshHeld;
+      if (state.refreshDown) return { ok: false, error: "transport: timeout" };
       if (state.failRefresh)
         return { ok: false, status: 400, error: state.failRefresh };
       return { ok: true, tokens: tokens() };
@@ -205,7 +214,9 @@ export function harness(opts = {}) {
     appUrl: "https://clan.test",
     elixirUrl: "https://elixir.test",
     now,
-    log: { warn() {}, error() {} },
+    // Waiting on another request's refresh yields a turn, never real time.
+    sleep: () => new Promise((resolve) => setImmediate(resolve)),
+    log: { warn() {}, error() {}, info() {} },
   });
   return { clock, now, mcp, oauth, store, handler };
 }

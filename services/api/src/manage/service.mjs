@@ -1438,6 +1438,9 @@ export function createManageService({
         policy.values.away_max_days > 0;
       return {
         allowed,
+        // Saying so pauses the clock and reaches Elixir in the player's
+        // name: an unverified player cannot.
+        verified: who.verified !== false,
         max_days: allowed ? policy.values.away_max_days : 0,
         hold: mine
           ? {

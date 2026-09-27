@@ -340,19 +340,25 @@ export function ActionLog({ action, clan, onChanged }) {
           </li>
         ))}
       </ol>
-      <form className="flex flex-wrap gap-2" onSubmit={add}>
-        <input
-          className="input flex-[1_1_240px]"
-          placeholder="Add a comment to this action's log"
-          aria-label="Comment"
-          value={text}
-          maxLength={1000}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <button type="submit" className="btn btn--sm" disabled={busy}>
-          Add
-        </button>
-      </form>
+      {clan.verified === false ? (
+        <div className="page-head__note">
+          Verify your player in Elixir to comment.
+        </div>
+      ) : (
+        <form className="flex flex-wrap gap-2" onSubmit={add}>
+          <input
+            className="input flex-[1_1_240px]"
+            placeholder="Add a comment to this action's log"
+            aria-label="Comment"
+            value={text}
+            maxLength={1000}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <button type="submit" className="btn btn--sm" disabled={busy}>
+            Add
+          </button>
+        </form>
+      )}
       {error ? <div className="field-error">{error}</div> : null}
     </div>
   );

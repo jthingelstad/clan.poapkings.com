@@ -47,6 +47,8 @@ import { Recruit } from "./views/Recruit.jsx";
 import { Trophies } from "./views/Trophies.jsx";
 import { ActionDetail, Actions } from "./views/Actions.jsx";
 import { YouHere } from "./views/YouHere.jsx";
+import { VerifyNotice } from "./views/VerifyNotice.jsx";
+import { ELIXIR_LINKS } from "./lib/links.js";
 
 // The clan map brings Leaflet and the place lists: loaded when opened.
 const ClanMap = lazy(() =>
@@ -58,7 +60,8 @@ import { MaintainItem, MaintainQueue } from "./views/Maintain.jsx";
 /**
  * Routes: `/` (landing, signed out), `/clans` (the chooser), `/clan/<TAG>`
  * (a clan page; the tag without its #) with its sections and Manage tabs,
- * `/you` and `/you/away`, `/refused/<reason>`, `/feedback[/<id>]`,
+ * `/you` and `/you/away`, `/verify` (the notice after sign-in),
+ * `/refused/<reason>`, `/feedback[/<id>]`,
  * `/maintain/feedback[/<id>]`. The router owns history and params; the
  * GATE - where a signed-in person belongs, whatever address they arrived
  * at - is the Shell's effect below, because it is a session state
@@ -297,6 +300,34 @@ const refusedRoute = createRoute({
   },
 });
 
+/** The notice after sign-in: an unverified player's Elder, Co-leader or
+ *  Leader role waits for Elixir → Verify. "I understand" goes on. */
+const verifyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/verify",
+  component: function VerifyPage() {
+    const { me, setMe } = useSession();
+    const navigate = useNav();
+    if (!me?.ok || !me.verify_notice) return null;
+    return (
+      <VerifyNotice
+        me={me}
+        onAcknowledge={async () => {
+          const r = await api.acknowledgeVerify();
+          if (r.ok) {
+            setMe(r.data);
+            navigate(
+              r.data.selected ? clanPath(r.data.selected.clan_tag) : "/clans",
+            );
+          } else if (r.status === 401) {
+            setMe({ signed_in: false, expired: true });
+          }
+        }}
+      />
+    );
+  },
+});
+
 const feedbackRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/feedback/{-$id}",
@@ -335,6 +366,7 @@ export const routeTree = rootRoute.addChildren([
   clanRoute,
   youRoute,
   refusedRoute,
+  verifyRoute,
   feedbackRoute,
   maintainRoute,
 ]);
@@ -424,7 +456,12 @@ export function Rail({ me, path, navigate, narrow }) {
           }
           detail={
             clan ? (
-              <RoleChip role={clan.role} label={clan.role_label} />
+              <>
+                <RoleChip role={clan.role} label={clan.role_label} />
+                {clan.verified === false ? (
+                  <span className="chip chip--warn">unverified</span>
+                ) : null}
+              </>
             ) : (
               "with Elixir"
             )
@@ -498,8 +535,25 @@ function Shell() {
         navigate(`/refused/${me.reason}`);
       return;
     }
+    // The notice after sign-in comes first, once, until acknowledged; a
+    // person's own pages and feedback stay open around it.
+    const notice = me.verify_notice;
+    if (notice && !notice.acknowledged) {
+      if (
+        path !== "/verify" &&
+        !path.startsWith("/you") &&
+        !path.startsWith("/feedback")
+      )
+        navigate("/verify");
+      return;
+    }
     const atClan = clanFromPath(path, me.clans);
-    if (path === "/" || path.startsWith("/refused") || path === "/clan") {
+    if (
+      path === "/" ||
+      path === "/verify" ||
+      path.startsWith("/refused") ||
+      path === "/clan"
+    ) {
       navigate(me.selected ? clanPath(me.selected.clan_tag) : "/clans");
     } else if (path.startsWith("/clan/") && !atClan) {
       navigate("/clans");
@@ -523,7 +577,7 @@ function Shell() {
 
   return (
     <SessionContext.Provider
-      value={{ me, checking, refresh, select, selecting }}
+      value={{ me, checking, refresh, setMe, select, selecting }}
     >
       <div className="shell">
         <Chrome navigate={navigate} />
@@ -550,6 +604,21 @@ function Shell() {
                       Sign out, then sign in again
                     </button>
                   </form>
+                </div>
+              ) : null}
+              {me?.signed_in &&
+              me.ok &&
+              (me.selected?.verified === false || me.selected?.unlock) &&
+              path.startsWith("/clan/") ? (
+                <div className="callout callout--info mb-4" role="status">
+                  <span>
+                    {me.selected.unlock
+                      ? `In the game ${me.selected.unlock.name ?? me.selected.unlock.player_tag} is ${me.selected.unlock.role_label === "Elder" ? "an" : "a"} ${me.selected.unlock.role_label}. Verify that player in Elixir to use those tools here; until then you are here as a member.`
+                      : "Your player is not verified in Elixir, so you are here as a member who reads: verify it to mark yourself away, comment or join the clan map."}
+                  </span>
+                  <a className="btn btn--sm" href={ELIXIR_LINKS.verify}>
+                    Verify in Elixir ›
+                  </a>
                 </div>
               ) : null}
               <ErrorBoundary key={path}>

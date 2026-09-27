@@ -104,6 +104,39 @@ export function createDynamoStore({ tableName, region }) {
         }),
       );
     },
+    /**
+     * Take the right to spend this session's refresh token: true only for
+     * the one request that presents the token still stored and finds no
+     * live claim. Elixir revokes the grant when a rotated refresh token is
+     * presented twice, so two requests racing the same expiry must not
+     * both refresh (2026-09-13, invalid_grant twice in 150 ms).
+     */
+    async claimRefresh(id, { refreshToken, nowMs, untilMs }) {
+      try {
+        await doc.send(
+          new UpdateCommand({
+            TableName: tableName,
+            Key: { pk: `session#${id}` },
+            UpdateExpression: "SET #lock = :until",
+            ConditionExpression:
+              "#rt = :rt AND (attribute_not_exists(#lock) OR #lock < :now)",
+            ExpressionAttributeNames: {
+              "#lock": "refreshLockUntil",
+              "#rt": "refreshToken",
+            },
+            ExpressionAttributeValues: {
+              ":until": untilMs,
+              ":rt": refreshToken,
+              ":now": nowMs,
+            },
+          }),
+        );
+        return true;
+      } catch (error) {
+        if (error?.name === "ConditionalCheckFailedException") return false;
+        throw error;
+      }
+    },
     async deleteSession(id) {
       await doc.send(
         new DeleteCommand({
@@ -156,6 +189,15 @@ export function createMemoryStore() {
       const key = `session#${id}`;
       if (!items.has(key)) return;
       items.set(key, { ...items.get(key), ...patch });
+    },
+    async claimRefresh(id, { refreshToken, nowMs, untilMs }) {
+      const key = `session#${id}`;
+      const item = items.get(key);
+      if (!item || item.refreshToken !== refreshToken) return false;
+      if (item.refreshLockUntil != null && item.refreshLockUntil >= nowMs)
+        return false;
+      items.set(key, { ...item, refreshLockUntil: untilMs });
+      return true;
     },
     async deleteSession(id) {
       items.delete(`session#${id}`);

@@ -3,9 +3,10 @@ import { RoleChip } from "../components/RoleChip.jsx";
 import { ELIXIR_LINKS } from "../lib/links.js";
 
 /**
- * The chooser: one card per clan the person holds a VERIFIED tag in,
- * with the tag and role they act as there. Unverified alts are listed
- * greyed with a Verify link, so the page also says why a clan is missing.
+ * The chooser: one card per clan the person holds a player in, with the
+ * tag and role they act as there. An unverified player is a member until
+ * it is verified, so its card says so; unverified players are also listed
+ * with a Verify link.
  */
 export function Clans({ me, onSelect, selecting }) {
   const [picking, setPicking] = useState(null);
@@ -19,7 +20,7 @@ export function Clans({ me, onSelect, selecting }) {
       <div className="page-head">
         <h1 className="page__title">Your clans</h1>
         <span className="page-head__note">
-          Every clan you hold a verified player in. Pick one to work in; it is
+          Every clan you hold a player in. Pick one to work in; it is
           remembered.
         </span>
       </div>
@@ -79,6 +80,15 @@ export function Clans({ me, onSelect, selecting }) {
                   <span>{c.acting_as_name ?? c.acting_as}</span>
                   <span className="tag">{c.acting_as}</span>
                   <RoleChip role={c.role} label={c.role_label} />
+                  {c.verified === false ? (
+                    <span className="chip chip--warn">unverified</span>
+                  ) : null}
+                  {c.unlock ? (
+                    <span className="page-head__note">
+                      {c.unlock.role_label} in the game, once{" "}
+                      {c.unlock.name ?? c.unlock.player_tag} is verified
+                    </span>
+                  ) : null}
                   {c.your_tags.length > 1 ? (
                     <span className="page-head__note">
                       and {c.your_tags.length - 1} more of your players here
@@ -92,7 +102,7 @@ export function Clans({ me, onSelect, selecting }) {
       </div>
       {unverified.length > 0 ? (
         <div className="panel" style={{ marginTop: "20px", opacity: 0.85 }}>
-          <div className="panel__head">Not yet: unverified players</div>
+          <div className="panel__head">Unverified players</div>
           <div className="panel__body" style={{ display: "grid", gap: "8px" }}>
             {unverified.map((i) => (
               <div
@@ -122,8 +132,10 @@ export function Clans({ me, onSelect, selecting }) {
             ))}
           </div>
           <div className="panel__foot">
-            A clan only appears here for a player you have proven. Verify is one
-            battle with a deck Elixir names.
+            An unverified player is a member here whatever its role in the game:
+            it reads what members read and acts on nothing. An Elder&rsquo;s,
+            Co-leader&rsquo;s or Leader&rsquo;s tools wait until it is verified,
+            which is one battle with a deck Elixir names.
           </div>
         </div>
       ) : null}

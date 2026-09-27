@@ -19,16 +19,9 @@ export const REFUSALS = {
       "Add the player you play as under Elixir → Tracking, then come back.",
     link: [ELIXIR_LINKS.tracking, "Elixir → Tracking"],
   },
-  unverified: {
-    title: "Prove your player in Elixir",
-    body: "Your players are added but none is verified. Elixir Clan shows you your clan as who you are in the game, so a claim has to be a fact, not a promise.",
-    action:
-      "Open Elixir → Verify: Elixir names eight cards, you play one battle with them, and the claim is verified. It usually takes under a minute.",
-    link: [ELIXIR_LINKS.verify, "Elixir → Verify"],
-  },
   no_clan: {
     title: "You are not in a clan",
-    body: "None of your verified players is in a clan right now, as far as Elixir's record goes. There is no clan page to show.",
+    body: "None of your players is in a clan right now, as far as Elixir's record goes. There is no clan page to show.",
     action:
       "Join a clan in the game. Elixir sees it on its next roster poll; check again after that.",
     link: [ELIXIR_LINKS.overview, "Your Elixir account"],

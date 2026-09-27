@@ -1143,3 +1143,34 @@ in place of Clan's and Drop's static CI keys.
 - The team's loop branches `<objective>/<slug>` after preflight and lands
   by PR (`AGENT-TEAM/WORKFLOW.md`).
 
+
+## 2026-09-26 — Unverified players are members; one refresh at a time
+
+Jamie: "any user with an Elixir account can use Elixir Clan -- however, to
+unlock the capabilities of Elders and Leaders, you must have an
+authenticated account", with "an interstitial after logging in that
+forces the user to acknowledge and provides a link to go the Elixir".
+
+- The gate's `unverified` refusal is gone. Any primary or alt claim in a
+  clan admits the person; the in-game role counts only on a verified claim
+  (`actingRole`). A person whose game role is bigger than what they act as
+  lands on `/verify` after sign-in, lists the players to verify, links to
+  Elixir → Verify, and goes on once they say they have read it (per
+  session; a changed list asks again).
+- Defaults chosen here, for Jamie to confirm: an unverified member only
+  reads. No away notice, comments, decisions or clan map (view or place),
+  since each would be done in a player's name that nobody has proven.
+  An unverified claimer still sees that player's own standing line.
+
+Jamie also asked why Elixir Clan asks for a sign-in so often. The logs for
+14 days: 184 of 185 signed-out `/api/me` answers came with no session
+cookie at all (the browser had none to send), so the sessions were not
+lost here; sessions stayed live in the table while the same person signed
+in again elsewhere. Two server-side defects were real and are fixed:
+
+- Two requests refreshing the same expiring token at once (a page fires
+  several calls) presented one refresh token twice, and Elixir revoked the
+  grant (2026-09-13, `invalid_grant` twice in 150 ms). `store.claimRefresh`
+  now lets one request spend it; the others wait for the stored pair.
+- A refresh Elixir did not answer (a timeout, a 5xx) signed the person out
+  and cleared the cookie. It is now a 502 that keeps both.

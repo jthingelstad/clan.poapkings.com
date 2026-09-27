@@ -536,7 +536,12 @@ test("before a leader saves a policy, no clan management runs: the roster, the p
   );
   assert.equal(await h.ledger.latestVerdicts("#2PQRJ8LV"), null);
   const away = await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/me/away");
-  assert.deepEqual(away.body, { allowed: false, max_days: 0, hold: null });
+  assert.deepEqual(away.body, {
+    allowed: false,
+    verified: true,
+    max_days: 0,
+    hold: null,
+  });
   assert.equal(
     (await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/policy")).status,
     200,
@@ -944,7 +949,12 @@ test("away: a member marks themselves away within the policy's cap; the clock pa
   });
   const mc = await leader(member);
   const before = await api(member, mc, "GET", "/api/clans/2PQRJ8LV/me/away");
-  assert.deepEqual(before.body, { allowed: true, max_days: 30, hold: null });
+  assert.deepEqual(before.body, {
+    allowed: true,
+    verified: true,
+    max_days: 30,
+    hold: null,
+  });
   const tooLong = await api(member, mc, "PUT", "/api/clans/2PQRJ8LV/me/away", {
     until: new Date(NOW.getTime() + 45 * DAY).toISOString(),
   });
@@ -1833,4 +1843,103 @@ test("actions: those raised before numbers existed are numbered once, oldest fir
   );
   await api(h, cookies, "GET", "/api/clans/2PQRJ8LV/actions?refresh=1");
   assert.deepEqual(await byId(), first, "numbers never move");
+});
+
+test("unverified: a Leader in the game is a member here who reads, told once after sign-in to verify", async () => {
+  const h = harness({
+    players: [player({ claim_status: "unverified" })],
+    part: partClan(),
+  });
+  const { cb, sessionCookie } = await signIn(h);
+  // Straight to the notice, not the clan page.
+  assert.equal(cb.headers.location, "https://clan.test/verify");
+  const cookies = cookieHeader(sessionCookie);
+  const me = (await api(h, cookies, "GET", "/api/me")).body;
+  assert.equal(me.ok, true);
+  assert.equal(me.selected.clan_tag, "#2PQRJ8LV");
+  assert.equal(me.selected.role, "member");
+  assert.equal(me.selected.verified, false);
+  assert.equal(me.selected.unlock.role, "leader");
+  assert.deepEqual(me.verify_notice, {
+    acknowledged: false,
+    clans: [
+      {
+        clan_tag: "#2PQRJ8LV",
+        clan_name: "Example Clan",
+        player_tag: "#20QQL8CCRU",
+        player_name: "Ada",
+        role: "leader",
+        role_label: "Leader",
+      },
+    ],
+  });
+
+  // A member's reads work; a leader's do not.
+  const base = "/api/clans/2PQRJ8LV";
+  assert.equal((await api(h, cookies, "GET", `${base}/standing`)).status, 200);
+  assert.equal((await api(h, cookies, "GET", `${base}/me`)).status, 200);
+  const manage = await api(h, cookies, "GET", `${base}/manage`);
+  assert.equal(manage.status, 403);
+  assert.equal(manage.body.error, "leaders_only");
+  // Nothing is done in the player's name: no away, no policy, no comment.
+  const away = await api(h, cookies, "GET", `${base}/me/away`);
+  assert.equal(away.body.allowed, true);
+  assert.equal(away.body.verified, false);
+  for (const [method, path, body] of [
+    ["PUT", `${base}/me/away`, { until: "2026-09-20T23:59:59Z" }],
+    ["DELETE", `${base}/me/away`],
+    ["POST", `${base}/policy`, { values: {} }],
+    ["POST", `${base}/actions/x/comments`, { text: "hi" }],
+    ["POST", `${base}/actions/x/decide`, { status: "done" }],
+  ]) {
+    const r = await api(h, cookies, method, path, body);
+    assert.equal(r.status, 403, `${method} ${path}`);
+    assert.equal(r.body.error, "unverified", `${method} ${path}`);
+  }
+  assert.deepEqual(await h.ledger.holds("#2PQRJ8LV"), []);
+
+  // "I understand": acknowledged for this session, and it stays so.
+  const ack = await api(h, cookies, "POST", "/api/verify-notice", {});
+  assert.equal(ack.status, 200);
+  assert.equal(ack.body.verify_notice.acknowledged, true);
+  const again = (await api(h, cookies, "GET", "/api/me")).body;
+  assert.equal(again.verify_notice.acknowledged, true);
+
+  // A fresh sign-in is told again.
+  const next = await signIn(h);
+  const fresh = (
+    await api(h, cookieHeader(next.sessionCookie), "GET", "/api/me")
+  ).body;
+  assert.equal(fresh.verify_notice.acknowledged, false);
+});
+
+test("unverified: a verified Leader sees no notice; an unverified member has nothing to unlock", async () => {
+  const verified = harness({ part: partClan() });
+  const v = await signIn(verified);
+  assert.equal(v.cb.headers.location, "https://clan.test/clan/2PQRJ8LV");
+  const vme = (
+    await api(verified, cookieHeader(v.sessionCookie), "GET", "/api/me")
+  ).body;
+  assert.equal(vme.verify_notice, null);
+  assert.equal(vme.selected.verified, true);
+
+  const plain = harness({
+    players: [
+      player({
+        player_tag: "#8QCV",
+        name: "Sleepy",
+        clan_role: "member",
+        claim_status: "unverified",
+      }),
+    ],
+    part: partClan(),
+  });
+  const p = await signIn(plain);
+  assert.equal(p.cb.headers.location, "https://clan.test/clan/2PQRJ8LV");
+  const pme = (
+    await api(plain, cookieHeader(p.sessionCookie), "GET", "/api/me")
+  ).body;
+  assert.equal(pme.verify_notice, null);
+  assert.equal(pme.selected.verified, false);
+  assert.equal(pme.selected.unlock, null);
 });
