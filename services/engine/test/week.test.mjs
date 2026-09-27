@@ -204,6 +204,24 @@ test("who came and went: joins, departures (never kick or leave), promotions and
   assert.equal(older.membership.events_from, "2026-08-20T00:00:00.000Z");
 });
 
+test("a war week nobody has a reading for is left out, never shown as zero", () => {
+  const p = participation([
+    member("#A", { war: [16, 16, 16, 16, null, 0] }),
+    member("#B", { war: [16, 16, 16, 16, null, 0] }),
+  ]);
+  const r = weeklyReport(p, { now: NOW, policy: EXAMPLE_POLICY });
+  assert.equal(
+    r.areas.find((a) => a.key === "war"),
+    undefined,
+  );
+  // A zero reading is a reading: the area stays, with nobody in it.
+  const zero = participation([member("#A", { war: [16, 16, 16, 16, 0, 0] })]);
+  const z = weeklyReport(zero, { now: NOW });
+  const war = z.areas.find((a) => a.key === "war");
+  assert.equal(war.total, 0);
+  assert.deepEqual(war.participants, []);
+});
+
 test("an older closed week by its id; an open or unknown week is none", () => {
   const p = participation([member("#A")]);
   const r = weeklyReport(p, { now: NOW, week: "2026-w33" });

@@ -128,6 +128,9 @@ function area(key, participation, week, index, members) {
   if (key === "war") {
     const wi = warIndexFor(participation, week);
     if (wi < 0) return null;
+    // A war week nobody has a reading for is unknown, not a week of zero.
+    if (!members.some(({ m }) => Number.isInteger(m.war_decks?.[wi])))
+      return null;
     const w = participation.war_weeks[wi];
     const days = warDaysAsked(w);
     const asked = days === null ? null : 4 * days;
