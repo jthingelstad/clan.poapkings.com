@@ -339,6 +339,8 @@ function thisWeekSoFar(participation, now) {
       const ww = participation.war_weeks ?? [];
       const wi = ww.findIndex((x) => !x.finished_observed_at);
       if (wi < 0) return null;
+      if (!members.some(({ m }) => Number.isInteger(m.war_decks?.[wi])))
+        return null;
       const played = members
         .map(({ m }) => m.war_decks?.[wi])
         .filter((v) => Number.isInteger(v) && v > 0);

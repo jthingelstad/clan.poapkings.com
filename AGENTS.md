@@ -607,7 +607,8 @@ action. Jamie's calls:
   an area is listed there, and a member absent all week appears
   nowhere. A member whose stint began after the week is not in it; one
   who joined during it is marked new. An area nobody has a reading for
-  (a war week the record did not see) is left out, never shown as zero.
+  (a war week the record did not see) is left out, never shown as zero,
+  in the closed week and in the week so far.
 - **What is highlighted follows the policy.** An ACTIVE policy
   highlights exactly the categories it counts, in its order (trophy
   road, which has no weekly number in the record, as battles played).
