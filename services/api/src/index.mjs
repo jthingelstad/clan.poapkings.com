@@ -100,6 +100,7 @@ const http = createHandler({
     // The grant is for the JSON API; an MCP grant is refused there.
     resource: `${elixirUrl}/api/v1`,
     clientId: process.env.OAUTH_CLIENT_ID ?? "",
+    clientSecret: process.env.OAUTH_CLIENT_SECRET ?? "",
   }),
   store: createDynamoStore({
     tableName: env("TABLE_NAME"),

@@ -76,7 +76,7 @@ docs/NOTES.md      decisions, newest last; what is waiting on Jamie
 | Seam | Where | What |
 |---|---|---|
 | Discovery | `GET {ElixirUrl}/.well-known/oauth-authorization-server` | endpoints, cached 300 s (`services/api/src/oauth.mjs`) |
-| Client registration | `POST /oauth/register` | once, by `infra/scripts/register-client.mjs`; the `client_id` is the stack parameter `OAuthClientId`. Public client, PKCE, no secret. Lives 365 days from last use. |
+| Client registration | `POST /oauth/register` | once, by `infra/scripts/register-client.mjs`; the `client_id` is the stack parameter `OAuthClientId`. PKCE, and the client secret: the NoEcho stack parameter `OAuthClientSecret` (PRESERVED, env `OAUTH_CLIENT_SECRET`, staged once with `--param`, never printed), sent as `client_secret` in the form of both token requests when set. Lives 365 days from last use. |
 | Authorize | `/oauth/authorize` | `scope=cr:read clans:attest` (`clans:attest` since 2026-09-25: only the family's own apps may ask for it), `resource=https://elixir.poapkings.com/api/v1` (required, RFC 8707), S256. An `/mcp` grant is refused at `/api/v1`. A session signed in before the change holds `cr:read` alone: its shares are logged as not shared, and every page asks the person to sign in again (`canShare` in `App.jsx`, from `/api/me`'s `scope`). |
 | Tokens | `/oauth/token` | access 1 h, refresh 30 d rotating, family 90 d. Refreshed server-side; a rotated refresh token is STORED before any reuse (presenting it twice revokes the grant). One request spends it: `store.claimRefresh` is a conditional write on the stored token, and a request that loses waits for the pair the winner stores (2026-09-26; parallel page calls revoked a grant on 2026-09-13). Elixir refusing the refresh (400) ends the session; Elixir not answering is a 502 that keeps the session and the cookie. |
 | The door | `/api/v1/*` | Elixir's JSON API (`services/api/src/elixir-api.mjs`). It keeps the old MCP client's `initialize`/`callTool` interface: each tool name maps to one operation, answered with that tool's structured result, and a refusal comes back as problem+json carrying the tool's code. Plan: `../elixir-family/plans/clan-app-api.md` |
@@ -771,7 +771,7 @@ Jamie's account included; the agents push as it.
   (removed 2026-09-24, Jamie).
 - `infra/scripts/parameters.mjs` carries Drop's discipline: REQUIRED (code
   key) is always sent; PRESERVED (`AppUrl`, `ElixirUrl`, `OAuthClientId`,
-  `AppSecretName`, `SiteCertificateArn`) rides
+  `OAuthClientSecret`, `AppSecretName`, `SiteCertificateArn`) rides
   `UsePreviousValue`. Set one with `--param=Key=Value`; omitting is never a
   reset. A test pins the template's parameter list to that set.
 - Local: `AWS_PROFILE=cloud-engineer node infra/scripts/deploy.mjs` (build → upload →

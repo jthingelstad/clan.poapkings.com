@@ -1,13 +1,15 @@
 /**
- * OAuth 2.1 against Elixir, as a public client: discovery, PKCE, the
+ * OAuth 2.1 against Elixir: discovery, PKCE, the
  * authorization URL, the code exchange and the refresh. Nothing here is
  * privileged; it is the same door any third-party MCP client uses
  * (elixir.poapkings.com/docs/protocol, "OAuth 2.1").
  *
  * Two facts from that page shape this file: `resource` is REQUIRED at
  * both the authorize and token steps and must be the exact door URL the
- * token is for (RFC 8707); and there is no client secret, PKCE is the
- * proof. Refresh rotates the pair on every use, and presenting an
+ * token is for (RFC 8707); and PKCE is the proof of the browser that
+ * started the sign-in. A configured client secret rides every token
+ * request as `client_secret` in the form (client_secret_post); the form
+ * is never logged. Refresh rotates the pair on every use, and presenting an
  * already-rotated refresh token revokes the whole grant, so a refresh
  * must be stored before it is used again.
  */
@@ -36,6 +38,7 @@ export function createOAuthClient({
   issuer,
   resource,
   clientId,
+  clientSecret = "",
   fetch: fetchImpl = globalThis.fetch,
   now = () => Date.now(),
 } = {}) {
@@ -64,8 +67,11 @@ export function createOAuthClient({
     return doc;
   }
 
-  async function tokenRequest(form) {
+  async function tokenRequest(grant) {
     const { token_endpoint } = await discovery();
+    const form = clientSecret
+      ? { ...grant, client_secret: clientSecret }
+      : grant;
     let response;
     try {
       response = await timedElixir(`oauth:${form.grant_type}`, () =>

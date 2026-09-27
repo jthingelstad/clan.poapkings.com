@@ -31,8 +31,16 @@ Parameters:
     Default: ""
     Description: >-
       The client_id Elixir issued at /oauth/register (infra/scripts/register-client.mjs).
-      Public client, no secret. A registration lives 365 days from last use;
-      re-register and set this again if Elixir reports it unknown. PRESERVED.
+      A registration lives 365 days from last use; re-register and set
+      this again if Elixir reports it unknown. PRESERVED.
+  OAuthClientSecret:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: >-
+      The client secret for OAuthClientId, sent as client_secret on every
+      token request (client_secret_post). Generated locally and staged with
+      --param once; its value is never printed. Empty sends none. PRESERVED.
   AppSecretName:
     Type: String
     Default: elixir-clan/app
@@ -192,6 +200,7 @@ Resources:
           APP_URL: !Ref AppUrl
           ELIXIR_URL: !Ref ElixirUrl
           OAUTH_CLIENT_ID: !Ref OAuthClientId
+          OAUTH_CLIENT_SECRET: !Ref OAuthClientSecret
           SESSION_SECRET: !Sub "{{resolve:secretsmanager:${AppSecretName}:SecretString:session_secret}}"
           MAINTAINER_TAGS: !Ref MaintainerTags
           FEEDBACK_TOPIC_ARN: !Ref FeedbackTopic
@@ -295,6 +304,7 @@ Resources:
           APP_URL: !Ref AppUrl
           ELIXIR_URL: !Ref ElixirUrl
           OAUTH_CLIENT_ID: !Ref OAuthClientId
+          OAUTH_CLIENT_SECRET: !Ref OAuthClientSecret
           SESSION_SECRET: !Sub "{{resolve:secretsmanager:${AppSecretName}:SecretString:session_secret}}"
           MAINTAINER_TAGS: !Ref MaintainerTags
           FEEDBACK_TOPIC_ARN: !Ref FeedbackTopic
