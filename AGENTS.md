@@ -472,11 +472,11 @@ the game's filter rules, 200 characters, a welcome 120), naming nobody's
 rules.
 The rail is Elixir's console rail, groups and all.
 
-Not features here, by decision (Jamie): premise-fingerprint re-nomination,
-member shields, the weekly digest; **alt accounts are Elixir's knowledge**
-(a fact request to Elixir if ever needed, never recorded here); Discord
-webhooks are deferred. Scheduled evaluation: see "The morning
-evaluation".
+Not features here, by decision (Jamie): premise-fingerprint re-nomination
+and member shields; **alt accounts are Elixir's knowledge** (a fact request
+to Elixir if ever needed, never recorded here); Discord webhooks are
+deferred. The weekly clan report by email is agreed and is not built yet.
+Scheduled evaluation: see "The morning evaluation".
 
 ## Actions (2026-09-25)
 
