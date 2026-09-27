@@ -1162,11 +1162,18 @@ forces the user to acknowledge and provides a link to go the Elixir".
   since each would be done in a player's name that nobody has proven.
   An unverified claimer still sees that player's own standing line.
 
-Jamie also asked why Elixir Clan asks for a sign-in so often. The logs for
-14 days: 184 of 185 signed-out `/api/me` answers came with no session
-cookie at all (the browser had none to send), so the sessions were not
-lost here; sessions stayed live in the table while the same person signed
-in again elsewhere. Two server-side defects were real and are fixed:
+Jamie also asked why Elixir Clan asks for a sign-in so often (going
+straight to the URL). Joined to Elixir's `/oauth/authorize` log, which
+names the browser, each of Jamie's sign-ins since 09-23 had a cause on our
+side or was a first sign-in in another browser: 09-23 the resource moved
+to `/api/v1` (`invalid_target` on refresh ended every session); 09-25 and
+09-26 in Mac Safari, "Sign out, then sign in again" for the new
+`clans:attest` scope; 09-26 on the iPhone, a browser with no Clan cookie
+yet, whose session then held all day. The stalled sign-ins that day were another person's Android
+browser at Elixir's consent step. Clan's own log cannot tell one browser
+from another (CloudFront forwards no user agent); a signed-out line now
+says whether the cookie was `absent`, a `bad_signature` or `no_session`.
+Two server-side defects were real and are fixed:
 
 - Two requests refreshing the same expiring token at once (a page fires
   several calls) presented one refresh token twice, and Elixir revoked the

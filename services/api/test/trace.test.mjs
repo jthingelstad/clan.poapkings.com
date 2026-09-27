@@ -125,6 +125,41 @@ test("every request ends with one JSON line naming the route, the status, the ti
   assert.ok(!JSON.stringify(line).includes("eat_"), "never a token");
 });
 
+test("a signed-out answer says why: no cookie, a bad signature, or a session that is gone", async () => {
+  const now = () => NOW.getTime();
+  const cap = capturing();
+  const store = createMemoryStore();
+  const handler = createHandler({
+    mcp: fakeMcp({ players: [player()] }),
+    oauth: fakeOAuth({ now }),
+    store,
+    sessionSecret: "s",
+    appUrl: "https://clan.test",
+    elixirUrl: "https://elixir.test",
+    now,
+    log: cap.log,
+  });
+  const { r: cookies } = await capture(
+    async () => cookieHeader((await signIn({ handler })).sessionCookie),
+    cap,
+  );
+  const why = async (c) => {
+    const { r, lines } = await capture(
+      () => handler(req("GET", "/api/me", { cookies: c })),
+      cap,
+    );
+    assert.equal(r.statusCode, 401);
+    return JSON.parse(lines.at(-1)[1]).cookie;
+  };
+  assert.equal(await why(undefined), "absent");
+  assert.equal(
+    await why({ "__Host-elixir_clan_session": "abc.def" }),
+    "bad_signature",
+  );
+  store.items.clear();
+  assert.equal(await why(cookies), "no_session");
+});
+
 test("route keys hide ids and tags; a slow or failed request logs at warn", async () => {
   const now = () => NOW.getTime();
   const cap = capturing();
