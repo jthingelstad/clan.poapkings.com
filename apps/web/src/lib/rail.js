@@ -31,6 +31,13 @@ export function railItems(me) {
       icon: "activity",
       to: `${base}/me`,
     });
+    // The week in the clan: every member's, with or without a policy.
+    items.push({
+      key: "week",
+      label: "The week",
+      icon: "book-open",
+      to: `${base}/week`,
+    });
     // Actions: what waits for you, as who you are in this clan.
     if (set)
       items.push({
@@ -166,13 +173,21 @@ export function railKey(path) {
   if (path.startsWith("/feedback")) return "feedback";
   if (path.startsWith("/maintain")) return "maintain";
   const m =
-    /^\/clan\/[0-9A-Za-z]+(?:\/(me|actions|standing|trophies|recruit|map|manage)(?:\/([a-z0-9-]+))?)?\/?$/.exec(
+    /^\/clan\/[0-9A-Za-z]+(?:\/(me|week|actions|standing|trophies|recruit|map|manage)(?:\/([a-z0-9-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
   if (!m[1]) return "clan";
   if (
-    ["me", "actions", "standing", "trophies", "recruit", "map"].includes(m[1])
+    [
+      "me",
+      "week",
+      "actions",
+      "standing",
+      "trophies",
+      "recruit",
+      "map",
+    ].includes(m[1])
   )
     return m[1];
   if (m[2] === "model") return "settings";

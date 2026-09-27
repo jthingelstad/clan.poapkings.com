@@ -45,6 +45,7 @@ import {
   declaredGoals,
   countedCategories,
   memberWeeks,
+  weeklyReport,
   welcomesFrom,
   actionsWaitingMail,
   ACTIONS_MAIL_KIND,
@@ -829,6 +830,37 @@ export function createManageService({
           ? { kind: hold.kind ?? "leader", until: hold.until ?? null }
           : null,
         trophies,
+      };
+    },
+
+    /**
+     * The week in the clan (2026-09-27): the latest closed week, or the
+     * one asked for, for every member of any clan. Statistics, highlighted
+     * by what the clan's ACTIVE policy counts, or by where the clan was
+     * busiest; opening it evaluates nothing and raises no action.
+     */
+    async weekView(clanTag, who, token, { week = null } = {}) {
+      const t = now();
+      const part = await fetchParticipation(mcp, token, clanTag);
+      await noteSize(clanTag, part.members.length);
+      const roster = await fetchRoster(mcp, token, clanTag);
+      const policy = await policyFor(clanTag);
+      const members = part.members.length;
+      const active = policy.set && members >= MIN_MEMBERS;
+      const report = weeklyReport(part, {
+        roster,
+        policy: active ? policy.values : null,
+        now: new Date(t),
+        week,
+      });
+      if (!report) throw new ManageError(404, "no_week");
+      return {
+        clan_tag: clanTag,
+        clan_name: part.name ?? roster?.name ?? null,
+        as_of: part.meta?.as_of ?? null,
+        freshness_seconds: part.meta?.freshness_seconds ?? null,
+        policy: { set: policy.set, active },
+        ...report,
       };
     },
 

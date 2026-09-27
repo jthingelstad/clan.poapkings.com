@@ -61,6 +61,11 @@ export const manageApi = {
   trophies: (tag) => get(`${clanBase(tag)}/trophies`),
   // "You here": the member's own numbers and place in this clan.
   memberView: (tag) => get(`${clanBase(tag)}/me`),
+  // The week in the clan: the latest closed week, or one by its ISO id.
+  week: (tag, week) =>
+    get(
+      `${clanBase(tag)}/week${week ? `?week=${encodeURIComponent(week)}` : ""}`,
+    ),
   scout: (tag, playerTag) => post(`${clanBase(tag)}/scout`, { tag: playerTag }),
   // Recruiting (2026-09-13): the pitch, the facts, the copy.
   recruit: (tag, refresh = false) =>

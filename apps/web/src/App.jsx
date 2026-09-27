@@ -47,6 +47,7 @@ import { Recruit } from "./views/Recruit.jsx";
 import { Trophies } from "./views/Trophies.jsx";
 import { ActionDetail, Actions } from "./views/Actions.jsx";
 import { YouHere } from "./views/YouHere.jsx";
+import { Week } from "./views/Week.jsx";
 import { VerifyNotice } from "./views/VerifyNotice.jsx";
 import { ELIXIR_LINKS } from "./lib/links.js";
 
@@ -75,7 +76,7 @@ export const clanPath = (tag) => `/clan/${String(tag).replace(/^#/, "")}`;
  *  action's number (`/clan/<TAG>/actions/37`). */
 export function parseClanPath(path) {
   const m =
-    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|me|actions|standing|trophies|recruit|map)(?:\/([a-z0-9-]+))?)?\/?$/.exec(
+    /^\/clan\/([0-9A-Za-z]{3,12})(?:\/(manage|me|week|actions|standing|trophies|recruit|map)(?:\/([a-z0-9-]+))?)?\/?$/.exec(
       path,
     );
   if (!m) return null;
@@ -213,6 +214,16 @@ const clanRoute = createRoute({
     };
     if (parsed.section === "me")
       return <YouHere key={clan.clan_tag} clan={clan} navigate={navigate} />;
+    // The week in the clan: the latest closed week, or one by its id.
+    if (parsed.section === "week")
+      return (
+        <Week
+          key={`${clan.clan_tag}-${parsed.tab ?? "latest"}`}
+          clan={clan}
+          week={parsed.tab ? parsed.tab.toUpperCase() : null}
+          navigate={navigate}
+        />
+      );
     // One action, by its number: the address people send each other.
     if (parsed.section === "actions" && /^[0-9]{1,7}$/.test(parsed.tab ?? ""))
       return (

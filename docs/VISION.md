@@ -135,7 +135,9 @@ clan Elixir only watches rather than records works with less.
 ## What it does today
 
 Sign in with Elixir; the roster with roles and statistics; "You here", every
-member's own numbers week by week and what their clan makes of them; the clan's
+member's own numbers week by week and what their clan makes of them; The week,
+the weekly clan report for every member (everyone who took part, named,
+highlighted by what the clan counts, and who came and went); the clan's
 versioned policy, in tabs switched on or off (a starting point, then each
 category, Elder, inactivity and the rest), tuned from there (categories, minimums, Elder by hand or
 by a weighted mix, the inactivity clock, departures, welcomes); actions for leaders, elders and members
@@ -160,8 +162,9 @@ to the maintainer. See `AGENTS.md` for how.
 2. **Always current, and telling you.** Scheduled evaluation, so actions
    wait in the morning and a closed season's awards are granted without
    anyone visiting (built 2026-09-25, door 1), and "actions waiting for
-   you" by email through Elixir (built 2026-09-25, door 2); a weekly clan
-   report by email is next.
+   you" by email through Elixir (built 2026-09-25, door 2); the weekly
+   clan report as a page, The week (built 2026-09-27), whose email waits
+   on a mail kind in Elixir: the weekly clan report by email is next.
 3. **What the clan is for.** Goals (war, ladder, donations, playing
    together, presence) and presets, so a new leader starts from "we are a
    war clan" or "we are a social clan", not a blank form of forty settings.
