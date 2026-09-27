@@ -244,6 +244,19 @@ test("the week so far: each area's total and how many took part", () => {
   assert.deepEqual([battles.total, battles.took_part], [20, 2]);
 });
 
+test("an open war week nobody has a reading for is left out of the week so far", () => {
+  const p = participation([
+    member("#A", { war: [16, 16, 16, 16, 16, null] }),
+    member("#B", { war: [16, 16, 16, 16, 16, null] }),
+  ]);
+  const r = weeklyReport(p, { now: NOW });
+  assert.equal(
+    r.so_far.areas.find((a) => a.key === "war"),
+    undefined,
+  );
+  assert.ok(r.so_far.areas.some((a) => a.key === "battles"));
+});
+
 test("before any week has closed there is no report yet, only the week so far", () => {
   const p = participation([member("#A")]);
   p.weeks = p.weeks.slice(-1);
